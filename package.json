@@ -1,0 +1,36 @@
+{
+  "name": "comprehensive-management-system",
+  "version": "1.0.0",
+  "description": "Full-stack management system for inventory, agriculture, waste, and construction",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm start",
+    "install-server": "cd server && npm install",
+    "install-client": "cd client && npm install",
+    "install-all": "npm run install-server && npm run install-client",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  },
+  "keywords": [
+    "management",
+    "inventory",
+    "agriculture",
+    "waste",
+    "construction"
+  ],
+  "author": "Aline KIM",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aline-CROIRE/C-Management-System.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Aline-CROIRE/C-Management-System/issues"
+  },
+  "homepage": "https://github.com/Aline-CROIRE/C-Management-System#readme"
+}
