@@ -21,6 +21,7 @@ const theme = {
       dark: "#edf2f7",
     },
   },
+  
   colors: {
     primary: "#1b4332", // Dark forest green
     secondary: "#2d5016", // Dark olive green

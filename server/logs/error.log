@@ -1,0 +1,17 @@
+{
+  level: 'error',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-06-28 11:44:18',
+  message: 'Not allowed by CORS',
+  stack: 'Error: Not allowed by CORS\n' +
+    '    at origin (C:\\Users\\HP\\Desktop\\C-Management-System\\server\\server.js:82:18)\n' +
+    '    at C:\\Users\\HP\\Desktop\\C-Management-System\\server\\node_modules\\cors\\lib\\index.js:219:13\n' +
+    '    at optionsCallback (C:\\Users\\HP\\Desktop\\C-Management-System\\server\\node_modules\\cors\\lib\\index.js:199:9)\n' +
+    '    at corsMiddleware (C:\\Users\\HP\\Desktop\\C-Management-System\\server\\node_modules\\cors\\lib\\index.js:204:7)\n' +
+    '    at Layer.handle [as handle_request] (C:\\Users\\HP\\Desktop\\C-Management-System\\server\\node_modules\\express\\lib\\router\\layer.js:95:5)\n' +
+    '    at trim_prefix (C:\\Users\\HP\\Desktop\\C-Management-System\\server\\node_modules\\express\\lib\\router\\index.js:328:13)\n' +
+    '    at C:\\Users\\HP\\Desktop\\C-Management-System\\server\\node_modules\\express\\lib\\router\\index.js:286:9\n' +
+    '    at Function.process_params (C:\\Users\\HP\\Desktop\\C-Management-System\\server\\node_modules\\express\\lib\\router\\index.js:346:12)\n' +
+    '    at next (C:\\Users\\HP\\Desktop\\C-Management-System\\server\\node_modules\\express\\lib\\router\\index.js:280:10)\n' +
+    '    at C:\\Users\\HP\\Desktop\\C-Management-System\\server\\node_modules\\express-rate-limit\\dist\\index.cjs:659:7'
+}
