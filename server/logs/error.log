@@ -15,3 +15,39 @@
     '    at next (C:\\Users\\HP\\Desktop\\C-Management-System\\server\\node_modules\\express\\lib\\router\\index.js:280:10)\n' +
     '    at C:\\Users\\HP\\Desktop\\C-Management-System\\server\\node_modules\\express-rate-limit\\dist\\index.cjs:659:7'
 }
+{
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\HP\\Desktop\\C-Management-System\\server\\uploads\\1751574109955-PXL_20230806_103326795~2-COLLAGE.jpg',
+  storageErrors: [],
+  level: 'error',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-07-03 22:21:49',
+  message: "ENOENT: no such file or directory, open 'C:\\Users\\HP\\Desktop\\C-Management-System\\server\\uploads\\1751574109955-PXL_20230806_103326795~2-COLLAGE.jpg'",
+  stack: "Error: ENOENT: no such file or directory, open 'C:\\Users\\HP\\Desktop\\C-Management-System\\server\\uploads\\1751574109955-PXL_20230806_103326795~2-COLLAGE.jpg'"
+}
+{
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\HP\\Desktop\\C-Management-System\\server\\uploads\\1751574417230.jpg',
+  storageErrors: [],
+  level: 'error',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-07-03 22:26:57',
+  message: "ENOENT: no such file or directory, open 'C:\\Users\\HP\\Desktop\\C-Management-System\\server\\uploads\\1751574417230.jpg'",
+  stack: "Error: ENOENT: no such file or directory, open 'C:\\Users\\HP\\Desktop\\C-Management-System\\server\\uploads\\1751574417230.jpg'"
+}
+{
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\HP\\Desktop\\C-Management-System\\server\\uploads\\1751574423433.jpg',
+  storageErrors: [],
+  level: 'error',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-07-03 22:27:03',
+  message: "ENOENT: no such file or directory, open 'C:\\Users\\HP\\Desktop\\C-Management-System\\server\\uploads\\1751574423433.jpg'",
+  stack: "Error: ENOENT: no such file or directory, open 'C:\\Users\\HP\\Desktop\\C-Management-System\\server\\uploads\\1751574423433.jpg'"
+}
