@@ -10,7 +10,7 @@ import Input from "../../components/common/Input"
 import Button from "../../components/common/Button"
 import LoadingSpinner from "../../components/common/LoadingSpinner"
 
-// --- STYLED COMPONENTS (No changes needed, already well-styled) ---
+// --- STYLED COMPONENTS (No changes needed) ---
 const LoginContainer = styled.div`
   min-height: 100vh;
   display: flex;
@@ -138,7 +138,21 @@ const Login = () => {
     setLoading(true)
     setError("")
     try {
-      await login(formData.email, formData.password)
+      // Replace this URL with your actual API endpoint
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email, password: formData.password }),
+      })
+
+      if (!response.ok) {
+        const errData = await response.json()
+        throw new Error(errData.message || "Invalid credentials")
+      }
+
+      const data = await response.json() // expected { user: {...}, token: "..." }
+
+      login(data.user, data.token, true) // 'true' to remember user in localStorage
       navigate("/dashboard")
     } catch (err) {
       setError(err.message || "Login failed. Please check your credentials.")
@@ -170,7 +184,6 @@ const Login = () => {
             placeholder="Email Address"
             value={formData.email}
             onChange={handleChange}
-            // FIXED: Pass the component reference
             icon={FaEnvelope}
             required
             autoComplete="email"
@@ -181,7 +194,6 @@ const Login = () => {
             placeholder="Password"
             value={formData.password}
             onChange={handleChange}
-            // FIXED: Pass the component reference with conditional logic
             icon={showPassword ? FaEyeSlash : FaEye}
             onIconClick={() => setShowPassword(!showPassword)}
             required

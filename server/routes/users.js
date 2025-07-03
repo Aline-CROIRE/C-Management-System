@@ -1,207 +1,237 @@
 const express = require("express")
-const jwt = require("jsonwebtoken")
-const crypto = require("crypto")
-const User = require("../models/User")
-const { sendEmail } = require("../utils/email")
-const { auth, authorize } = require("../middleware/auth")
-
 const router = express.Router()
+const bcrypt = require("bcryptjs")
+const User = require("../models/User")
+const { verifyToken, requireRole } = require("../middleware/auth")
 
-// Register user
-router.post("/register", async (req, res) => {
+// Get all users (admin only)
+router.get("/", verifyToken, requireRole("admin"), async (req, res) => {
   try {
-    const { firstName, lastName, email, password, modules, company, phone } = req.body
-
-    // Check if user already exists
-    const existingUser = await User.findOne({ email })
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists with this email" })
-    }
-
-    // Create new user
-    const user = new User({
-      firstName,
-      lastName,
-      email,
-      password,
-      modules,
-      company,
-      phone,
-    })
-
-    // Generate email verification token
-    const verificationToken = user.generateEmailVerificationToken()
-    await user.save()
-
-    // Send verification email
-    const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${verificationToken}`
-    await sendEmail({
-      to: user.email,
-      subject: "Verify Your Email - Management System Pro",
-      template: "emailVerification",
-      data: {
-        firstName: user.firstName,
-        verificationUrl,
-      },
-    })
-
-    res.status(201).json({
-      message: "Registration successful! Please check your email to verify your account.",
-      userId: user._id,
-    })
-  } catch (error) {
-    console.error("Registration error:", error)
-    res.status(500).json({ message: "Registration failed. Please try again." })
-  }
-})
-
-// Login user
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body
-
-    // Find user and include password for comparison
-    const user = await User.findOne({ email }).select("+password")
-    if (!user) {
-      return res.status(401).json({ message: "Invalid email or password" })
-    }
-
-    // Check if email is verified
-    if (!user.isEmailVerified) {
-      return res.status(401).json({ message: "Please verify your email before logging in" })
-    }
-
-    // Check if account is active
-    if (!user.isActive) {
-      return res.status(401).json({ message: "Your account has been deactivated" })
-    }
-
-    // Compare password
-    const isPasswordValid = await user.comparePassword(password)
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: "Invalid email or password" })
-    }
-
-    // Update last login
-    user.lastLogin = new Date()
-    await user.save()
-
-    // Generate JWT token
-    const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET || "your-secret-key", {
-      expiresIn: "7d",
-    })
-
-    // Remove password from response
-    const userResponse = user.toObject()
-    delete userResponse.password
-
+    const users = await User.find({}, "-password")
     res.json({
-      message: "Login successful",
-      token,
-      user: userResponse,
+      success: true,
+      users,
     })
   } catch (error) {
-    console.error("Login error:", error)
-    res.status(500).json({ message: "Login failed. Please try again." })
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch users",
+    })
   }
 })
 
-// Verify email
-router.post("/verify-email/:token", async (req, res) => {
+// Create new user (admin only)
+router.post("/", verifyToken, requireRole("admin"), async (req, res) => {
   try {
-    const { token } = req.params
-
-    const user = await User.findOne({ emailVerificationToken: token })
-    if (!user) {
-      return res.status(400).json({ message: "Invalid or expired verification token" })
-    }
-
-    user.isEmailVerified = true
-    user.emailVerificationToken = undefined
-    await user.save()
-
-    res.json({ message: "Email verified successfully! You can now log in." })
-  } catch (error) {
-    console.error("Email verification error:", error)
-    res.status(500).json({ message: "Email verification failed" })
-  }
-})
-
-// Set password for admin-created users
-router.post("/set-password/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params
-    const { password } = req.body
-
-    const user = await User.findById(userId)
-    if (!user) {
-      return res.status(400).json({ message: "Invalid user or expired link" })
-    }
-
-    // Update password
-    user.password = password
-    user.passwordResetToken = undefined
-    user.passwordResetExpires = undefined
-    await user.save()
-
-    res.json({ message: "Password set successfully! You can now log in." })
-  } catch (error) {
-    console.error("Set password error:", error)
-    res.status(500).json({ message: "Failed to set password" })
-  }
-})
-
-// Create user by Super Admin/Admin
-router.post("/create-user", auth, authorize(["Super Admin", "Admin"]), async (req, res) => {
-  try {
-    const { firstName, lastName, email, role, modules, company, phone } = req.body
+    const { firstName, lastName, email, role, modules, isActive } = req.body
 
     // Check if user already exists
     const existingUser = await User.findOne({ email })
     if (existingUser) {
-      return res.status(400).json({ message: "User already exists with this email" })
+      return res.status(400).json({
+        success: false,
+        message: "User with this email already exists",
+      })
     }
 
     // Generate temporary password
-    const tempPassword = crypto.randomBytes(8).toString("hex")
+    const tempPassword = Math.random().toString(36).slice(-8)
+    const hashedPassword = await bcrypt.hash(tempPassword, 12)
 
-    // Create new user
     const user = new User({
       firstName,
       lastName,
       email,
-      password: tempPassword,
-      role,
-      modules,
-      company,
-      phone,
-      isEmailVerified: true, // Admin-created accounts are pre-verified
-      createdBy: req.user.userId,
+      password: hashedPassword,
+      role: role || "user",
+      modules: modules || [],
+      isActive: isActive !== undefined ? isActive : true,
+      isEmailVerified: true, // Admin created users are auto-verified
     })
 
     await user.save()
 
-    // Send password setup email
-    const passwordSetupUrl = `${process.env.CLIENT_URL}/set-password/${user._id}`
-    await sendEmail({
-      to: user.email,
-      subject: "Welcome to Management System Pro - Set Your Password",
-      template: "passwordSetup",
-      data: {
-        firstName: user.firstName,
-        tempPassword,
-        passwordSetupUrl,
-        createdBy: req.user.firstName + " " + req.user.lastName,
-      },
-    })
+    // TODO: Send email with temporary password
 
     res.status(201).json({
-      message: "User created successfully! Password setup email sent.",
-      userId: user._id,
+      success: true,
+      message: "User created successfully",
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        modules: user.modules,
+        isActive: user.isActive,
+      },
     })
   } catch (error) {
-    console.error("User creation error:", error)
-    res.status(500).json({ message: "User creation failed. Please try again." })
+    res.status(500).json({
+      success: false,
+      message: "Failed to create user",
+    })
+  }
+})
+
+// Update user (admin only)
+router.put("/:id", verifyToken, requireRole("admin"), async (req, res) => {
+  try {
+    const { firstName, lastName, email, role, modules, isActive } = req.body
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        firstName,
+        lastName,
+        email,
+        role,
+        modules,
+        isActive,
+      },
+      { new: true, select: "-password" },
+    )
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    res.json({
+      success: true,
+      message: "User updated successfully",
+      user,
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to update user",
+    })
+  }
+})
+
+// Delete user (admin only)
+router.delete("/:id", verifyToken, requireRole("admin"), async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id)
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    res.json({
+      success: true,
+      message: "User deleted successfully",
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete user",
+    })
+  }
+})
+
+// Toggle user status (admin only)
+router.patch("/:id/status", verifyToken, requireRole("admin"), async (req, res) => {
+  try {
+    const { isActive } = req.body
+
+    const user = await User.findByIdAndUpdate(req.params.id, { isActive }, { new: true, select: "-password" })
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    res.json({
+      success: true,
+      message: `User ${isActive ? "activated" : "deactivated"} successfully`,
+      user,
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to update user status",
+    })
+  }
+})
+
+// Update user profile (own profile)
+router.put("/profile", verifyToken, async (req, res) => {
+  try {
+    const { firstName, lastName, phone, department, position } = req.body
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      {
+        firstName,
+        lastName,
+        phone,
+        department,
+        position,
+      },
+      { new: true, select: "-password" },
+    )
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      user,
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to update profile",
+    })
+  }
+})
+
+// Change password (own password)
+router.put("/change-password", verifyToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body
+
+    const user = await User.findById(req.user.id)
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      })
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password)
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: "Current password is incorrect",
+      })
+    }
+
+    // Hash new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 12)
+
+    // Update password
+    await User.findByIdAndUpdate(req.user.id, {
+      password: hashedNewPassword,
+    })
+
+    res.json({
+      success: true,
+      message: "Password changed successfully",
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to change password",
+    })
   }
 })
 

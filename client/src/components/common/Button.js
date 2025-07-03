@@ -1,6 +1,8 @@
 import styled from "styled-components"
 import { forwardRef } from "react"
 
+// Use transient props (prefixed with $) for all props intended for styling only.
+// This prevents them from being passed to the underlying DOM element.
 const StyledButton = styled.button`
   display: inline-flex;
   align-items: center;
@@ -48,9 +50,9 @@ const StyledButton = styled.button`
     left: 100%;
   }
 
-  /* Size Variants */
+  /* Size Variants - FIX: Use $size prop */
   ${(props) => {
-    switch (props.size) {
+    switch (props.$size) {
       case "xs":
         return `
           padding: ${props.theme.spacing?.xs || "0.25rem"} ${props.theme.spacing?.sm || "0.5rem"};
@@ -75,7 +77,7 @@ const StyledButton = styled.button`
           font-size: ${props.theme.typography?.fontSize?.xl || "1.25rem"};
           min-height: 60px;
         `
-      default:
+      default: // 'base' size
         return `
           padding: ${props.theme.spacing?.sm || "0.5rem"} ${props.theme.spacing?.lg || "1.5rem"};
           font-size: ${props.theme.typography?.fontSize?.base || "1rem"};
@@ -84,9 +86,9 @@ const StyledButton = styled.button`
     }
   }}
 
-  /* Variant Styles */
+  /* Variant Styles - FIX: Use $variant prop */
   ${(props) => {
-    switch (props.variant) {
+    switch (props.$variant) {
       case "primary":
         return `
           background: ${props.theme.gradients?.button || "linear-gradient(135deg, #1b4332 0%, #2d5a47 100%)"};
@@ -96,17 +98,15 @@ const StyledButton = styled.button`
           &:not(:disabled):hover {
             background: ${props.theme.gradients?.primary || "linear-gradient(135deg, #1b4332 0%, #2d5a47 100%)"};
             filter: brightness(1.1);
-            box-shadow: ${props.theme.shadows?.glow || "0 0 20px rgba(64, 145, 108, 0.3)"};
           }
         `
       case "secondary":
+      case "success": // Grouping similar styles
         return `
-          background: ${props.theme.gradients?.buttonSecondary || "linear-gradient(135deg, #2d5016 0%, #52734d 100%)"};
+          background: ${props.theme.gradients?.success || "linear-gradient(135deg, #2d5016 0%, #52734d 100%)"};
           color: ${props.theme.colors?.textOnDark || "#ffffff"};
-          box-shadow: ${props.theme.shadows?.md || "0 4px 6px -1px rgba(45, 80, 22, 0.1)"};
           
           &:not(:disabled):hover {
-            background: ${props.theme.gradients?.secondary || "linear-gradient(135deg, #2d5016 0%, #52734d 100%)"};
             filter: brightness(1.1);
           }
         `
@@ -119,7 +119,6 @@ const StyledButton = styled.button`
           &:not(:disabled):hover {
             background: ${props.theme.colors?.primary || "#1b4332"};
             color: ${props.theme.colors?.textOnDark || "#ffffff"};
-            box-shadow: ${props.theme.shadows?.glow || "0 0 20px rgba(64, 145, 108, 0.3)"};
           }
         `
       case "ghost":
@@ -141,16 +140,7 @@ const StyledButton = styled.button`
             filter: brightness(1.1);
           }
         `
-      case "success":
-        return `
-          background: ${props.theme.gradients?.success || "linear-gradient(135deg, #2d5016 0%, #52734d 100%)"};
-          color: ${props.theme.colors?.textOnDark || "#ffffff"};
-          
-          &:not(:disabled):hover {
-            filter: brightness(1.1);
-          }
-        `
-      default:
+      default: // 'default' variant
         return `
           background: ${props.theme.colors?.surface || "#ffffff"};
           color: ${props.theme.colors?.text || "#2d3748"};
@@ -165,19 +155,23 @@ const StyledButton = styled.button`
     }
   }}
 
-  /* Full Width */
+  /* Full Width - FIX: Use $fullWidth prop */
   ${(props) =>
-    props.fullWidth &&
-    `
-    width: 100%;
-  `}
+    props.$fullWidth && `width: 100%;`
+  }
 
-  /* Loading State */
+  /* Loading State - FIX: Use $loading prop */
   ${(props) =>
-    props.loading &&
+    props.$loading &&
     `
     pointer-events: none;
     
+    // Hide the shimmer effect when loading
+    &::before {
+      display: none;
+    }
+    
+    // Spinner logic
     &::after {
       content: '';
       position: absolute;
@@ -198,17 +192,20 @@ const StyledButton = styled.button`
 `
 
 const Button = forwardRef(
-  ({ children, variant = "default", size = "base", fullWidth = false, loading = false, className, ...props }, ref) => {
+  ({ children, variant = "default", size = "base", fullWidth = false, loading = false, ...props }, ref) => {
     return (
+      // FIX: Pass transient props to StyledButton, and correctly handle the `disabled` state.
       <StyledButton
         ref={ref}
-        variant={variant}
-        size={size}
-        fullWidth={fullWidth}
-        loading={loading}
-        className={className}
+        $variant={variant}
+        $size={size}
+        $fullWidth={fullWidth}
+        $loading={loading}
+        // A button should be disabled if it's loading OR if the user explicitly disables it.
+        disabled={loading || props.disabled}
         {...props}
       >
+        {/* Hide children when loading to make space for the spinner */}
         {!loading && children}
       </StyledButton>
     )
