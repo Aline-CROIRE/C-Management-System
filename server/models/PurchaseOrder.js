@@ -1,129 +1,36 @@
-const mongoose = require("mongoose")
+// models/PurchaseOrder.js
 
-const purchaseOrderItemSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  sku: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  quantity: {
-    type: Number,
-    required: true,
-    min: 1,
-  },
-  unitPrice: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
-  total: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
-})
+const mongoose = require('mongoose');
+const AutoIncrement = require('mongoose-sequence')(mongoose);
 
-const purchaseOrderSchema = new mongoose.Schema({
-  poNumber: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true,
-  },
-  supplier: {
-    type: String,
-    required: true,
-    trim: true,
-  },
-  supplierEmail: {
-    type: String,
-    trim: true,
-    lowercase: true,
-  },
-  supplierPhone: {
-    type: String,
-    trim: true,
-  },
-  orderDate: {
-    type: Date,
-    required: true,
-    default: Date.now,
-  },
-  expectedDate: {
-    type: Date,
-  },
-  receivedDate: {
-    type: Date,
-  },
-  items: [purchaseOrderItemSchema],
-  subtotal: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
-  tax: {
-    type: Number,
-    default: 0,
-    min: 0,
-  },
-  discount: {
-    type: Number,
-    default: 0,
-    min: 0,
-  },
-  total: {
-    type: Number,
-    required: true,
-    min: 0,
-  },
+// Defines the structure of a single item within a purchase order
+const poItemSchema = new mongoose.Schema({
+  item: { type: mongoose.Schema.Types.ObjectId, ref: 'Inventory', required: true },
+  name: { type: String, required: true },
+  sku: { type: String, required: true },
+  quantity: { type: Number, required: true, min: 1 },
+  unitPrice: { type: Number, required: true },
+  totalPrice: { type: Number, required: true },
+}, { _id: false }); // No separate _id for sub-documents
+
+const PurchaseOrderSchema = new mongoose.Schema({
+  poNumber: { type: Number, unique: true }, // Auto-generated e.g., PO-1001
+  supplier: { type: String, required: true, trim: true },
+  items: [poItemSchema],
+  totalAmount: { type: Number, required: true },
   status: {
     type: String,
-    enum: ["pending", "sent", "confirmed", "partially-received", "received", "cancelled"],
-    default: "pending",
+    enum: ['Pending', 'Ordered', 'Partial', 'Received', 'Cancelled'],
+    default: 'Pending',
   },
-  notes: {
-    type: String,
-    trim: true,
-  },
-  attachments: [
-    {
-      filename: String,
-      url: String,
-      uploadDate: {
-        type: Date,
-        default: Date.now,
-      },
-    },
-  ],
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
-})
+  orderDate: { type: Date, default: Date.now },
+  expectedDate: { type: Date },
+  receivedDate: { type: Date },
+  notes: { type: String, trim: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+}, { timestamps: true });
 
-// Indexes
-purchaseOrderSchema.index({ poNumber: 1 })
-purchaseOrderSchema.index({ supplier: 1 })
-purchaseOrderSchema.index({ status: 1 })
-purchaseOrderSchema.index({ orderDate: -1 })
+// This plugin automatically creates and increments the poNumber field
+PurchaseOrderSchema.plugin(AutoIncrement, { inc_field: 'poNumber', start_seq: 1001 });
 
-// Pre-save middleware
-purchaseOrderSchema.pre("save", function (next) {
-  this.updatedAt = new Date()
-  next()
-})
-
-module.exports = mongoose.model("PurchaseOrder", purchaseOrderSchema)
+module.exports = mongoose.model('PurchaseOrder', PurchaseOrderSchema);
