@@ -1,173 +1,225 @@
-// routes/inventory.js
-
 const express = require("express");
 const router = express.Router();
 const { body, validationResult } = require("express-validator");
 const multer = require("multer");
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
+const { Parser } = require('json2csv'); // ✅ CSV generator
 
+// --- Import Models & Middleware ---
 const Inventory = require("../models/Inventory");
+const { verifyToken } = require('../middleware/auth');
 
-// --- Multer and Helper Functions ---
+// --- Multer Configuration for File Uploads ---
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => cb(null, `${Date.now()}${path.extname(file.originalname)}`),
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '..', 'uploads');
+    fs.mkdirSync(uploadPath, { recursive: true });
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`),
 });
-
 const fileFilter = (req, file, cb) => {
-  if (['image/jpeg', 'image/png', 'image/gif'].includes(file.mimetype)) {
+  if (['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Only JPEG, PNG, and GIF images are allowed'), false);
+    cb(new Error('Only specific image types are allowed'), false);
   }
 };
-
 const upload = multer({ storage, fileFilter, limits: { fileSize: 1024 * 1024 * 5 } });
 
-const getDistinctValues = async (model, field, res) => {
+// ========================================================
+//                  INVENTORY ROUTES
+// ========================================================
+
+// --- Specific text-based routes MUST come before generic /:id routes ---
+router.get("/stats", verifyToken, async (req, res) => {
   try {
-    const values = await model.distinct(field);
-    const cleanValues = values.filter(v => v && v.trim() !== "").sort();
-    res.json({ success: true, data: cleanValues });
+    const totalItems = await Inventory.countDocuments();
+    const lowStockCount = await Inventory.countDocuments({ status: 'low-stock' });
+    const outOfStockCount = await Inventory.countDocuments({ status: 'out-of-stock' });
+    const onOrderCount = await Inventory.countDocuments({ status: 'on-order' });
+    const totalValueResult = await Inventory.aggregate([{ $group: { _id: null, totalValue: { $sum: "$totalValue" } } }]);
+    const totalValue = totalValueResult[0]?.totalValue || 0;
+    res.json({ success: true, data: { totalItems, totalValue, lowStockCount, outOfStockCount, onOrderCount } });
   } catch (error) {
-    console.error(`Error fetching distinct ${field}:`, error);
-    res.status(500).json({ success: false, message: `Error fetching ${field}` });
+    res.status(500).json({ success: false, message: "Server error fetching stats." });
   }
-};
+});
 
-// ========================================================
-// INVENTORY & METADATA ROUTES
-// ========================================================
+router.get("/categories", verifyToken, async (req, res) => {
+  try {
+    const values = await Inventory.distinct("category");
+    res.json({ success: true, data: values.filter(v => v && v.trim() !== "").sort() });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error fetching categories." });
+  }
+});
 
-// --- THE FIX: Define the FULL path for each route, as this file is mounted at '/api' ---
+router.get("/locations", verifyToken, async (req, res) => {
+  try {
+    const values = await Inventory.distinct("location");
+    res.json({ success: true, data: values.filter(v => v && v.trim() !== "").sort() });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error fetching locations." });
+  }
+});
 
-// --- GET All Inventory Items ---
-router.get("/inventory", async (req, res) => {
+router.get("/units", verifyToken, async (req, res) => {
+  try {
+    const values = await Inventory.distinct("unit");
+    res.json({ success: true, data: values.filter(v => v && v.trim() !== "").sort() });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Error fetching units." });
+  }
+});
+
+// --- Export CSV route ---
+router.get("/export/csv", verifyToken, async (req, res) => {
+  try {
+    const inventoryItems = await Inventory.find().lean(); // `.lean()` for plain JS objects
+    if (!inventoryItems || inventoryItems.length === 0) {
+      return res.status(404).json({ success: false, message: "No inventory data to export." });
+    }
+
+    const fields = ['_id', 'name', 'sku', 'category', 'status', 'quantity', 'price', 'totalValue', 'location', 'unit', 'createdAt', 'updatedAt'];
+    const json2csv = new Parser({ fields });
+    const csv = json2csv.parse(inventoryItems);
+
+    res.setHeader("Content-Disposition", "attachment; filename=inventory-export.csv");
+    res.setHeader("Content-Type", "text/csv");
+    res.status(200).end(csv);
+  } catch (error) {
+    console.error("CSV export error:", error.message);
+    res.status(500).json({ success: false, message: "Failed to export inventory data." });
+  }
+});
+
+// --- Main collection and CRUD routes ---
+router.get("/", verifyToken, async (req, res) => {
   try {
     const { search, category, status, location, page = 1, limit = 50 } = req.query;
     const query = {};
-    if (search) {
-      query.$or = [{ name: { $regex: search, $options: "i" } }, { sku: { $regex: search, $options: "i" } }];
-    }
+    if (search) query.$or = [{ name: { $regex: search, $options: "i" } }, { sku: { $regex: search, $options: "i" } }];
     if (category) query.category = category;
     if (status) query.status = status;
     if (location) query.location = location;
-    const limitNum = parseInt(limit, 10);
-    const pageNum = parseInt(page, 10);
-    const skip = (pageNum - 1) * limitNum;
+
+    const limitNum = parseInt(limit), pageNum = parseInt(page), skip = (pageNum - 1) * limitNum;
     const items = await Inventory.find(query).sort({ updatedAt: -1 }).skip(skip).limit(limitNum);
     const total = await Inventory.countDocuments(query);
+
     res.json({
       success: true,
       data: items,
-      pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Error fetching inventory items" });
+    res.status(500).json({ success: false, message: "Error fetching inventory items." });
   }
 });
 
-// --- GET Inventory Statistics ---
-router.get("/stats", async (req, res) => {
-    try {
-        const totalItems = await Inventory.countDocuments();
-        const lowStockItems = await Inventory.find({ status: 'low-stock' });
-        const totalValueResult = await Inventory.aggregate([
-            { $group: { _id: null, totalValue: { $sum: "$totalValue" } } }
-        ]);
-        const totalValue = totalValueResult.length > 0 ? totalValueResult[0].totalValue : 0;
-        res.json({ success: true, stats: { totalItems, lowStockItems, totalValue } });
-    } catch (error) {
-        res.status(500).json({ success: false, message: "Server error fetching stats" });
+router.get("/:id", verifyToken, async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ success: false, message: "Item not found (invalid ID format)." });
     }
+    const item = await Inventory.findById(req.params.id);
+    if (!item) return res.status(404).json({ success: false, message: "Item not found." });
+    res.json({ success: true, data: item });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error fetching item." });
+  }
 });
 
-// --- POST a New Inventory Item ---
-router.post("/inventory", upload.single('image'), [
-    body("name", "Name is required").not().isEmpty().trim(),
-    body("sku", "SKU is required").not().isEmpty().trim(),
-    body("category", "Category is required").not().isEmpty(),
-    body("quantity").isNumeric().withMessage("Quantity must be a number"),
-    body("price").isNumeric().withMessage("Price must be a number"),
-    body("unit").not().isEmpty().withMessage("Unit is required"),
-    body("minStockLevel").optional({ checkFalsy: true }).isNumeric().withMessage("Minimum stock must be a number"),
-  ], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+router.post("/", verifyToken, upload.single('image'), [
+  body("name", "Name is required").not().isEmpty().trim(),
+  body("sku", "SKU is required").not().isEmpty().trim().toUpperCase(),
+  body("category", "Category is required").not().isEmpty(),
+  body("quantity").isFloat({ min: 0 }),
+  body("price").isFloat({ min: 0 }),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+  try {
+    const { sku } = req.body;
+    if (await Inventory.findOne({ sku: sku.toUpperCase() })) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(400).json({ success: false, message: "An item with this SKU already exists." });
     }
-    try {
-      const { name, sku, category, quantity, unit, price, minStockLevel, location, supplier, description, expiryDate } = req.body;
-      if (await Inventory.findOne({ sku })) {
-        return res.status(400).json({ success: false, message: "Item with this SKU already exists" });
+    const newItem = new Inventory({
+      ...req.body,
+      imageUrl: req.file ? `uploads/${req.file.filename}` : null,
+    });
+    const savedItem = await newItem.save();
+    res.status(201).json({ success: true, message: "Item created successfully!", data: savedItem });
+  } catch (error) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    res.status(500).json({ success: false, message: "Server error while creating item." });
+  }
+});
+
+router.put("/:id", verifyToken, upload.single('image'), [
+  body("name", "Name cannot be empty").not().isEmpty().trim(),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    return res.status(400).json({ success: false, errors: errors.array() });
+  }
+  try {
+    const { id } = req.params;
+    const itemToUpdate = await Inventory.findById(id);
+    if (!itemToUpdate) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(404).json({ success: false, message: "Inventory item not found." });
+    }
+    const updateData = { ...req.body };
+    if (req.file) {
+      if (itemToUpdate.imageUrl) {
+        try { fs.unlinkSync(path.join(__dirname, '..', itemToUpdate.imageUrl)); }
+        catch (err) { console.error("Could not delete old image:", err.message); }
       }
-      const numQuantity = Number(quantity);
-      const numPrice = Number(price);
-      const numMinStock = Number(minStockLevel) || 0;
-      let itemStatus = "in-stock";
-      if (numQuantity <= 0) itemStatus = "out-of-stock";
-      else if (numQuantity <= numMinStock) itemStatus = "low-stock";
-      const newItem = new Inventory({
-        name, sku, category, unit, supplier, description, expiryDate,
-        quantity: numQuantity, price: numPrice, minStockLevel: numMinStock,
-        location: location || "Default Warehouse", status: itemStatus,
-        totalValue: numQuantity * numPrice,
-        imageUrl: req.file ? req.file.path.replace(/\\/g, '/') : null,
+      updateData.imageUrl = `uploads/${req.file.filename}`;
+    }
+    const updatedItem = await Inventory.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true });
+    res.json({ success: true, message: "Item updated successfully!", data: updatedItem });
+  } catch (error) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    res.status(500).json({ success: false, message: error.message || "Server error while updating item." });
+  }
+});
+
+router.delete("/:id", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({ success: false, message: "Item not found." });
+    }
+    const itemToDelete = await Inventory.findById(id);
+    if (!itemToDelete) {
+      return res.status(404).json({ success: false, message: "Inventory item not found." });
+    }
+    if (itemToDelete.imageUrl) {
+      const imagePath = path.join(__dirname, '..', itemToDelete.imageUrl);
+      fs.unlink(imagePath, (err) => {
+        if (err) console.error(`Could not delete image file at ${imagePath}:`, err.message);
       });
-      const savedItem = await newItem.save();
-      res.status(201).json({ success: true, message: "Item created successfully", data: savedItem });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Error creating inventory item" });
     }
+    await Inventory.findByIdAndDelete(id);
+    res.json({ success: true, message: "Item deleted successfully." });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || "Server error while deleting item." });
+  }
 });
-
-// --- PUT (Update) an Existing Inventory Item ---
-router.put("/inventory/:id", upload.single('image'), async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { sku } = req.body;
-      const itemToUpdate = await Inventory.findById(id);
-      if (!itemToUpdate) {
-        return res.status(404).json({ success: false, message: "Item not found" });
-      }
-      if (sku && sku !== itemToUpdate.sku) {
-        if (await Inventory.findOne({ sku })) {
-          return res.status(400).json({ success: false, message: "This SKU is already in use." });
-        }
-      }
-      const updateData = { ...req.body, updatedAt: new Date() };
-      // ... (rest of your update logic) ...
-      const updatedItem = await Inventory.findByIdAndUpdate(id, updateData, { new: true });
-      res.json({ success: true, message: "Item updated successfully", data: updatedItem });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Server error while updating item." });
-    }
-});
-
-// --- DELETE an Inventory Item ---
-router.delete("/inventory/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const itemToDelete = await Inventory.findById(id);
-      if (!itemToDelete) {
-        return res.status(404).json({ success: false, message: "Item not found" });
-      }
-      if (itemToDelete.imageUrl) {
-        fs.unlink(path.join(__dirname, '..', itemToDelete.imageUrl), (err) => {
-          if (err) console.error("Could not delete item image:", err);
-        });
-      }
-      await Inventory.findByIdAndDelete(id);
-      res.json({ success: true, message: "Item deleted successfully" });
-    } catch (error) {
-      res.status(500).json({ success: false, message: "Server error while deleting item." });
-    }
-});
-
-
-
-router.get("/units", (req, res) => getDistinctValues(Inventory, "unit", res));
-
 
 module.exports = router;
