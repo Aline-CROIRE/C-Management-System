@@ -102,6 +102,51 @@ export const AuthProvider = ({ children }) => {
     return registerResponse
   }
 
+
+  const login = async (credentials, remember = false) => {
+    const loginResponse = await authAPI.login(credentials);
+    if (loginResponse && loginResponse.token) {
+      const newToken = loginResponse.token;
+      const storage = remember ? localStorage : sessionStorage;
+      storage.setItem("token", newToken);
+      setToken(newToken);
+      try {
+        const profileResponse = await authAPI.me();
+        if (profileResponse && profileResponse.user) {
+          setUser(profileResponse.user);
+        } else {
+          throw new Error("Login successful, but failed to fetch user profile.");
+        }
+      } catch (error) {
+        logout();
+        throw error;
+      }
+    }
+    return loginResponse;
+  }
+
+  const signup = async (registrationData) => {
+    const registerResponse = await authAPI.signup(registrationData)
+    if (registerResponse && registerResponse.token) {
+      const newToken = registerResponse.token
+      localStorage.setItem("token", newToken)
+      setToken(newToken)
+      try {
+        const profileResponse = await authAPI.me()
+        if (profileResponse && profileResponse.user) {
+          setUser(profileResponse.user)
+        } else {
+          throw new Error("Failed to fetch user profile after registration.")
+        }
+      } catch (error) {
+        logout()
+        throw error
+      }
+    }
+    return registerResponse
+  }
+
+
   const isAdmin = useCallback(() => user?.role === "admin", [user])
 
   const hasModuleAccess = useCallback((requiredModule) => {
@@ -116,13 +161,16 @@ export const AuthProvider = ({ children }) => {
     return userPermissions?.includes(action)
   }, [user, isAdmin])
 
+
   const value = {
     user,
     token,
     loading,
     login,
     logout,
+
     signup,
+
     isAuthenticated: !!token && !!user,
     isAdmin,
     hasModuleAccess,

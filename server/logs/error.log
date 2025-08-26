@@ -161,3 +161,66 @@
     '    at writeOrBuffer (node:internal/streams/writable:572:12)',
   [Symbol(errorLabels)]: Set(0) {}
 }
+{
+  name: 'MulterError',
+  message: 'File too large',
+  code: 'LIMIT_FILE_SIZE',
+  field: 'image',
+  storageErrors: [],
+  level: 'error',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-08-26 02:26:08',
+  stack: 'MulterError: File too large\n' +
+    '    at abortWithCode (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\multer\\lib\\make-middleware.js:73:22)\n' +
+    '    at FileStream.<anonymous> (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\multer\\lib\\make-middleware.js:136:11)\n' +
+    '    at FileStream.emit (node:events:518:28)\n' +
+    '    at SBMH.ssCb [as _cb] (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\busboy\\lib\\types\\multipart.js:479:32)\n' +
+    '    at feed (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\streamsearch\\lib\\sbmh.js:248:10)\n' +
+    '    at SBMH.push (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\streamsearch\\lib\\sbmh.js:104:16)\n' +
+    '    at Multipart._write (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\busboy\\lib\\types\\multipart.js:567:19)\n' +
+    '    at writeOrBuffer (node:internal/streams/writable:572:12)\n' +
+    '    at _write (node:internal/streams/writable:501:10)\n' +
+    '    at Writable.write (node:internal/streams/writable:510:10)'
+}
+{
+  name: 'MulterError',
+  message: 'File too large',
+  code: 'LIMIT_FILE_SIZE',
+  field: 'image',
+  storageErrors: [],
+  level: 'error',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-08-26 02:30:44',
+  stack: 'MulterError: File too large\n' +
+    '    at abortWithCode (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\multer\\lib\\make-middleware.js:73:22)\n' +
+    '    at FileStream.<anonymous> (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\multer\\lib\\make-middleware.js:136:11)\n' +
+    '    at FileStream.emit (node:events:518:28)\n' +
+    '    at SBMH.ssCb [as _cb] (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\busboy\\lib\\types\\multipart.js:479:32)\n' +
+    '    at feed (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\streamsearch\\lib\\sbmh.js:248:10)\n' +
+    '    at SBMH.push (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\streamsearch\\lib\\sbmh.js:104:16)\n' +
+    '    at Multipart._write (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\busboy\\lib\\types\\multipart.js:567:19)\n' +
+    '    at writeOrBuffer (node:internal/streams/writable:572:12)\n' +
+    '    at _write (node:internal/streams/writable:501:10)\n' +
+    '    at Writable.write (node:internal/streams/writable:510:10)'
+}
+{
+  name: 'MulterError',
+  message: 'Unexpected field',
+  code: 'LIMIT_UNEXPECTED_FILE',
+  field: 'image',
+  storageErrors: [],
+  level: 'error',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-08-26 02:48:57',
+  stack: 'MulterError: Unexpected field\n' +
+    '    at wrappedFileFilter (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\multer\\index.js:40:19)\n' +
+    '    at Multipart.<anonymous> (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\multer\\lib\\make-middleware.js:109:7)\n' +
+    '    at Multipart.emit (node:events:518:28)\n' +
+    '    at HeaderParser.cb (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\busboy\\lib\\types\\multipart.js:358:14)\n' +
+    '    at HeaderParser.push (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\busboy\\lib\\types\\multipart.js:162:20)\n' +
+    '    at SBMH.ssCb [as _cb] (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\busboy\\lib\\types\\multipart.js:394:37)\n' +
+    '    at feed (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\streamsearch\\lib\\sbmh.js:248:10)\n' +
+    '    at SBMH.push (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\streamsearch\\lib\\sbmh.js:104:16)\n' +
+    '    at Multipart._write (C:\\Users\\iTEK\\Desktop\\Projects\\C-Management-System\\C-Management-System\\server\\node_modules\\busboy\\lib\\types\\multipart.js:567:19)\n' +
+    '    at writeOrBuffer (node:internal/streams/writable:572:12)'
+}

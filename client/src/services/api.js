@@ -10,6 +10,7 @@ const api = axios.create({
   withCredentials: true,
 });
 
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -81,6 +82,7 @@ api.interceptors.response.use(
   }
 );
 
+
 export const authAPI = {
   login: (credentials) => api.post("/auth/login", credentials),
   signup: (userData) => api.post("/auth/register", userData),
@@ -99,24 +101,41 @@ export const usersAPI = {
 export const inventoryAPI = {
   getAll: (params) => api.get("/inventory", { params }),
   getById: (id) => api.get(`/inventory/${id}`),
-  create: (itemData) => {
-    return api.post("/inventory", itemData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
-  update: (id, itemData) => {
-    return api.put(`/inventory/${id}`, itemData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
+  create: (itemData) => api.post("/inventory", itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  update: (id, itemData) => api.put(`/inventory/${id}`, itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => api.delete(`/inventory/${id}`),
   getStats: (params) => api.get("/inventory/stats", { params }),
   getMovementHistory: (itemId, params) => api.get(`/inventory/${itemId}/history`, { params }),
+
+  getDistinctUnits: () => api.get("/inventory/units"),
+};
+
+export const metadataAPI = {
+  getCategories: () => api.get("/inventory/categories"),
+  getLocations: () => api.get("/inventory/locations"),
+
   getCategories: () => api.get("/inventory/categories"),
   getLocations: () => api.get("/inventory/locations"),
   getUnits: () => api.get("/inventory/units"),
+
   createCategory: (data) => api.post("/inventory/categories", data),
   createLocation: (data) => api.post("/inventory/locations", data),
+};
+
+export const supplierAPI = {
+  getAll: (params) => api.get("/suppliers", { params }),
+  getById: (id) => api.get(`/suppliers/${id}`),
+  create: (supplierData) => api.post("/suppliers", supplierData),
+  update: (id, supplierData) => api.put(`/suppliers/${id}`, supplierData),
+  delete: (id) => api.delete(`/suppliers/${id}`),
+};
+
+export const poAPI = {
+  getAll: (params) => api.get("/purchase-orders", { params }),
+  getById: (id) => api.get(`/purchase-orders/${id}`),
+  create: (poData) => api.post("/purchase-orders", poData),
+  update: (id, poData) => api.put(`/purchase-orders/${id}`, poData),
+  delete: (id) => api.delete(`/purchase-orders/${id}`),
 };
 
 export const notificationsAPI = {

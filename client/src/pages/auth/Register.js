@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import styled from "styled-components"
 import { motion } from "framer-motion"
@@ -200,6 +200,8 @@ const modules = [
 
 const Register = () => {
   const { signup } = useAuth()
+  const navigate = useNavigate()
+
   const [selectedModules, setSelectedModules] = useState([])
   const [loading, setLoading] = useState(false)
   const { register, handleSubmit, formState: { errors }, watch } = useForm()
@@ -219,6 +221,13 @@ const Register = () => {
 
     setLoading(true)
     try {
+
+      await signup({ ...data, modules: selectedModules })
+      toast.success("Registration successful! Welcome.")
+      navigate("/dashboard")
+    } catch (error) {
+      console.error("An error occurred during signup:", error.message)
+
       const result = await signup({ ...data, modules: selectedModules })
       console.log("API Response received:", result)
 
@@ -230,6 +239,7 @@ const Register = () => {
     } catch (error) {
       console.error("An error occurred during signup:", error)
       toast.error(error.message || "A server or network error occurred. Please try again later.")
+
     } finally {
       setLoading(false)
     }
