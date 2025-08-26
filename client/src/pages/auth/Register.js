@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import styled from "styled-components"
 import { motion } from "framer-motion"
@@ -14,7 +14,6 @@ import Card from "../../components/common/Card"
 import Logo from "../../components/common/Logo"
 import toast from "react-hot-toast"
 
-// --- STYLED COMPONENTS ---
 const Container = styled.div`
   min-height: 100vh;
   display: flex;
@@ -200,7 +199,8 @@ const modules = [
 ]
 
 const Register = () => {
-  const { register: registerUser } = useAuth()
+  const { signup } = useAuth()
+  const navigate = useNavigate()
   const [selectedModules, setSelectedModules] = useState([])
   const [loading, setLoading] = useState(false)
   const { register, handleSubmit, formState: { errors }, watch } = useForm()
@@ -215,12 +215,17 @@ const Register = () => {
       toast.error("Please select at least one module.")
       return
     }
+
     setLoading(true)
-    const result = await registerUser({ ...data, modules: selectedModules })
-    if (result && result.success) {
-      // Handle success
+    try {
+      await signup({ ...data, modules: selectedModules })
+      toast.success("Registration successful! Welcome.")
+      navigate("/dashboard")
+    } catch (error) {
+      console.error("An error occurred during signup:", error.message)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (

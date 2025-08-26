@@ -5,13 +5,13 @@ const multer = require("multer");
 const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
-const { Parser } = require('json2csv'); // ✅ CSV generator
+const { Parser } = require('json2csv');
 
-// --- Import Models & Middleware ---
 const Inventory = require("../models/Inventory");
+const Category = require("../models/Category");
+const Location = require("../models/Location");
 const { verifyToken } = require('../middleware/auth');
 
-// --- Multer Configuration for File Uploads ---
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, '..', 'uploads');
@@ -20,6 +20,7 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`),
 });
+
 const fileFilter = (req, file, cb) => {
   if (['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.mimetype)) {
     cb(null, true);
@@ -27,13 +28,9 @@ const fileFilter = (req, file, cb) => {
     cb(new Error('Only specific image types are allowed'), false);
   }
 };
+
 const upload = multer({ storage, fileFilter, limits: { fileSize: 1024 * 1024 * 5 } });
 
-// ========================================================
-//                  INVENTORY ROUTES
-// ========================================================
-
-// --- Specific text-based routes MUST come before generic /:id routes ---
 router.get("/stats", verifyToken, async (req, res) => {
   try {
     const totalItems = await Inventory.countDocuments();
@@ -50,20 +47,58 @@ router.get("/stats", verifyToken, async (req, res) => {
 
 router.get("/categories", verifyToken, async (req, res) => {
   try {
-    const values = await Inventory.distinct("category");
-    res.json({ success: true, data: values.filter(v => v && v.trim() !== "").sort() });
+    const values = await Category.find({}).sort({ name: 1 });
+    res.json({ success: true, data: values });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error fetching categories." });
   }
 });
 
+router.post("/categories", verifyToken, body("name", "Name is required").not().isEmpty().trim(), async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    try {
+        const { name } = req.body;
+        const existing = await Category.findOne({ name });
+        if (existing) {
+            return res.status(400).json({ success: false, message: "Category already exists." });
+        }
+        const newCategory = new Category({ name });
+        await newCategory.save();
+        res.status(201).json({ success: true, data: newCategory });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Server error creating category." });
+    }
+});
+
 router.get("/locations", verifyToken, async (req, res) => {
   try {
-    const values = await Inventory.distinct("location");
-    res.json({ success: true, data: values.filter(v => v && v.trim() !== "").sort() });
+    const values = await Location.find({}).sort({ name: 1 });
+    res.json({ success: true, data: values });
   } catch (error) {
     res.status(500).json({ success: false, message: "Error fetching locations." });
   }
+});
+
+router.post("/locations", verifyToken, body("name", "Name is required").not().isEmpty().trim(), async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    try {
+        const { name } = req.body;
+        const existing = await Location.findOne({ name });
+        if (existing) {
+            return res.status(400).json({ success: false, message: "Location already exists." });
+        }
+        const newLocation = new Location({ name });
+        await newLocation.save();
+        res.status(201).json({ success: true, data: newLocation });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Server error creating location." });
+    }
 });
 
 router.get("/units", verifyToken, async (req, res) => {
@@ -75,18 +110,15 @@ router.get("/units", verifyToken, async (req, res) => {
   }
 });
 
-// --- Export CSV route ---
 router.get("/export/csv", verifyToken, async (req, res) => {
   try {
-    const inventoryItems = await Inventory.find().lean(); // `.lean()` for plain JS objects
+    const inventoryItems = await Inventory.find().lean();
     if (!inventoryItems || inventoryItems.length === 0) {
       return res.status(404).json({ success: false, message: "No inventory data to export." });
     }
-
     const fields = ['_id', 'name', 'sku', 'category', 'status', 'quantity', 'price', 'totalValue', 'location', 'unit', 'createdAt', 'updatedAt'];
     const json2csv = new Parser({ fields });
     const csv = json2csv.parse(inventoryItems);
-
     res.setHeader("Content-Disposition", "attachment; filename=inventory-export.csv");
     res.setHeader("Content-Type", "text/csv");
     res.status(200).end(csv);
@@ -96,7 +128,6 @@ router.get("/export/csv", verifyToken, async (req, res) => {
   }
 });
 
-// --- Main collection and CRUD routes ---
 router.get("/", verifyToken, async (req, res) => {
   try {
     const { search, category, status, location, page = 1, limit = 50 } = req.query;
@@ -105,11 +136,9 @@ router.get("/", verifyToken, async (req, res) => {
     if (category) query.category = category;
     if (status) query.status = status;
     if (location) query.location = location;
-
     const limitNum = parseInt(limit), pageNum = parseInt(page), skip = (pageNum - 1) * limitNum;
     const items = await Inventory.find(query).sort({ updatedAt: -1 }).skip(skip).limit(limitNum);
     const total = await Inventory.countDocuments(query);
-
     res.json({
       success: true,
       data: items,
@@ -138,7 +167,7 @@ router.get("/:id", verifyToken, async (req, res) => {
   }
 });
 
-router.post("/", verifyToken, upload.single('image'), [
+router.post("/", verifyToken, upload.single('itemImage'), [
   body("name", "Name is required").not().isEmpty().trim(),
   body("sku", "SKU is required").not().isEmpty().trim().toUpperCase(),
   body("category", "Category is required").not().isEmpty(),
@@ -164,11 +193,12 @@ router.post("/", verifyToken, upload.single('image'), [
     res.status(201).json({ success: true, message: "Item created successfully!", data: savedItem });
   } catch (error) {
     if (req.file) fs.unlinkSync(req.file.path);
+    console.error("POST /inventory Error:", error);
     res.status(500).json({ success: false, message: "Server error while creating item." });
   }
 });
 
-router.put("/:id", verifyToken, upload.single('image'), [
+router.put("/:id", verifyToken, upload.single('itemImage'), [
   body("name", "Name cannot be empty").not().isEmpty().trim(),
 ], async (req, res) => {
   const errors = validationResult(req);

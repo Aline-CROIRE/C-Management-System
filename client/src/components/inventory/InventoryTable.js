@@ -1,17 +1,16 @@
-"use client"
+"use client";
 
-import { useState, useMemo } from "react"
-import styled from "styled-components"
+import { useState, useMemo } from "react";
+import styled from "styled-components";
 import {
   FaBoxes, FaEdit, FaEye, FaTrash,
   FaSort, FaSortUp, FaSortDown, FaBarcode,
   FaChevronLeft, FaChevronRight
-} from "react-icons/fa"
-import Button from "../common/Button" // Assuming you have a reusable Button component
-import LoadingSpinner from "../common/LoadingSpinner" // Assuming a spinner component
+} from "react-icons/fa";
+import Button from "../common/Button";
+import LoadingSpinner from "../common/LoadingSpinner";
 
-// IMPORTANT: This should point to your backend's base URL to correctly load images.
-// It's best to get this from an environment variable.
+// Use an environment variable for your API base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 // ========= STYLED COMPONENTS (Enhanced and Complete) =========
@@ -30,7 +29,7 @@ const TableContainer = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 1200px; /* Ensures table has a minimum width for scrolling */
+  min-width: 1200px;
 `;
 
 const TableHeader = styled.thead`
@@ -128,13 +127,17 @@ const StatusBadge = styled.span`
   text-transform: capitalize;
 
   ${({ status, theme }) => {
-    const colors = {
+    // --- THIS IS THE CORRECTED STATUS LOGIC ---
+    const statusColors = {
       'in-stock': theme?.colors?.success || '#2f855a',
       'low-stock': theme?.colors?.warning || '#dd6b20',
       'out-of-stock': theme?.colors?.error || '#c53030',
+      'on-order': theme?.colors?.info || '#3182ce', // <-- ADDED 'on-order' STATUS
       default: theme?.colors?.textSecondary || '#718096',
     };
-    const color = colors[status] || colors.default;
+    
+    const color = statusColors[status] || statusColors.default;
+    
     return `
       background-color: ${color}20; /* 20% opacity background */
       color: ${color};
@@ -150,33 +153,22 @@ const StockUnit = styled.div`
   font-size: 0.8rem;
   color: ${(props) => props.theme.colors?.textSecondary || '#718096'};
 `;
-
 const UnitPrice = styled.div``;
 const TotalValue = styled.div`
   font-weight: 600;
 `;
-
 const ActionButtonGroup = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
 `;
-
 const EmptyState = styled.div`
   text-align: center;
   padding: 4rem 2rem;
   color: ${(props) => props.theme.colors?.textSecondary || "#718096"};
-  .icon {
-    font-size: 3.5rem;
-    margin-bottom: 1rem;
-    opacity: 0.5;
-  }
-  h3 {
-    color: ${(props) => props.theme.colors?.text || "#2d3748"};
-    margin-bottom: 0.5rem;
-  }
+  .icon { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.5; }
+  h3 { color: ${(props) => props.theme.colors?.text || "#2d3748"}; margin-bottom: 0.5rem; }
 `;
-
 const TableFooter = styled.div`
   display: flex;
   justify-content: space-between;
@@ -186,18 +178,16 @@ const TableFooter = styled.div`
   font-size: 0.875rem;
   color: ${(props) => props.theme.colors?.textSecondary || '#718096'};
 `;
-
 const PaginationInfo = styled.span``;
 const PaginationControls = styled.div`
   display: flex;
   gap: 0.5rem;
 `;
 
-
 const InventoryTable = ({
   data = [],
   loading = false,
-  pagination = { page: 1, total: 0, limit: 10 }, // Default pagination object
+  pagination = { page: 1, total: 0, limit: 10 },
   onEdit,
   onDelete,
   onView,
@@ -211,10 +201,8 @@ const InventoryTable = ({
       sortableItems.sort((a, b) => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
-        // Handle numeric and date sorting correctly
         if (typeof aValue === 'string') aValue = aValue.toLowerCase();
         if (typeof bValue === 'string') bValue = bValue.toLowerCase();
-        
         if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
@@ -236,19 +224,17 @@ const InventoryTable = ({
     return sortConfig.direction === "asc" ? <FaSortUp className="sort-icon" /> : <FaSortDown className="sort-icon" />;
   };
 
-  // Show a full-page spinner only on initial load
   if (loading && data.length === 0) {
     return <div style={{ display: "flex", justifyContent: "center", padding: "4rem" }}><LoadingSpinner /></div>;
   }
 
-  // Show empty state only when not loading and data is empty
   if (!loading && (!data || data.length === 0)) {
     return (
       <TableWrapper>
         <EmptyState>
           <FaBoxes className="icon" />
           <h3>No Inventory Items Found</h3>
-          <p>Your inventory is empty or no items match your current filters.</p>
+          <p>Your inventory is empty or no items match the current filters.</p>
         </EmptyState>
       </TableWrapper>
     );
@@ -275,14 +261,10 @@ const InventoryTable = ({
           <TableBody>
             {sortedData.map((item) => (
               <TableRow key={item._id || item.id}>
-                {/* Product Info */}
                 <TableCell>
                   <ProductInfo>
                     <ProductImage>
-                      {item.imageUrl ? 
-                        <img src={`${API_BASE_URL}/${item.imageUrl.replace(/\\/g, '/')}`} alt={item.name} /> 
-                        : <FaBoxes />
-                      }
+                      {item.imageUrl ? <img src={`${API_BASE_URL}/${item.imageUrl.replace(/\\/g, '/')}`} alt={item.name} /> : <FaBoxes />}
                     </ProductImage>
                     <ProductDetails>
                       <ProductName>{item.name || "N/A"}</ProductName>
@@ -290,28 +272,17 @@ const InventoryTable = ({
                     </ProductDetails>
                   </ProductInfo>
                 </TableCell>
-                {/* Category */}
                 <TableCell>{item.category || "Uncategorized"}</TableCell>
-                {/* Stock */}
                 <TableCell>
                   <StockInfo>
                     <StockQuantity>{(typeof item.quantity === 'number') ? item.quantity.toLocaleString() : '0'}</StockQuantity>
                     <StockUnit>{item.unit || "unit"}</StockUnit>
                   </StockInfo>
                 </TableCell>
-                {/* Unit Price (Safely Formatted) */}
-                <TableCell>
-                  <UnitPrice>${(typeof item.price === 'number') ? item.price.toFixed(2) : '0.00'}</UnitPrice>
-                </TableCell>
-                {/* Total Value (Safely Formatted) */}
-                <TableCell>
-                  <TotalValue>${(typeof item.totalValue === 'number') ? item.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</TotalValue>
-                </TableCell>
-                {/* Status */}
+                <TableCell><UnitPrice>${(typeof item.price === 'number') ? item.price.toFixed(2) : '0.00'}</UnitPrice></TableCell>
+                <TableCell><TotalValue>${(typeof item.totalValue === 'number') ? item.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</TotalValue></TableCell>
                 <TableCell><StatusBadge status={item.status}>{item.status?.replace('-', ' ') || "Unknown"}</StatusBadge></TableCell>
-                {/* Last Updated (Safely Formatted) */}
                 <TableCell>{item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : 'N/A'}</TableCell>
-                {/* Actions (Icons now function via props) */}
                 <TableCell>
                   <ActionButtonGroup>
                     <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView?.(item)}><FaEye /></Button>
@@ -324,29 +295,11 @@ const InventoryTable = ({
           </TableBody>
         </Table>
       </TableContainer>
-
-      {/* --- PAGINATION FOOTER --- */}
       <TableFooter>
-        <PaginationInfo>
-          Page {pagination.page} of {totalPages} ({pagination.total.toLocaleString()} items)
-        </PaginationInfo>
+        <PaginationInfo>Page {pagination.page} of {totalPages} ({pagination.total.toLocaleString()} items)</PaginationInfo>
         <PaginationControls>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => onPageChange?.(pagination.page - 1)}
-            disabled={pagination.page <= 1}
-          >
-            <FaChevronLeft /> Previous
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => onPageChange?.(pagination.page + 1)}
-            disabled={pagination.page >= totalPages}
-          >
-            Next <FaChevronRight />
-          </Button>
+          <Button size="sm" variant="secondary" onClick={() => onPageChange?.(pagination.page - 1)} disabled={pagination.page <= 1}><FaChevronLeft /> Previous</Button>
+          <Button size="sm" variant="secondary" onClick={() => onPageChange?.(pagination.page + 1)} disabled={pagination.page >= totalPages}>Next <FaChevronRight /></Button>
         </PaginationControls>
       </TableFooter>
     </TableWrapper>

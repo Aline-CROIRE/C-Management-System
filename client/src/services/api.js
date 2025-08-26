@@ -1,24 +1,18 @@
 import axios from "axios";
 import { toast } from "react-toastify";
 
-// ====================================================================
-// 1. AXIOS INSTANCE CREATION & CONFIGURATION
-// ====================================================================
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/api",
-  timeout: 30000, // 30 second timeout
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // Important for sessions/cookies
+  withCredentials: true,
 });
 
-// ====================================================================
-// 2. REQUEST INTERCEPTOR
-// ====================================================================
+// Request interceptor (no changes)
 api.interceptors.request.use(
   (config) => {
-    // Add auth token to every request if it exists
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -35,9 +29,7 @@ api.interceptors.request.use(
   }
 );
 
-// ====================================================================
-// 3. RESPONSE INTERCEPTOR
-// ====================================================================
+// Response interceptor (no changes)
 api.interceptors.response.use(
   (response) => {
     const duration = new Date() - response.config.metadata.startTime;
@@ -68,8 +60,8 @@ api.interceptors.response.use(
         case 404:
           toast.error(data?.message || "The requested resource was not found.");
           break;
-        case 400: // For express-validator errors
-        case 422: // For other validation libraries
+        case 400:
+        case 422:
           if (data.errors && Array.isArray(data.errors)) {
             data.errors.forEach((err) => toast.error(err.msg || err.message));
           } else {
@@ -91,13 +83,11 @@ api.interceptors.response.use(
   }
 );
 
-// ====================================================================
-// 4. STRUCTURED API SERVICES
-// ====================================================================
+// --- API Service Definitions ---
 
 export const authAPI = {
   login: (credentials) => api.post("/auth/login", credentials),
-  register: (userData) => api.post("/auth/register", userData),
+  signup: (userData) => api.post("/auth/register", userData),
   logout: () => api.post("/auth/logout"),
   me: () => api.get("/auth/me"),
 };
@@ -111,36 +101,41 @@ export const usersAPI = {
 };
 
 export const inventoryAPI = {
-  // --- Core Inventory CRUD ---
   getAll: (params) => api.get("/inventory", { params }),
   getById: (id) => api.get(`/inventory/${id}`),
-  create: (itemData) => {
-    return api.post("/inventory", itemData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
-  update: (id, itemData) => {
-    return api.put(`/inventory/${id}`, itemData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
+  create: (itemData) => api.post("/inventory", itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  update: (id, itemData) => api.put(`/inventory/${id}`, itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => api.delete(`/inventory/${id}`),
-
-  // --- Stats, Alerts, & History ---
   getStats: (params) => api.get("/inventory/stats", { params }),
   getMovementHistory: (itemId, params) => api.get(`/inventory/${itemId}/history`, { params }),
+  
+  // --- FIX: ADDED MISSING FUNCTION TO FIX THE TypeError ---
+  // The useInventory hook was calling this, but it was not defined.
+  getDistinctUnits: () => api.get("/inventory/units"),
+};
 
-  // --- Metadata / Dropdown Options ---
-  // FIX: The paths now correctly include the '/inventory' prefix to match your backend router.
+export const metadataAPI = {
   getCategories: () => api.get("/inventory/categories"),
   getLocations: () => api.get("/inventory/locations"),
-  getUnits: () => api.get("/inventory/units"),
-
-  // FIX: These methods also need the '/inventory' prefix.
-  // This assumes you will add POST routes to `/inventory/categories` and `/inventory/locations`
-  // on your backend to handle the creation.
+  // The getUnits call seems to have moved to inventoryAPI.getDistinctUnits
   createCategory: (data) => api.post("/inventory/categories", data),
   createLocation: (data) => api.post("/inventory/locations", data),
+};
+
+export const supplierAPI = {
+  getAll: (params) => api.get("/suppliers", { params }),
+  getById: (id) => api.get(`/suppliers/${id}`),
+  create: (supplierData) => api.post("/suppliers", supplierData),
+  update: (id, supplierData) => api.put(`/suppliers/${id}`, supplierData),
+  delete: (id) => api.delete(`/suppliers/${id}`),
+};
+
+export const poAPI = {
+  getAll: (params) => api.get("/purchase-orders", { params }),
+  getById: (id) => api.get(`/purchase-orders/${id}`),
+  create: (poData) => api.post("/purchase-orders", poData),
+  update: (id, poData) => api.put(`/purchase-orders/${id}`, poData),
+  delete: (id) => api.delete(`/purchase-orders/${id}`),
 };
 
 export const notificationsAPI = {
@@ -149,7 +144,5 @@ export const notificationsAPI = {
   markAllAsRead: () => api.patch("/notifications/mark-all-read"),
   delete: (id) => api.delete(`/notifications/${id}`),
 };
-
-// ... other API objects ...
 
 export default api;
