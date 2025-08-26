@@ -10,7 +10,7 @@ const api = axios.create({
   withCredentials: true,
 });
 
-// Request interceptor (no changes)
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -29,7 +29,6 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor (no changes)
 api.interceptors.response.use(
   (response) => {
     const duration = new Date() - response.config.metadata.startTime;
@@ -83,7 +82,6 @@ api.interceptors.response.use(
   }
 );
 
-// --- API Service Definitions ---
 
 export const authAPI = {
   login: (credentials) => api.post("/auth/login", credentials),
@@ -108,16 +106,18 @@ export const inventoryAPI = {
   delete: (id) => api.delete(`/inventory/${id}`),
   getStats: (params) => api.get("/inventory/stats", { params }),
   getMovementHistory: (itemId, params) => api.get(`/inventory/${itemId}/history`, { params }),
-  
-  // --- FIX: ADDED MISSING FUNCTION TO FIX THE TypeError ---
-  // The useInventory hook was calling this, but it was not defined.
+
   getDistinctUnits: () => api.get("/inventory/units"),
 };
 
 export const metadataAPI = {
   getCategories: () => api.get("/inventory/categories"),
   getLocations: () => api.get("/inventory/locations"),
-  // The getUnits call seems to have moved to inventoryAPI.getDistinctUnits
+
+  getCategories: () => api.get("/inventory/categories"),
+  getLocations: () => api.get("/inventory/locations"),
+  getUnits: () => api.get("/inventory/units"),
+
   createCategory: (data) => api.post("/inventory/categories", data),
   createLocation: (data) => api.post("/inventory/locations", data),
 };
