@@ -1,38 +1,50 @@
-// src/middleware/auth.js
-
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 /**
- * Verifies a JWT token and attaches the full user object to req.user.
+ * Verifies a JWT token and attaches the user object to req.user.
  */
 const verifyToken = async (req, res, next) => {
   try {
     const token = req.header("Authorization")?.replace("Bearer ", "");
+
     if (!token) {
-      return res.status(401).json({ success: false, message: "Access Denied: No token provided." });
+      return res.status(401).json({
+        success: false,
+        message: "Access Denied: No token provided.",
+      });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key");
+
     const user = await User.findById(decoded.userId).select("-password");
+
     if (!user) {
-      return res.status(401).json({ success: false, message: "Access Denied: User not found." });
+      return res.status(401).json({
+        success: false,
+        message: "Access Denied: User not found.",
+      });
     }
 
     if (!user.isActive) {
-      return res.status(403).json({ success: false, message: "Access Denied: Your account is deactivated." });
+      return res.status(403).json({
+        success: false,
+        message: "Access Denied: Your account is deactivated.",
+      });
     }
 
     req.user = user;
     next();
   } catch (error) {
-    res.status(401).json({ success: false, message: "Invalid or expired token." });
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token.",
+    });
   }
 };
 
 /**
  * Middleware to ensure the authenticated user has a specific role.
- * Example: requireRole('admin')
  */
 const requireRole = (role) => {
   return (req, res, next) => {
@@ -51,7 +63,6 @@ const requireRole = (role) => {
  */
 const checkModuleAccess = (moduleName) => {
   return (req, res, next) => {
-    // Admin has access to all modules
     if (req.user.role === "admin") return next();
 
     if (!req.user.modules || !req.user.modules.includes(moduleName)) {
@@ -66,27 +77,29 @@ const checkModuleAccess = (moduleName) => {
 };
 
 /**
- * Middleware to ensure user is an admin (explicitly)
+ * Middleware to ensure user is an admin.
  */
 const requireAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({ success: false, message: "Admin access required." });
+    return res.status(403).json({
+      success: false,
+      message: "Admin access required.",
+    });
   }
   next();
 };
 
 /**
- * Placeholder for permission check middleware if needed
+ * Placeholder for permission check middleware.
  */
 const checkPermission = (module, action) => {
   return (req, res, next) => {
-    // Implement custom permission logic here
-    // Currently allowing all
+    // Future permission logic goes here
     next();
   };
 };
 
-// Export all middleware
+// Export middleware using verifyToken as the main auth middleware
 module.exports = {
   verifyToken,
   requireRole,

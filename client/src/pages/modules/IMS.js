@@ -1,23 +1,26 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import styled from "styled-components"
+"use client";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import styled, { keyframes } from "styled-components";
 import {
-  FaBoxes, FaPlus, FaSearch, FaFilter, FaDownload, FaBarcode, FaExclamationTriangle,
-  FaChartLine, FaWarehouse, FaTruck, FaUsers, FaDollarSign, FaBell, FaSync,
-} from "react-icons/fa"
 
-import Card from "../../components/common/Card"
-import Button from "../../components/common/Button"
-import Input from "../../components/common/Input"
-import InventoryTable from "../../components/inventory/InventoryTable"
-import AddItemModal from "../../components/inventory/AddItemModal"
-import { useInventory } from "../../hooks/useInventory"
-import { useNotifications } from "../../contexts/NotificationContext"
-// import BarcodeScanner from "../../components/inventory/BarcodeScanner"
-// import AlertsPanel from "../../components/inventory/AlertsPanel"
-// import EditItemModal from "../../components/inventory/EditItemModal";
-// import FilterPanel from "../../components/inventory/FilterPanel";
+  FaBoxes, FaPlus, FaSearch, FaFilter, FaDownload, FaExclamationTriangle, FaFileCsv, FaFileCode,
+  FaChartLine, FaTruck, FaUsers, FaDollarSign, FaSync, FaTimes, FaFileInvoiceDollar, FaUndo, FaBell
+} from "react-icons/fa";
+
+// Component Imports
+import Card from "../../components/common/Card";
+import Button from "../../components/common/Button";
+import Input from "../../components/common/Input";
+import InventoryTable from "../../components/inventory/InventoryTable";
+import AddItemModal from "../../components/inventory/AddItemModal";
+import ViewItemModal from "../../components/inventory/ViewItemModal";
+import FilterPanel from "../../components/inventory/FilterPanel";
+import PurchaseOrders from "../../components/inventory/PurchaseOrders";
+import SupplierManagement from "../../components/inventory/SupplierManagement";
+import Sales from "../../components/inventory/Sales";
+import ReportsAnalytics from "../../components/inventory/ReportsAnalytics";
+import NotificationPanel from "../../components/inventory/NotificationPanel";
+
 
 // Hook Imports
 import { useInventory } from "../../hooks/useInventory";
@@ -58,6 +61,7 @@ const SpinningFaSync = styled(FaSync)` animation: ${spinAnimation} 1s linear inf
 const FilterIndicator = styled.div` display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.5rem; background-color: #e6f7ff; color: #005f99; border: 1px solid #91d5ff; border-radius: 0.75rem; margin-bottom: 1.5rem; font-weight: 600;`;
 
 const IMS = () => {
+
   const [activeTab, setActiveTab] = useState("inventory")
   const [searchQuery, setSearchQuery] = useState("")
   const [showAddModal, setShowAddModal] = useState(false)

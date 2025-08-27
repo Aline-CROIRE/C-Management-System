@@ -1,36 +1,20 @@
-// routes/auth.js
-
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
-const rateLimit = require("express-rate-limit"); // 1. Import rate-limiter
+const rateLimit = require("express-rate-limit");
 const User = require("../models/User");
 const router = express.Router();
-
-// Import your shared authentication middleware
 const { verifyToken } = require("../middleware/auth");
 
-
-// --- RATE LIMITER CONFIGURATION (THE FIX FOR THE 429 ERROR) ---
-
-// A stricter limiter for sensitive actions like logging in, registering, and password resets.
 const authActionLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 25, // Limit each IP to 25 requests per window.
+  windowMs: 15 * 60 * 1000,
+  max: 25,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many attempts from this IP, please try again after 15 minutes." },
 });
 
-// A much more lenient limiter for general API use, including the '/me' check.
-// This should ideally be applied globally in your main server file (app.js or server.js),
-// but we will apply the stricter one to specific routes here for a complete solution.
-
-
-// --- Helper Functions and Setup ---
-
-// Gmail transporter setup
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -39,38 +23,43 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Generate JWT token
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET || "your-secret-key", {
-    expiresIn: "7d", // Token expires in 7 days
+    expiresIn: "7d",
   });
 };
 
-
-// ====================================================================
-// PUBLIC AUTHENTICATION ROUTES
-// ====================================================================
-
-// Register user - Apply the stricter rate limiter
 router.post("/register", authActionLimiter, async (req, res) => {
   try {
-    const { firstName, lastName, email, password, role = "user" } = req.body;
-    if (!firstName || !lastName || !email || !password) {
-      return res.status(400).json({ success: false, message: "All fields are required" });
+    const { firstName, lastName, email, password, company, phone, modules, role = "user" } = req.body;
+
+    if (!firstName || !lastName || !email || !password || !company) {
+      return res.status(400).json({ success: false, message: "Required fields are missing." });
     }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: "User with this email already exists" });
+      return res.status(400).json({ success: false, message: "User with this email already exists." });
     }
-    // ... rest of your registration logic ...
-    const user = new User({ firstName, lastName, email, password, role });
+
+    const user = new User({
+      firstName,
+      lastName,
+      email,
+      password,
+      company,
+      phone,
+      modules,
+      role,
+    });
+
     await user.save();
     const token = generateToken(user._id);
+
     res.status(201).json({
       success: true,
       message: "User registered successfully.",
       token,
-      user: { id: user._id, firstName: user.firstName, email: user.email, role: user.role },
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -78,7 +67,6 @@ router.post("/register", authActionLimiter, async (req, res) => {
   }
 });
 
-// Login user - Apply the stricter rate limiter
 router.post("/login", authActionLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -96,8 +84,9 @@ router.post("/login", authActionLimiter, async (req, res) => {
     await user.save();
     const token = generateToken(user._id);
     res.json({
-      success: true, message: "Login successful", token,
-      user: { id: user._id, firstName: user.firstName, email: user.email, role: user.role },
+      success: true,
+      message: "Login successful",
+      token,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -105,22 +94,12 @@ router.post("/login", authActionLimiter, async (req, res) => {
   }
 });
 
-// Other sensitive routes
 router.post("/forgot-password", authActionLimiter, async (req, res) => { /* ... */ });
 router.post("/reset-password/:token", authActionLimiter, async (req, res) => { /* ... */ });
 router.post("/verify-email/:token", async (req, res) => { /* ... */ });
 
-// ====================================================================
-// PROTECTED USER ROUTE
-// ====================================================================
-
-// Get current user's profile.
-// This route does NOT use the strict `authActionLimiter`.
-// This allows for frequent checks on app load without getting blocked.
 router.get("/me", verifyToken, async (req, res) => {
   try {
-    // The `verifyToken` middleware attaches the full user object to `req.user`.
-    // No need to query the database again. This is efficient.
     const user = req.user;
     res.json({
       success: true,
@@ -129,6 +108,8 @@ router.get("/me", verifyToken, async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
+        company: user.company,
+        phone: user.phone,
         role: user.role,
         modules: user.modules,
         permissions: user.permissions,

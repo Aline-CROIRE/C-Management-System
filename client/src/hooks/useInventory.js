@@ -1,131 +1,153 @@
-// hooks/useInventory.js
+"use client";
 
-"use client"
-
-import { useState, useEffect, useCallback, useMemo } from "react"
-import { inventoryAPI } from "../services/api"
-import { useNotifications } from "../contexts/NotificationContext"
+import { useState, useEffect, useCallback, useMemo } from "react";
+// Import both the inventory and metadata API services
+import { inventoryAPI, metadataAPI } from "../services/api"; 
+import { useNotifications } from "../contexts/NotificationContext";
 
 export const useInventory = (initialParams = {}) => {
-  const [inventory, setInventory] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 })
-  const [filters, setFilters] = useState(initialParams)
+  // State for the visible, paginated list of inventory items
+  const [inventory, setInventory] = useState([]);
   
-  const [categories, setCategories] = useState([])
-  const [locations, setLocations] = useState([])
-  const { showToast } = useNotifications()
+  // State for the overall dashboard statistics (total items, total value, etc.)
+  const [stats, setStats] = useState({ totalItems: 0, totalValue: 0, lowStockCount: 0, outOfStockCount: 0, onOrderCount: 0 });
+  
+  // General state for loading, errors, and UI controls
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1 });
+  const [filters, setFilters] = useState(initialParams);
+  
+  // State for dropdown options
+  const [categories, setCategories] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [units, setUnits] = useState([]);
+  
+  const { showToast } = useNotifications();
 
-  // This is the core data fetching function. It's now smarter.
+  // --- Core Data Fetching ---
+
+  // Fetches only the filtered, paginated list of items for the table
   const fetchInventory = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // It now ALWAYS includes the current filters and pagination state in every call.
       const queryParams = { ...filters, page: pagination.page, limit: pagination.limit };
       const response = await inventoryAPI.getAll(queryParams);
       setInventory(response.data || []);
-      setPagination(response.pagination || {});
+      setPagination(response.pagination || { page: 1, limit: 50, total: 0, totalPages: 1 });
     } catch (err) {
-      setError(err.message);
-      // Toasts are handled by the API interceptor
+      setError(err.response?.data?.message || "Could not fetch inventory data.");
     } finally {
       setLoading(false);
     }
-  }, [filters, pagination.page, pagination.limit]); // Depends on filters and page
+  }, [filters, pagination.page, pagination.limit]);
 
-  // This useEffect triggers a refetch whenever the filters or the page number change.
-  // This is what makes search, filtering, and pagination actually work.
+  // Fetches the high-level statistics for the dashboard cards
+  const fetchDashboardStats = useCallback(async () => {
+    try {
+        const response = await inventoryAPI.getStats();
+        if(response.success) setStats(response.data);
+    } catch (err) {
+        console.error("Failed to fetch dashboard stats", err);
+    }
+  }, []);
+
+  // A combined refresh function to update everything at once
+  const refreshData = useCallback(() => {
+    fetchInventory();
+    fetchDashboardStats();
+  }, [fetchInventory, fetchDashboardStats]);
+
+  // This useEffect triggers a data refetch whenever filters or page change
   useEffect(() => {
     fetchInventory();
-  }, [fetchInventory]); // The dependency array is key here.
+  }, [fetchInventory]); // fetchInventory is memoized and contains filters/pagination as dependencies
 
+  // Fetches all metadata needed for form dropdowns
   const fetchMetadata = useCallback(async () => {
     try {
-      const [categoriesRes, locationsRes] = await Promise.all([
-        inventoryAPI.getCategories(),
-        inventoryAPI.getLocations(),
+      const [categoriesRes, locationsRes, unitsRes] = await Promise.all([
+        metadataAPI.getCategories(),
+        metadataAPI.getLocations(),
+        inventoryAPI.getDistinctUnits(),
       ]);
       setCategories(categoriesRes.data || []);
       setLocations(locationsRes.data || []);
+      setUnits(unitsRes.data || []);
     } catch (err) {
       console.error("Failed to fetch metadata", err);
+      showToast("Could not load form options.", "error");
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     fetchMetadata();
-  }, [fetchMetadata]);
+    fetchDashboardStats();
+  }, [fetchMetadata, fetchDashboardStats]);
 
-  // This function is called from the IMS component to update the filter state.
+  // --- UI State Management Functions ---
+
   const updateFilters = useCallback((newFilters) => {
-    // When filters change, always go back to page 1.
     setPagination(p => ({ ...p, page: 1 }));
-    setFilters(f => ({ ...f, ...newFilters }));
+    setFilters(newFilters);
   }, []);
 
   const changePage = useCallback((page) => {
-    if (page > 0) {
+    if (page > 0 && page <= pagination.totalPages) {
       setPagination(p => ({ ...p, page }));
     }
-  }, []);
-
-  // --- CRUD Functions ---
-  const addItem = useCallback(async (itemData) => {
-    await inventoryAPI.create(itemData);
-    showToast("Item added successfully!", "success");
-    // No need to manually refetch; the state change from the API will do it if needed,
-    // but a direct refresh is more reliable.
-    await fetchInventory();
-  }, [fetchInventory, showToast]);
-
-  const updateItem = useCallback(async (id, updates) => {
-    await inventoryAPI.update(id, updates);
-    showToast("Item updated successfully!", "success");
-    await fetchInventory();
-  }, [fetchInventory, showToast]);
-
-  const deleteItem = useCallback(async (id) => {
-    await inventoryAPI.delete(id);
-    showToast("Item deleted successfully!", "success");
-    await fetchInventory();
-  }, [fetchInventory, showToast]);
+  }, [pagination.totalPages]);
   
-  const createCategory = useCallback(async (name) => {
-    await inventoryAPI.createCategory({ name });
-    showToast(`Category "${name}" created!`, "success");
-    await fetchMetadata(); // Refresh dropdown options
-  }, [fetchMetadata, showToast]);
+  // --- CRUD Functions ---
 
-  const createLocation = useCallback(async (name) => {
-    await inventoryAPI.createLocation({ name });
-    showToast(`Location "${name}" created!`, "success");
-    await fetchMetadata();
-  }, [fetchMetadata, showToast]);
+  const crudAction = useCallback(async (action, successMessage) => {
+    setLoading(true);
+    try {
+      await action();
+      showToast(successMessage, "success");
+      await refreshData(); // Refresh both inventory list and stats
+      await fetchMetadata(); // Refresh dropdowns in case of new category/location/unit
+      return true;
+    } catch (err) {
+      setError(err.response?.data?.message || "Action failed.");
+      return false; // The API interceptor will show the error toast
+    } finally {
+      setLoading(false);
+    }
+  }, [showToast, refreshData, fetchMetadata]);
 
-  // Memoized stats for performance
-  const derivedStats = useMemo(() => ({
-    totalValue: inventory.reduce((sum, item) => sum + (item.totalValue || 0), 0),
-    lowStockItems: inventory.filter(item => item.status === 'low-stock'),
-    totalLocations: locations.length,
-  }), [inventory, locations]);
-
+  const addItem = (payload) => crudAction(() => inventoryAPI.create(payload.itemData), "Item added successfully!");
+  const updateItem = (id, payload) => crudAction(() => inventoryAPI.update(id, payload.itemData), "Item updated successfully!");
+  const deleteItem = (id) => crudAction(() => inventoryAPI.delete(id), "Item deleted successfully!");
+  
+  const createCategory = (name) => crudAction(() => metadataAPI.createCategory(name), `Category "${name.name}" created!`);
+  const createLocation = (name) => crudAction(() => metadataAPI.createLocation(name), `Location "${name.name}" created!`);
+  const createUnit = (name) => crudAction(() => {
+    // This assumes you have a POST /api/metadata/units route
+    // If not, it will be caught by the catch block.
+    return metadataAPI.createUnit(name);
+  }, `Unit "${name.name}" created!`);
+  
+  // --- Return Values ---
   return {
     inventory,
-    stats: derivedStats,
+    stats,
     pagination,
     categories,
     locations,
+    units,
     loading,
     error,
+    filters,
     addItem,
     updateItem,
     deleteItem,
     createCategory,
     createLocation,
+    createUnit,
     changePage,
     updateFilters,
-    refreshData: fetchInventory,
+    refreshData,
   };
 };

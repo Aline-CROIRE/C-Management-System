@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useState, useMemo } from "react"
-import styled from "styled-components"
+import { useState, useMemo } from "react";
+import styled from "styled-components";
 import {
   FaBoxes, FaEdit, FaEye, FaTrash,
   FaSort, FaSortUp, FaSortDown, FaBarcode,
@@ -188,7 +188,6 @@ const EmptyState = styled.div`
   .icon { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.5; }
   h3 { color: ${(props) => props.theme.colors?.text || "#2d3748"}; margin-bottom: 0.5rem; }
 `;
-
 const TableFooter = styled.div`
   display: flex;
   justify-content: space-between;
@@ -206,7 +205,7 @@ const PaginationControls = styled.div`
 const InventoryTable = ({
   data = [],
   loading = false,
-  pagination = { page: 1, total: 0, limit: 10 }, // Default pagination object
+  pagination = { page: 1, total: 0, limit: 10 },
   onEdit,
   onDelete,
   onView,
@@ -222,7 +221,6 @@ const InventoryTable = ({
         let bValue = b[sortConfig.key];
         if (typeof aValue === 'string') aValue = aValue.toLowerCase();
         if (typeof bValue === 'string') bValue = bValue.toLowerCase();
-        
         if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
@@ -243,7 +241,6 @@ const InventoryTable = ({
     return sortConfig.direction === "asc" ? <FaSortUp className="sort-icon" /> : <FaSortDown className="sort-icon" />;
   };
 
-  // Show a full-page spinner only on initial load
   if (loading && data.length === 0) {
     return <div style={{ display: "grid", placeItems: "center", padding: "4rem" }}><LoadingSpinner /></div>;
   }
@@ -284,10 +281,7 @@ const InventoryTable = ({
                 <TableCell>
                   <ProductInfo>
                     <ProductImage>
-                      {item.imageUrl ? 
-                        <img src={`${API_BASE_URL}/${item.imageUrl.replace(/\\/g, '/')}`} alt={item.name} /> 
-                        : <FaBoxes />
-                      }
+                      {item.imageUrl ? <img src={`${API_BASE_URL}/${item.imageUrl.replace(/\\/g, '/')}`} alt={item.name} /> : <FaBoxes />}
                     </ProductImage>
                     <div>
                       <ProductName>{item.name}</ProductName>
@@ -318,8 +312,6 @@ const InventoryTable = ({
           </TableBody>
         </Table>
       </TableContainer>
-
-      {/* --- PAGINATION FOOTER --- */}
       <TableFooter>
         <PaginationInfo>Page {pagination.page} of {totalPages} ({pagination.total.toLocaleString()} items)</PaginationInfo>
         <PaginationControls>
