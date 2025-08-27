@@ -129,7 +129,7 @@ router.get("/export/csv", verifyToken, async (req, res) => {
 
 router.get("/", verifyToken, async (req, res) => {
   try {
-    const { search, category, status, location, page = 1, limit = 10 } = req.query; // Default limit 10
+    const { search, category, status, location, page = 1, limit = 10 } = req.query;
     const query = {};
     if (search) query.$or = [{ name: { $regex: search, $options: "i" } }, { sku: { $regex: search, $options: "i" } }];
     if (category) query.category = category;
@@ -137,14 +137,13 @@ router.get("/", verifyToken, async (req, res) => {
     if (location) query.location = location;
     const limitNum = parseInt(limit), pageNum = parseInt(page), skip = (pageNum - 1) * limitNum;
     
-    // Populate is used to fetch the name from the referenced document
     const items = await Inventory.find(query)
       .sort({ updatedAt: -1 })
       .skip(skip)
       .limit(limitNum)
-      .populate('category', 'name') // <-- This fetches the category name
-      .populate('location', 'name') // <-- This fetches the location name
-      .populate('supplier', 'name'); // <-- This fetches the supplier name
+      .populate('category', 'name')
+      .populate('location', 'name')
+      .populate('supplier', 'name');
 
     const total = await Inventory.countDocuments(query);
     res.json({
@@ -178,8 +177,8 @@ router.get("/:id", verifyToken, async (req, res) => {
 router.post("/", verifyToken, upload.single('itemImage'), [
   body("name", "Name is required").not().isEmpty().trim(),
   body("sku", "SKU is required").not().isEmpty().trim().toUpperCase(),
-  body("category", "Category is required").isMongoId(), // Validate it's a valid ID
-  body("location", "Location is required").isMongoId(), // Validate it's a valid ID
+  body("category", "Category is required").isMongoId(),
+  body("location", "Location is required").isMongoId(),
   body("supplier").optional().isMongoId(),
   body("quantity").isFloat({ min: 0 }),
   body("price").isFloat({ min: 0 }),
@@ -197,7 +196,7 @@ router.post("/", verifyToken, upload.single('itemImage'), [
     }
     const newItem = new Inventory({
       ...req.body,
-      imageUrl: req.file ? `uploads/${req.file.filename}` : null,
+      imageUrl: req.file ? `uploads/${req.file.filename}` : undefined,
     });
     const savedItem = await newItem.save();
     const populatedItem = await Inventory.findById(savedItem._id).populate('category location supplier', 'name');
