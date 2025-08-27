@@ -1,12 +1,9 @@
-// components/inventory/ViewItemModal.jsx
-
 "use client";
 
 import styled from "styled-components";
 import { FaTimes, FaBoxes } from "react-icons/fa";
 import Button from "../common/Button";
 
-// Get this from an environment variable for production
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 const ModalOverlay = styled.div`
@@ -16,7 +13,7 @@ const ModalOverlay = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1001; // Higher than Add/Edit modal if needed
+  z-index: 1001;
   padding: 1rem;
   backdrop-filter: blur(5px);
 `;
@@ -31,6 +28,12 @@ const ModalContent = styled.div`
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  animation: fadeIn 0.3s ease-out;
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
 `;
 
 const ModalHeader = styled.div`
@@ -53,6 +56,8 @@ const ModalBody = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  max-height: 70vh;
+  overflow-y: auto;
 `;
 
 const ItemImage = styled.div`
@@ -112,7 +117,6 @@ const ModalFooter = styled.div`
 const ViewItemModal = ({ item, onClose }) => {
   if (!item) return null;
 
-  // Helper to format dates consistently
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString(undefined, {
@@ -137,20 +141,20 @@ const ViewItemModal = ({ item, onClose }) => {
           </ItemImage>
           <DetailGrid>
             <DetailItem><DetailLabel>SKU</DetailLabel><DetailValue>{item.sku || 'N/A'}</DetailValue></DetailItem>
-            <DetailItem><DetailLabel>Category</DetailLabel><DetailValue>{item.category || 'N/A'}</DetailValue></DetailItem>
-            <DetailItem><DetailLabel>Location</DetailLabel><DetailValue>{item.location || 'N/A'}</DetailValue></DetailItem>
+            <DetailItem><DetailLabel>Category</DetailLabel><DetailValue>{item.category?.name || 'N/A'}</DetailValue></DetailItem>
+            <DetailItem><DetailLabel>Location</DetailLabel><DetailValue>{item.location?.name || 'N/A'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Quantity</DetailLabel><DetailValue>{`${item.quantity?.toLocaleString() || '0'} ${item.unit || ''}`}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Unit Price</DetailLabel><DetailValue>${item.price?.toFixed(2) || '0.00'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Total Value</DetailLabel><DetailValue>${item.totalValue?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Min Stock Level</DetailLabel><DetailValue>{item.minStockLevel?.toLocaleString() || 'Not set'}</DetailValue></DetailItem>
-            <DetailItem><DetailLabel>Supplier</DetailLabel><DetailValue>{item.supplier || 'N/A'}</DetailValue></DetailItem>
+            <DetailItem><DetailLabel>Supplier</DetailLabel><DetailValue>{item.supplier?.name || 'N/A'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Expiry Date</DetailLabel><DetailValue>{formatDate(item.expiryDate)}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Last Updated</DetailLabel><DetailValue>{formatDate(item.updatedAt)}</DetailValue></DetailItem>
           </DetailGrid>
            {item.description && (
              <DetailItem>
                <DetailLabel>Description / Notes</DetailLabel>
-               <DetailValue>{item.description}</DetailValue>
+               <DetailValue style={{ whiteSpace: 'pre-wrap' }}>{item.description}</DetailValue>
              </DetailItem>
            )}
         </ModalBody>
