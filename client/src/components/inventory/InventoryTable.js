@@ -6,67 +6,80 @@ import {
   FaBoxes, FaEdit, FaEye, FaTrash,
   FaSort, FaSortUp, FaSortDown, FaBarcode,
   FaChevronLeft, FaChevronRight
-} from "react-icons/fa"
-import Button from "../common/Button" // Assuming you have a reusable Button component
-import LoadingSpinner from "../common/LoadingSpinner" // Assuming a spinner component
+} from "react-icons/fa";
+import Button from "../common/Button";
+import LoadingSpinner from "../common/LoadingSpinner";
 
-// IMPORTANT: This should point to your backend's base URL to correctly load images.
-// It's best to get this from an environment variable.
+// Use an environment variable for your API base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-// ========= STYLED COMPONENTS (Enhanced and Complete) =========
-
 const TableWrapper = styled.div`
-  background: ${(props) => props.theme.colors?.surface || '#ffffff'};
-  border-radius: ${(props) => props.theme.borderRadius?.xl || '1rem'};
-  box-shadow: ${(props) => props.theme.shadows?.lg || '0 10px 15px -3px rgba(0,0,0,0.1)'};
+  background: ${(props) => props.theme.colors.surface};
+  border-radius: ${(props) => props.theme.borderRadius.xl};
+  box-shadow: ${(props) => props.theme.shadows.lg};
   overflow: hidden;
+  border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const TableContainer = styled.div`
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: ${(props) => props.theme.colors.border};
+    border-radius: 10px;
+  }
 `;
 
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 1200px; /* Ensures table has a minimum width for scrolling */
+  min-width: 1200px;
 `;
 
 const TableHeader = styled.thead`
-  background: ${(props) => props.theme.colors?.surfaceLight || "#f7fafc"};
+  background: ${(props) => props.theme.colors.surfaceLight};
 `;
 
 const TableHeaderCell = styled.th`
   padding: 1rem 1.5rem;
   text-align: left;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: ${(props) => props.theme.colors?.textSecondary || "#4a5568"};
+  color: ${(props) => props.theme.colors.textSecondary};
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 2px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
+  border-bottom: 2px solid ${(props) => props.theme.colors.border};
   cursor: ${(props) => (props.sortable ? "pointer" : "default")};
   user-select: none;
   white-space: nowrap;
 
-  &:hover {
-    background: ${(props) => (props.sortable ? props.theme.colors?.border || "#e2e8f0" : "transparent")};
+  &:hover .sort-icon {
+    opacity: 1;
   }
+
   .sort-icon {
     margin-left: 0.5rem;
     opacity: ${(props) => (props.sorted ? 1 : 0.3)};
-    transition: opacity 0.2s;
+    transition: opacity 0.2s ease;
+  }
+
+  &.hide-on-mobile {
+    @media (max-width: 768px) {
+      display: none;
+    }
   }
 `;
 
 const TableBody = styled.tbody``;
 
 const TableRow = styled.tr`
-  border-bottom: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
-  transition: background-color 0.2s ease-in-out;
+  border-bottom: 1px solid ${(props) => props.theme.colors.border};
   &:hover {
-    background: ${(props) => props.theme.colors?.surfaceLight || "#f8f9fa"};
+    background: ${(props) => props.theme.colors.surfaceLight};
   }
   &:last-child {
     border-bottom: none;
@@ -76,8 +89,15 @@ const TableRow = styled.tr`
 const TableCell = styled.td`
   padding: 1rem 1.5rem;
   font-size: 0.9rem;
-  color: ${(props) => props.theme.colors?.text || "#2d3748"};
+  color: ${(props) => props.theme.colors.text};
   vertical-align: middle;
+  white-space: nowrap;
+  
+  &.hide-on-mobile {
+    @media (max-width: 768px) {
+      display: none;
+    }
+  }
 `;
 
 const ProductInfo = styled.div`
@@ -87,19 +107,17 @@ const ProductInfo = styled.div`
 `;
 
 const ProductImage = styled.div`
-  width: 50px;
-  height: 50px;
-  border-radius: ${(props) => props.theme.borderRadius?.md || "0.5rem"};
-  background: ${(props) => props.theme.colors?.surfaceLight || "#f0f0f0"};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: ${(props) => props.theme.colors?.textSecondary || "#a0aec0"};
+  width: 48px;
+  height: 48px;
+  border-radius: ${(props) => props.theme.borderRadius.md};
+  background: ${(props) => props.theme.colors.surfaceLight};
+  display: grid;
+  place-items: center;
+  color: ${(props) => props.theme.colors.textSecondary};
   font-size: 1.5rem;
   flex-shrink: 0;
   overflow: hidden;
-  border: 1px solid ${(props) => props.theme.colors?.border || '#e2e8f0'};
-
+  border: 1px solid ${(props) => props.theme.colors.border};
   img {
     width: 100%;
     height: 100%;
@@ -107,14 +125,14 @@ const ProductImage = styled.div`
   }
 `;
 
-const ProductDetails = styled.div``;
 const ProductName = styled.div`
   font-weight: 600;
-  color: ${(props) => props.theme.colors?.heading || '#1a202c'};
+  color: ${(props) => props.theme.colors.heading};
 `;
+
 const ProductSKU = styled.div`
   font-size: 0.8rem;
-  color: ${(props) => props.theme.colors?.textSecondary || '#718096'};
+  color: ${(props) => props.theme.colors.textSecondary};
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -128,15 +146,19 @@ const StatusBadge = styled.span`
   text-transform: capitalize;
 
   ${({ status, theme }) => {
-    const colors = {
+    // --- THIS IS THE CORRECTED STATUS LOGIC ---
+    const statusColors = {
       'in-stock': theme?.colors?.success || '#2f855a',
       'low-stock': theme?.colors?.warning || '#dd6b20',
       'out-of-stock': theme?.colors?.error || '#c53030',
+      'on-order': theme?.colors?.info || '#3182ce', // <-- ADDED 'on-order' STATUS
       default: theme?.colors?.textSecondary || '#718096',
     };
-    const color = colors[status] || colors.default;
+    
+    const color = statusColors[status] || statusColors.default;
+    
     return `
-      background-color: ${color}20; /* 20% opacity background */
+      background-color: ${color}20;
       color: ${color};
     `;
   }}
@@ -150,31 +172,21 @@ const StockUnit = styled.div`
   font-size: 0.8rem;
   color: ${(props) => props.theme.colors?.textSecondary || '#718096'};
 `;
-
 const UnitPrice = styled.div``;
 const TotalValue = styled.div`
   font-weight: 600;
 `;
-
 const ActionButtonGroup = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
 `;
-
 const EmptyState = styled.div`
   text-align: center;
   padding: 4rem 2rem;
   color: ${(props) => props.theme.colors?.textSecondary || "#718096"};
-  .icon {
-    font-size: 3.5rem;
-    margin-bottom: 1rem;
-    opacity: 0.5;
-  }
-  h3 {
-    color: ${(props) => props.theme.colors?.text || "#2d3748"};
-    margin-bottom: 0.5rem;
-  }
+  .icon { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.5; }
+  h3 { color: ${(props) => props.theme.colors?.text || "#2d3748"}; margin-bottom: 0.5rem; }
 `;
 
 const TableFooter = styled.div`
@@ -182,17 +194,14 @@ const TableFooter = styled.div`
   justify-content: space-between;
   align-items: center;
   padding: 1rem 1.5rem;
-  border-top: 1px solid ${(props) => props.theme.colors?.border || '#e2e8f0'};
   font-size: 0.875rem;
   color: ${(props) => props.theme.colors?.textSecondary || '#718096'};
 `;
-
 const PaginationInfo = styled.span``;
 const PaginationControls = styled.div`
   display: flex;
   gap: 0.5rem;
 `;
-
 
 const InventoryTable = ({
   data = [],
@@ -211,7 +220,6 @@ const InventoryTable = ({
       sortableItems.sort((a, b) => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
-        // Handle numeric and date sorting correctly
         if (typeof aValue === 'string') aValue = aValue.toLowerCase();
         if (typeof bValue === 'string') bValue = bValue.toLowerCase();
         
@@ -224,11 +232,10 @@ const InventoryTable = ({
   }, [data, sortConfig]);
 
   const handleSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
+    setSortConfig(current => ({
+      key,
+      direction: current.key === key && current.direction === "asc" ? "desc" : "asc"
+    }));
   };
 
   const getSortIcon = (key) => {
@@ -238,17 +245,16 @@ const InventoryTable = ({
 
   // Show a full-page spinner only on initial load
   if (loading && data.length === 0) {
-    return <div style={{ display: "flex", justifyContent: "center", padding: "4rem" }}><LoadingSpinner /></div>;
+    return <div style={{ display: "grid", placeItems: "center", padding: "4rem" }}><LoadingSpinner /></div>;
   }
 
-  // Show empty state only when not loading and data is empty
   if (!loading && (!data || data.length === 0)) {
     return (
       <TableWrapper>
         <EmptyState>
           <FaBoxes className="icon" />
           <h3>No Inventory Items Found</h3>
-          <p>Your inventory is empty or no items match your current filters.</p>
+          <p>Your inventory is empty or no items match the current filters.</p>
         </EmptyState>
       </TableWrapper>
     );
@@ -263,19 +269,18 @@ const InventoryTable = ({
           <TableHeader>
             <tr>
               <TableHeaderCell sortable sorted={sortConfig.key === "name"} onClick={() => handleSort("name")}>Product {getSortIcon("name")}</TableHeaderCell>
-              <TableHeaderCell>Category</TableHeaderCell>
+              <TableHeaderCell className="hide-on-mobile" sortable sorted={sortConfig.key === "category"} onClick={() => handleSort("category")}>Category {getSortIcon("category")}</TableHeaderCell>
               <TableHeaderCell sortable sorted={sortConfig.key === "quantity"} onClick={() => handleSort("quantity")}>Stock {getSortIcon("quantity")}</TableHeaderCell>
-              <TableHeaderCell sortable sorted={sortConfig.key === "price"} onClick={() => handleSort("price")}>Unit Price {getSortIcon("price")}</TableHeaderCell>
-              <TableHeaderCell sortable sorted={sortConfig.key === "totalValue"} onClick={() => handleSort("totalValue")}>Total Value {getSortIcon("totalValue")}</TableHeaderCell>
+              <TableHeaderCell sortable sorted={sortConfig.key === "price"} onClick={() => handleSort("price")}>Price {getSortIcon("price")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-mobile" sortable sorted={sortConfig.key === "totalValue"} onClick={() => handleSort("totalValue")}>Value {getSortIcon("totalValue")}</TableHeaderCell>
               <TableHeaderCell>Status</TableHeaderCell>
-              <TableHeaderCell sortable sorted={sortConfig.key === "updatedAt"} onClick={() => handleSort("updatedAt")}>Last Updated {getSortIcon("updatedAt")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-mobile" sortable sorted={sortConfig.key === "updatedAt"} onClick={() => handleSort("updatedAt")}>Last Updated {getSortIcon("updatedAt")}</TableHeaderCell>
               <TableHeaderCell>Actions</TableHeaderCell>
             </tr>
           </TableHeader>
           <TableBody>
             {sortedData.map((item) => (
               <TableRow key={item._id || item.id}>
-                {/* Product Info */}
                 <TableCell>
                   <ProductInfo>
                     <ProductImage>
@@ -284,39 +289,28 @@ const InventoryTable = ({
                         : <FaBoxes />
                       }
                     </ProductImage>
-                    <ProductDetails>
-                      <ProductName>{item.name || "N/A"}</ProductName>
-                      <ProductSKU><FaBarcode /> {item.sku || "N/A"}</ProductSKU>
-                    </ProductDetails>
+                    <div>
+                      <ProductName>{item.name}</ProductName>
+                      <ProductSKU><FaBarcode /> {item.sku}</ProductSKU>
+                    </div>
                   </ProductInfo>
                 </TableCell>
-                {/* Category */}
                 <TableCell>{item.category || "Uncategorized"}</TableCell>
-                {/* Stock */}
                 <TableCell>
-                  <StockInfo>
-                    <StockQuantity>{(typeof item.quantity === 'number') ? item.quantity.toLocaleString() : '0'}</StockQuantity>
-                    <StockUnit>{item.unit || "unit"}</StockUnit>
-                  </StockInfo>
+                  <div>
+                    <StockQuantity>{item.quantity?.toLocaleString() ?? '0'}</StockQuantity>
+                    <StockUnit>{item.unit}</StockUnit>
+                  </div>
                 </TableCell>
-                {/* Unit Price (Safely Formatted) */}
-                <TableCell>
-                  <UnitPrice>${(typeof item.price === 'number') ? item.price.toFixed(2) : '0.00'}</UnitPrice>
-                </TableCell>
-                {/* Total Value (Safely Formatted) */}
-                <TableCell>
-                  <TotalValue>${(typeof item.totalValue === 'number') ? item.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</TotalValue>
-                </TableCell>
-                {/* Status */}
+                <TableCell><UnitPrice>${(typeof item.price === 'number') ? item.price.toFixed(2) : '0.00'}</UnitPrice></TableCell>
+                <TableCell><TotalValue>${(typeof item.totalValue === 'number') ? item.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</TotalValue></TableCell>
                 <TableCell><StatusBadge status={item.status}>{item.status?.replace('-', ' ') || "Unknown"}</StatusBadge></TableCell>
-                {/* Last Updated (Safely Formatted) */}
                 <TableCell>{item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : 'N/A'}</TableCell>
-                {/* Actions (Icons now function via props) */}
                 <TableCell>
                   <ActionButtonGroup>
-                    <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView?.(item)}><FaEye /></Button>
-                    <Button size="sm" variant="ghost" iconOnly title="Edit Item" onClick={() => onEdit?.(item)}><FaEdit /></Button>
-                    <Button size="sm" variant="ghost" iconOnly title="Delete Item" onClick={() => onDelete?.(item._id)}><FaTrash style={{color: '#c53030'}}/></Button>
+                    <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(item)}><FaEye /></Button>
+                    <Button size="sm" variant="ghost" iconOnly title="Edit Item" onClick={() => onEdit(item)}><FaEdit /></Button>
+                    <Button size="sm" variant="ghost" iconOnly title="Delete Item" onClick={() => onDelete(item._id)}><FaTrash style={{color: '#c53030'}}/></Button>
                   </ActionButtonGroup>
                 </TableCell>
               </TableRow>
@@ -327,26 +321,10 @@ const InventoryTable = ({
 
       {/* --- PAGINATION FOOTER --- */}
       <TableFooter>
-        <PaginationInfo>
-          Page {pagination.page} of {totalPages} ({pagination.total.toLocaleString()} items)
-        </PaginationInfo>
+        <PaginationInfo>Page {pagination.page} of {totalPages} ({pagination.total.toLocaleString()} items)</PaginationInfo>
         <PaginationControls>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => onPageChange?.(pagination.page - 1)}
-            disabled={pagination.page <= 1}
-          >
-            <FaChevronLeft /> Previous
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => onPageChange?.(pagination.page + 1)}
-            disabled={pagination.page >= totalPages}
-          >
-            Next <FaChevronRight />
-          </Button>
+          <Button size="sm" variant="secondary" onClick={() => onPageChange?.(pagination.page - 1)} disabled={pagination.page <= 1}><FaChevronLeft /> Previous</Button>
+          <Button size="sm" variant="secondary" onClick={() => onPageChange?.(pagination.page + 1)} disabled={pagination.page >= totalPages}>Next <FaChevronRight /></Button>
         </PaginationControls>
       </TableFooter>
     </TableWrapper>

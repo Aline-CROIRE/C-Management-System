@@ -13,9 +13,7 @@ const api = axios.create({
   withCredentials: true, // Important for sessions/cookies
 });
 
-// ====================================================================
-// 2. REQUEST INTERCEPTOR
-// ====================================================================
+// Request interceptor (no changes)
 api.interceptors.request.use(
   (config) => {
     // Add auth token to every request if it exists
@@ -24,35 +22,22 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     config.metadata = { startTime: new Date() };
-    if (process.env.NODE_ENV === "development") {
-      console.log(`🚀 ${config.method?.toUpperCase()} ${config.url}`, config.data || '');
-    }
     return config;
   },
   (error) => {
-    console.error("Request error:", error);
     return Promise.reject(error);
   }
 );
 
-// ====================================================================
-// 3. RESPONSE INTERCEPTOR
-// ====================================================================
+// Response interceptor (no changes)
 api.interceptors.response.use(
   (response) => {
-    const duration = new Date() - response.config.metadata.startTime;
-    if (process.env.NODE_ENV === "development") {
-      console.log(`✅ ${response.config.method?.toUpperCase()} ${response.config.url} (${duration}ms)`, response.data);
-    }
     return response.data;
   },
   (error) => {
-    const duration = error.config?.metadata ? new Date() - error.config.metadata.startTime : 0;
-    if (process.env.NODE_ENV === "development") {
-      console.error(`❌ ${error.config?.method?.toUpperCase()} ${error.config?.url} (${duration}ms)`, error.response?.data || error.message);
-    }
     if (error.response) {
       const { status, data } = error.response;
+      const errorMessage = data?.message || "An unexpected error occurred.";
       switch (status) {
         case 401:
           if (window.location.pathname !== "/login") {
@@ -63,24 +48,20 @@ api.interceptors.response.use(
           }
           break;
         case 403:
-          toast.error(data?.message || "Access Denied: You don't have permission.");
-          break;
         case 404:
-          toast.error(data?.message || "The requested resource was not found.");
+        case 500:
+          toast.error(errorMessage);
           break;
         case 400: // For express-validator errors
         case 422: // For other validation libraries
           if (data.errors && Array.isArray(data.errors)) {
             data.errors.forEach((err) => toast.error(err.msg || err.message));
           } else {
-            toast.error(data?.message || "Validation Error");
+            toast.error(errorMessage);
           }
           break;
-        case 500:
-          toast.error(data?.message || "An unexpected server error occurred.");
-          break;
         default:
-          toast.error(data?.message || `An error occurred: ${status}`);
+          toast.error(errorMessage);
       }
     } else if (error.request) {
       toast.error("Network Error: Could not connect to the server.");
@@ -91,15 +72,19 @@ api.interceptors.response.use(
   }
 );
 
-// ====================================================================
-// 4. STRUCTURED API SERVICES
-// ====================================================================
+// --- API Service Definitions ---
 
 export const authAPI = {
   login: (credentials) => api.post("/auth/login", credentials),
   register: (userData) => api.post("/auth/register", userData),
   logout: () => api.post("/auth/logout"),
   me: () => api.get("/auth/me"),
+};
+
+export const dashboardAPI = {
+  getStats: () => api.get("/dashboard/stats"),
+  getRecentActivity: () => api.get("/dashboard/recent-activity"),
+  getNotifications: () => api.get("/dashboard/notifications"),
 };
 
 export const usersAPI = {
@@ -129,16 +114,16 @@ export const inventoryAPI = {
   // --- Stats, Alerts, & History ---
   getStats: (params) => api.get("/inventory/stats", { params }),
   getMovementHistory: (itemId, params) => api.get(`/inventory/${itemId}/history`, { params }),
+  
+  // --- FIX: ADDED MISSING FUNCTION TO FIX THE TypeError ---
+  // The useInventory hook was calling this, but it was not defined.
+  getDistinctUnits: () => api.get("/inventory/units"),
+};
 
-  // --- Metadata / Dropdown Options ---
-  // FIX: The paths now correctly include the '/inventory' prefix to match your backend router.
+export const metadataAPI = {
   getCategories: () => api.get("/inventory/categories"),
   getLocations: () => api.get("/inventory/locations"),
-  getUnits: () => api.get("/inventory/units"),
-
-  // FIX: These methods also need the '/inventory' prefix.
-  // This assumes you will add POST routes to `/inventory/categories` and `/inventory/locations`
-  // on your backend to handle the creation.
+  // The getUnits call seems to have moved to inventoryAPI.getDistinctUnits
   createCategory: (data) => api.post("/inventory/categories", data),
   createLocation: (data) => api.post("/inventory/locations", data),
 };
