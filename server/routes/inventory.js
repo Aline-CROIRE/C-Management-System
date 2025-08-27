@@ -123,21 +123,29 @@ router.get("/export/csv", verifyToken, async (req, res) => {
     res.setHeader("Content-Type", "text/csv");
     res.status(200).end(csv);
   } catch (error) {
-    console.error("CSV export error:", error.message);
     res.status(500).json({ success: false, message: "Failed to export inventory data." });
   }
 });
 
 router.get("/", verifyToken, async (req, res) => {
   try {
-    const { search, category, status, location, page = 1, limit = 50 } = req.query;
+    const { search, category, status, location, page = 1, limit = 10 } = req.query; // Default limit 10
     const query = {};
     if (search) query.$or = [{ name: { $regex: search, $options: "i" } }, { sku: { $regex: search, $options: "i" } }];
     if (category) query.category = category;
     if (status) query.status = status;
     if (location) query.location = location;
     const limitNum = parseInt(limit), pageNum = parseInt(page), skip = (pageNum - 1) * limitNum;
-    const items = await Inventory.find(query).sort({ updatedAt: -1 }).skip(skip).limit(limitNum);
+    
+    // Populate is used to fetch the name from the referenced document
+    const items = await Inventory.find(query)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limitNum)
+      .populate('category', 'name') // <-- This fetches the category name
+      .populate('location', 'name') // <-- This fetches the location name
+      .populate('supplier', 'name'); // <-- This fetches the supplier name
+
     const total = await Inventory.countDocuments(query);
     res.json({
       success: true,
@@ -159,7 +167,7 @@ router.get("/:id", verifyToken, async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(404).json({ success: false, message: "Item not found (invalid ID format)." });
     }
-    const item = await Inventory.findById(req.params.id);
+    const item = await Inventory.findById(req.params.id).populate('category location supplier', 'name');
     if (!item) return res.status(404).json({ success: false, message: "Item not found." });
     res.json({ success: true, data: item });
   } catch (error) {
@@ -170,7 +178,9 @@ router.get("/:id", verifyToken, async (req, res) => {
 router.post("/", verifyToken, upload.single('itemImage'), [
   body("name", "Name is required").not().isEmpty().trim(),
   body("sku", "SKU is required").not().isEmpty().trim().toUpperCase(),
-  body("category", "Category is required").not().isEmpty(),
+  body("category", "Category is required").isMongoId(), // Validate it's a valid ID
+  body("location", "Location is required").isMongoId(), // Validate it's a valid ID
+  body("supplier").optional().isMongoId(),
   body("quantity").isFloat({ min: 0 }),
   body("price").isFloat({ min: 0 }),
 ], async (req, res) => {
@@ -190,7 +200,8 @@ router.post("/", verifyToken, upload.single('itemImage'), [
       imageUrl: req.file ? `uploads/${req.file.filename}` : null,
     });
     const savedItem = await newItem.save();
-    res.status(201).json({ success: true, message: "Item created successfully!", data: savedItem });
+    const populatedItem = await Inventory.findById(savedItem._id).populate('category location supplier', 'name');
+    res.status(201).json({ success: true, message: "Item created successfully!", data: populatedItem });
   } catch (error) {
     if (req.file) fs.unlinkSync(req.file.path);
     console.error("POST /inventory Error:", error);
@@ -200,6 +211,9 @@ router.post("/", verifyToken, upload.single('itemImage'), [
 
 router.put("/:id", verifyToken, upload.single('itemImage'), [
   body("name", "Name cannot be empty").not().isEmpty().trim(),
+  body("category").optional().isMongoId(),
+  body("location").optional().isMongoId(),
+  body("supplier").optional().isMongoId(),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -221,7 +235,8 @@ router.put("/:id", verifyToken, upload.single('itemImage'), [
       }
       updateData.imageUrl = `uploads/${req.file.filename}`;
     }
-    const updatedItem = await Inventory.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true });
+    const updatedItem = await Inventory.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true })
+      .populate('category location supplier', 'name');
     res.json({ success: true, message: "Item updated successfully!", data: updatedItem });
   } catch (error) {
     if (req.file) fs.unlinkSync(req.file.path);

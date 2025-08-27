@@ -9,7 +9,7 @@ const { verifyToken } = require("../middleware/auth");
 
 const authActionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 25,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many attempts from this IP, please try again after 15 minutes." },

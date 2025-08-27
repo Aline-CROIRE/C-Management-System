@@ -17,8 +17,6 @@ const ModalOverlay = styled.div`
 
   z-index: 1001;
 
-
-
   padding: 1rem;
   backdrop-filter: blur(5px);
 `;
@@ -66,6 +64,11 @@ const ModalBody = styled.div`
 
   max-height: 70vh;
   overflow-y: auto;
+
+
+  max-height: 70vh;
+  overflow-y: auto;
+
 
 `;
 
@@ -170,7 +173,6 @@ const ViewItemModal = ({ item, onClose }) => {
                <DetailLabel>Description / Notes</DetailLabel>
 
                <DetailValue style={{ whiteSpace: 'pre-wrap' }}>{item.description}</DetailValue>
-  <DetailValue>{item.description}</DetailValue>
 
              </DetailItem>
            )}
