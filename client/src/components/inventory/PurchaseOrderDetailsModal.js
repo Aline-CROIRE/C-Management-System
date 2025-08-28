@@ -1,568 +1,226 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import styled from "styled-components"
+import React, { useState } from "react";
+import styled, { keyframes } from "styled-components";
 import {
-  FaTimes,
-  FaEdit,
-  FaPrint,
-  FaDownload,
-  FaCheck,
-  FaShippingFast,
-  FaCalendar,
-  FaUser,
-  FaFileInvoiceDollar,
-  FaBox,
-  FaClipboardList,
-} from "react-icons/fa"
-import Button from "../common/Button"
-import { purchaseOrdersAPI } from "../../services/api"
-import { useNotifications } from "../../contexts/NotificationContext"
+  FaTimes, FaEdit, FaPrint, FaCheck, FaShippingFast, FaCalendar, FaUser, FaFileInvoiceDollar,
+  FaBox, FaClipboardList, FaSpinner, FaRedo
+} from "react-icons/fa";
+import Button from "../common/Button";
+import { poAPI } from "../../services/api";
+import toast from "react-hot-toast";
+import ReceivePOModal from "./ReceivePOModal";
 
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-`
-
-const ModalContent = styled.div`
-  background: white;
-  border-radius: ${(props) => props.theme.borderRadius?.xl || "1rem"};
-  width: 100%;
-  max-width: 900px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: ${(props) => props.theme.shadows?.xl || "0 25px 50px -12px rgba(0, 0, 0, 0.25)"};
-`
-
-const ModalHeader = styled.div`
-  padding: 2rem 2rem 1rem;
-  border-bottom: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-`
-
-const HeaderInfo = styled.div`
-  flex: 1;
-`
-
-const OrderNumber = styled.h2`
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: ${(props) => props.theme.colors?.text || "#2d3748"};
-  margin: 0 0 0.5rem 0;
-`
-
-const OrderStatus = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: ${(props) => props.theme.borderRadius?.full || "9999px"};
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-
+const ModalOverlay = styled.div` position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; backdrop-filter: blur(5px); `;
+const ModalContent = styled.div` background: white; border-radius: 1rem; width: 100%; max-width: 900px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); `;
+const ModalHeader = styled.div` padding: 1.5rem 2rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: flex-start; `;
+const HeaderInfo = styled.div``;
+const OrderNumber = styled.h2` font-size: 1.5rem; font-weight: 700; color: #2d3748; margin: 0 0 0.5rem 0; `;
+const OrderStatus = styled.div` display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
   ${(props) => {
-    switch (props.status) {
-      case "draft":
-        return `
-          background: ${props.theme.colors?.textSecondary || "#718096"}20;
-          color: ${props.theme.colors?.textSecondary || "#718096"};
-        `
-      case "pending":
-        return `
-          background: ${props.theme.colors?.warning || "#ed8936"}20;
-          color: ${props.theme.colors?.warning || "#ed8936"};
-        `
-      case "approved":
-        return `
-          background: ${props.theme.colors?.primary || "#1b4332"}20;
-          color: ${props.theme.colors?.primary || "#1b4332"};
-        `
-      case "ordered":
-        return `
-          background: #667eea20;
-          color: #667eea;
-        `
-      case "received":
-        return `
-          background: ${props.theme.colors?.success || "#2d5016"}20;
-          color: ${props.theme.colors?.success || "#2d5016"};
-        `
-      case "cancelled":
-        return `
-          background: ${props.theme.colors?.error || "#c53030"}20;
-          color: ${props.theme.colors?.error || "#c53030"};
-        `
-      default:
-        return `
-          background: ${props.theme.colors?.textSecondary || "#718096"}20;
-          color: ${props.theme.colors?.textSecondary || "#718096"};
-        `
+    switch (props.status?.toLowerCase()) {
+      case "pending": return `background: #fefcbf; color: #d69e2e;`;
+      case "ordered": return `background: #ebf4ff; color: #3182ce;`;
+      case "shipped": return `background: #e6fffa; color: #319795;`;
+      case "completed": return `background: #c6f6d5; color: #2f855a;`;
+      case "cancelled": return `background: #fed7d7; color: #c53030;`;
+      default: return `background: #e2e8f0; color: #718096;`;
     }
   }}
-`
-
-const HeaderActions = styled.div`
-  display: flex;
-  gap: 0.5rem;
-  align-items: flex-start;
-`
-
-const CloseButton = styled.button`
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: ${(props) => props.theme.colors?.textSecondary || "#718096"};
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: ${(props) => props.theme.borderRadius?.md || "0.5rem"};
-  transition: all 0.3s ease;
-
-  &:hover {
-    background: ${(props) => props.theme.colors?.surfaceLight || "#f7fafc"};
-    color: ${(props) => props.theme.colors?.text || "#2d3748"};
-  }
-`
-
-const ModalBody = styled.div`
-  padding: 2rem;
-`
-
-const InfoGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 2rem;
-  margin-bottom: 2rem;
-`
-
-const InfoCard = styled.div`
-  background: ${(props) => props.theme.colors?.surfaceLight || "#f7fafc"};
-  border-radius: ${(props) => props.theme.borderRadius?.lg || "0.75rem"};
-  padding: 1.5rem;
-  border: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
-`
-
-const InfoTitle = styled.h3`
-  font-size: 1rem;
-  font-weight: 600;
-  color: ${(props) => props.theme.colors?.text || "#2d3748"};
-  margin: 0 0 1rem 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-`
-
-const InfoItem = styled.div`
-  margin-bottom: 0.75rem;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-`
-
-const InfoLabel = styled.div`
-  font-size: 0.875rem;
-  color: ${(props) => props.theme.colors?.textSecondary || "#718096"};
-  margin-bottom: 0.25rem;
-`
-
-const InfoValue = styled.div`
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: ${(props) => props.theme.colors?.text || "#2d3748"};
-`
-
-const ItemsSection = styled.div`
-  margin-bottom: 2rem;
-`
-
-const SectionTitle = styled.h3`
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: ${(props) => props.theme.colors?.text || "#2d3748"};
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-`
-
-const ItemsTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  border-radius: ${(props) => props.theme.borderRadius?.lg || "0.75rem"};
-  overflow: hidden;
-  border: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
-`
-
-const TableHeader = styled.thead`
-  background: ${(props) => props.theme.colors?.surfaceLight || "#f7fafc"};
-`
-
-const TableHeaderCell = styled.th`
-  padding: 1rem;
-  text-align: left;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: ${(props) => props.theme.colors?.text || "#2d3748"};
-  border-bottom: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
-`
-
-const TableBody = styled.tbody``
-
-const TableRow = styled.tr`
-  border-bottom: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
-
-  &:last-child {
-    border-bottom: none;
-  }
-`
-
-const TableCell = styled.td`
-  padding: 1rem;
-  font-size: 0.875rem;
-  color: ${(props) => props.theme.colors?.text || "#2d3748"};
-`
-
-const TotalSection = styled.div`
-  background: ${(props) => props.theme.colors?.surfaceLight || "#f7fafc"};
-  border-radius: ${(props) => props.theme.borderRadius?.lg || "0.75rem"};
-  padding: 1.5rem;
-  border: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
-  margin-bottom: 2rem;
-`
-
-const TotalRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-
-  &:last-child {
-    margin-bottom: 0;
-    font-size: 1.125rem;
-    font-weight: 700;
-    padding-top: 0.5rem;
-    border-top: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
-  }
-`
-
-const ActionButtons = styled.div`
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  padding-top: 1rem;
-  border-top: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
-`
+`;
+const HeaderActions = styled.div` display: flex; gap: 0.5rem; align-items: flex-start; `;
+const ModalBody = styled.div` padding: 2rem; overflow-y: auto; `;
+const InfoGrid = styled.div` display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; `;
+const InfoCard = styled.div` background: #f7fafc; border-radius: 0.75rem; padding: 1.5rem; border: 1px solid #e2e8f0; `;
+const InfoTitle = styled.h3` font-size: 1rem; font-weight: 600; color: #2d3748; margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.75rem; `;
+const InfoItem = styled.div` &:not(:last-child) { margin-bottom: 0.75rem; } `;
+const InfoLabel = styled.div` font-size: 0.8rem; color: #718096; margin-bottom: 0.25rem; text-transform: uppercase; `;
+const InfoValue = styled.div` font-size: 0.9rem; font-weight: 500; color: #2d3748; `;
+const ItemsSection = styled.div` margin-bottom: 2rem; `;
+const SectionTitle = styled.h3` font-size: 1.25rem; font-weight: 700; color: #2d3748; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 0.75rem; `;
+const ItemsTable = styled.table` width: 100%; border-collapse: collapse; `;
+const TableHeader = styled.thead` background: #f7fafc; `;
+const TableCell = styled.td` padding: 1rem; font-size: 0.875rem; color: #2d3748; border-bottom: 1px solid #e2e8f0; `;
+const TotalSection = styled.div` display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; @media(max-width: 768px) { grid-template-columns: 1fr; } `;
+const TotalBreakdown = styled.div` background: #f7fafc; border-radius: 0.75rem; padding: 1.5rem; border: 1px solid #e2e8f0; margin-top: auto;`;
+const TotalRow = styled.div` display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; &:not(:last-child) { margin-bottom: 0.75rem; } strong { font-weight: 600; color: #718096; } span { font-weight: 500; color: #2d3748; } &.grand-total { font-size: 1.25rem; font-weight: 700; padding-top: 1rem; border-top: 2px solid #e2e8f0; strong, span { color: #1a202c; } } `;
+const ActionButtons = styled.div` display: flex; gap: 1rem; flex-wrap: wrap; justify-content: flex-end; padding: 1.5rem 2rem; border-top: 1px solid #e2e8f0; background: #f7fafc; `;
+const Spin = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
+const Spinner = styled(FaSpinner)` animation: ${Spin} 1s linear infinite; `;
 
 const PurchaseOrderDetailsModal = ({ order, onClose, onUpdate }) => {
-  const [loading, setLoading] = useState(false)
-  const { addNotification } = useNotifications()
+  const [loading, setLoading] = useState(false);
+  const [printLoading, setPrintLoading] = useState(false);
+  const [isReceiving, setIsReceiving] = useState(false);
 
-  const handleApprove = async () => {
+  const handleUpdateStatus = async (newStatus, receivedItemsData = null) => {
+    const confirmText = newStatus === 'Cancelled'
+      ? "This will cancel the order and revert item statuses. Continue?"
+      : `Are you sure you want to mark this order as "${newStatus}"?`;
+      
+    if (newStatus !== 'Completed' && !window.confirm(confirmText)) return;
+
+    setLoading(true);
     try {
-      setLoading(true)
-      await purchaseOrdersAPI.approve(order.id)
-
-      addNotification({
-        type: "success",
-        title: "Order Approved",
-        message: `Purchase order ${order.orderNumber} has been approved`,
-      })
-
-      onUpdate()
-      onClose()
+      await poAPI.updateStatus(order._id, newStatus, receivedItemsData);
+      toast.success(`Order status updated to ${newStatus}!`);
+      if (onUpdate) onUpdate();
+      onClose();
     } catch (error) {
-      addNotification({
-        type: "error",
-        title: "Error Approving Order",
-        message: error.message,
-      })
+      toast.error(error.message || `Failed to update status.`);
     } finally {
-      setLoading(false)
+      setLoading(false);
+      setIsReceiving(false);
     }
-  }
-
-  const handleReceive = async () => {
-    try {
-      setLoading(true)
-      // In a real app, this would open a receive items modal
-      await purchaseOrdersAPI.receive(order.id, order.items)
-
-      addNotification({
-        type: "success",
-        title: "Order Received",
-        message: `Purchase order ${order.orderNumber} has been marked as received`,
-      })
-
-      onUpdate()
-      onClose()
-    } catch (error) {
-      addNotification({
-        type: "error",
-        title: "Error Receiving Order",
-        message: error.message,
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+  };
 
   const handlePrint = async () => {
+    setPrintLoading(true);
+    toast.loading('Generating PDF...');
     try {
-      const response = await purchaseOrdersAPI.generatePDF(order.id)
-
-      if (response.downloadUrl) {
-        const link = document.createElement("a")
-        link.href = response.downloadUrl
-        link.download = `PO-${order.orderNumber}.pdf`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-      }
-
-      addNotification({
-        type: "success",
-        title: "PDF Generated",
-        message: "Purchase order PDF has been downloaded",
-      })
+        const response = await poAPI.generatePDF(order._id);
+        const url = window.URL.createObjectURL(response.data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `PO-${order.orderNumber}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        toast.dismiss();
+        toast.success('PDF Downloaded!');
     } catch (error) {
-      addNotification({
-        type: "error",
-        title: "Error Generating PDF",
-        message: error.message,
-      })
+        toast.dismiss();
+        toast.error(error.message || 'Failed to generate PDF.');
+    } finally {
+        setPrintLoading(false);
     }
-  }
+  };
+  
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  };
 
   const getStatusIcon = (status) => {
-    switch (status) {
-      case "draft":
-        return <FaEdit />
-      case "pending":
-        return <FaCalendar />
-      case "approved":
-        return <FaCheck />
-      case "ordered":
-        return <FaShippingFast />
-      case "received":
-        return <FaBox />
-      case "cancelled":
-        return <FaTimes />
-      default:
-        return <FaFileInvoiceDollar />
+    switch (status?.toLowerCase()) {
+      case "pending": return <FaCalendar />;
+      case "ordered": return <FaShippingFast />;
+      case "shipped": return <FaShippingFast />;
+      case "completed": return <FaCheck />;
+      case "cancelled": return <FaTimes />;
+      default: return <FaFileInvoiceDollar />;
     }
-  }
+  };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
-  }
-
+  if (!order) return null;
+  
   return (
-    <ModalOverlay onClick={onClose}>
-      <ModalContent onClick={(e) => e.stopPropagation()}>
-        <ModalHeader>
-          <HeaderInfo>
-            <OrderNumber>{order.orderNumber}</OrderNumber>
-            <OrderStatus status={order.status}>
-              {getStatusIcon(order.status)}
-              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-            </OrderStatus>
-          </HeaderInfo>
-          <HeaderActions>
-            <CloseButton onClick={onClose}>
-              <FaTimes />
-            </CloseButton>
-          </HeaderActions>
-        </ModalHeader>
+    <>
+      <ModalOverlay onClick={onClose}>
+        <ModalContent onClick={(e) => e.stopPropagation()}>
+          <ModalHeader>
+            <HeaderInfo>
+              <OrderNumber>{order.orderNumber}</OrderNumber>
+              <OrderStatus status={order.status}>{getStatusIcon(order.status)} {order.status}</OrderStatus>
+            </HeaderInfo>
+            <HeaderActions>
+              <Button variant="ghost" iconOnly onClick={onClose}><FaTimes size={20}/></Button>
+            </HeaderActions>
+          </ModalHeader>
 
-        <ModalBody>
-          {/* Order Information */}
-          <InfoGrid>
-            <InfoCard>
-              <InfoTitle>
-                <FaUser /> Supplier Information
-              </InfoTitle>
-              <InfoItem>
-                <InfoLabel>Supplier Name</InfoLabel>
-                <InfoValue>{order.supplier}</InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>Contact Person</InfoLabel>
-                <InfoValue>{order.contactPerson || "N/A"}</InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>Email</InfoLabel>
-                <InfoValue>{order.supplierEmail || "N/A"}</InfoValue>
-              </InfoItem>
-            </InfoCard>
-
-            <InfoCard>
-              <InfoTitle>
-                <FaCalendar /> Order Dates
-              </InfoTitle>
-              <InfoItem>
-                <InfoLabel>Order Date</InfoLabel>
-                <InfoValue>{formatDate(order.orderDate)}</InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>Expected Delivery</InfoLabel>
-                <InfoValue>{order.expectedDate ? formatDate(order.expectedDate) : "Not specified"}</InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>Last Updated</InfoLabel>
-                <InfoValue>{formatDate(order.lastUpdated || order.orderDate)}</InfoValue>
-              </InfoItem>
-            </InfoCard>
-
-            <InfoCard>
-              <InfoTitle>
-                <FaFileInvoiceDollar /> Order Summary
-              </InfoTitle>
-              <InfoItem>
-                <InfoLabel>Total Items</InfoLabel>
-                <InfoValue>{order.items?.length || order.itemCount || 0}</InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>Subtotal</InfoLabel>
-                <InfoValue>${order.subtotal?.toLocaleString() || "0.00"}</InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>Total Amount</InfoLabel>
-                <InfoValue>${order.totalAmount?.toLocaleString() || "0.00"}</InfoValue>
-              </InfoItem>
-            </InfoCard>
-          </InfoGrid>
-
-          {/* Order Items */}
-          <ItemsSection>
-            <SectionTitle>
-              <FaClipboardList /> Order Items
-            </SectionTitle>
-
-            {order.items && order.items.length > 0 ? (
+          <ModalBody>
+            <InfoGrid>
+              <InfoCard>
+                <InfoTitle><FaUser /> Supplier Information</InfoTitle>
+                <InfoItem><InfoLabel>Supplier Name</InfoLabel><InfoValue>{order.supplier?.name || "N/A"}</InfoValue></InfoItem>
+                <InfoItem><InfoLabel>Email</InfoLabel><InfoValue>{order.supplier?.email || "N/A"}</InfoValue></InfoItem>
+              </InfoCard>
+              <InfoCard>
+                <InfoTitle><FaCalendar /> Order Dates</InfoTitle>
+                <InfoItem><InfoLabel>Order Date</InfoLabel><InfoValue>{formatDate(order.orderDate)}</InfoValue></InfoItem>
+                <InfoItem><InfoLabel>Expected Delivery</InfoLabel><InfoValue>{formatDate(order.expectedDate)}</InfoValue></InfoItem>
+              </InfoCard>
+              <InfoCard>
+                <InfoTitle><FaFileInvoiceDollar /> Financials</InfoTitle>
+                <InfoItem><InfoLabel>Payment Terms</InfoLabel><InfoValue>{order.paymentTerms || "N/A"}</InfoValue></InfoItem>
+                <InfoItem><InfoLabel>Total Amount</InfoLabel><InfoValue>Rwf {order.totalAmount?.toLocaleString() || "0.00"}</InfoValue></InfoItem>
+              </InfoCard>
+            </InfoGrid>
+            <ItemsSection>
+              <SectionTitle><FaClipboardList /> Order Items ({order.items?.length || 0})</SectionTitle>
               <ItemsTable>
                 <TableHeader>
                   <tr>
-                    <TableHeaderCell>Item</TableHeaderCell>
-                    <TableHeaderCell>SKU</TableHeaderCell>
-                    <TableHeaderCell>Quantity</TableHeaderCell>
-                    <TableHeaderCell>Unit Price</TableHeaderCell>
-                    <TableHeaderCell>Total</TableHeaderCell>
+                    <TableCell as="th">Item</TableCell>
+                    <TableCell as="th" style={{textAlign: 'right'}}>Qty</TableCell>
+                    <TableCell as="th" style={{textAlign: 'right'}}>Unit Price</TableCell>
+                    <TableCell as="th" style={{textAlign: 'right'}}>Total</TableCell>
                   </tr>
                 </TableHeader>
-                <TableBody>
-                  {order.items.map((item, index) => (
-                    <TableRow key={index}>
+                <tbody>
+                  {order.items?.map((item, index) => (
+                    <tr key={item._id || index}>
                       <TableCell>
-                        <div style={{ fontWeight: "600" }}>{item.name}</div>
+                        <div style={{ fontWeight: "600" }}>{item.item?.name || 'N/A'}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#718096' }}>SKU: {item.item?.sku || 'N/A'}</div>
                       </TableCell>
-                      <TableCell>{item.sku}</TableCell>
-                      <TableCell>{item.quantity}</TableCell>
-                      <TableCell>${item.unitPrice?.toFixed(2) || "0.00"}</TableCell>
-                      <TableCell>
-                        <div style={{ fontWeight: "600" }}>
-                          ${item.total?.toFixed(2) || (item.quantity * item.unitPrice).toFixed(2)}
-                        </div>
+                      <TableCell style={{textAlign: 'right'}}>{item.quantity}</TableCell>
+                      <TableCell style={{textAlign: 'right'}}>Rwf {item.unitPrice?.toLocaleString()}</TableCell>
+                      <TableCell style={{textAlign: 'right', fontWeight: '600'}}>
+                        Rwf {(item.quantity * item.unitPrice).toLocaleString()}
                       </TableCell>
-                    </TableRow>
+                    </tr>
                   ))}
-                </TableBody>
+                </tbody>
               </ItemsTable>
-            ) : (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "2rem",
-                  color: "#718096",
-                  background: "#f7fafc",
-                  borderRadius: "0.75rem",
-                  border: "1px solid #e2e8f0",
-                }}
-              >
-                No items found for this order
-              </div>
+            </ItemsSection>
+            <TotalSection>
+              <div/>
+              <TotalBreakdown>
+                <TotalRow><strong>Subtotal:</strong> <span>Rwf {order.subtotal?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></TotalRow>
+                <TotalRow><strong>Tax:</strong> <span>Rwf {order.taxAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></TotalRow>
+                <TotalRow><strong>Shipping:</strong> <span>Rwf {order.shippingCost?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></TotalRow>
+                <TotalRow className="grand-total"><strong>Grand Total:</strong> <span>Rwf {order.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></TotalRow>
+              </TotalBreakdown>
+            </TotalSection>
+            {order.notes && (
+              <InfoCard>
+                <InfoTitle>Notes</InfoTitle>
+                <InfoValue style={{ whiteSpace: "pre-wrap" }}>{order.notes}</InfoValue>
+              </InfoCard>
             )}
-          </ItemsSection>
-
-          {/* Order Total */}
-          <TotalSection>
-            <TotalRow>
-              <span>Subtotal:</span>
-              <span>${order.subtotal?.toFixed(2) || "0.00"}</span>
-            </TotalRow>
-            <TotalRow>
-              <span>Tax:</span>
-              <span>${order.tax?.toFixed(2) || "0.00"}</span>
-            </TotalRow>
-            <TotalRow>
-              <span>Shipping:</span>
-              <span>${order.shipping?.toFixed(2) || "0.00"}</span>
-            </TotalRow>
-            <TotalRow>
-              <span>Total:</span>
-              <span>${order.totalAmount?.toFixed(2) || "0.00"}</span>
-            </TotalRow>
-          </TotalSection>
-
-          {/* Notes */}
-          {order.notes && (
-            <InfoCard style={{ marginBottom: "2rem" }}>
-              <InfoTitle>Notes</InfoTitle>
-              <InfoValue style={{ whiteSpace: "pre-wrap" }}>{order.notes}</InfoValue>
-            </InfoCard>
-          )}
-
-          {/* Action Buttons */}
+          </ModalBody>
           <ActionButtons>
-            <Button variant="outline" onClick={handlePrint}>
-              <FaPrint /> Print PDF
-            </Button>
-
-            <Button variant="outline">
-              <FaDownload /> Export
-            </Button>
-
-            {order.status === "pending" && (
-              <Button variant="primary" onClick={handleApprove} disabled={loading}>
-                <FaCheck /> Approve Order
+            <Button variant="outline" onClick={handlePrint} disabled={printLoading}>{printLoading ? <Spinner/> : <FaPrint />} Print PDF</Button>
+            <Button variant="secondary" disabled={loading}><FaRedo /> Re-order</Button>
+            {order.status === "Pending" && (
+              <Button variant="primary" onClick={() => handleUpdateStatus("Ordered")} disabled={loading}>{loading ? <Spinner/> : <FaShippingFast />} Mark as Ordered</Button>
+            )}
+            {["Ordered", "Shipped"].includes(order.status) && (
+              <Button variant="success" onClick={() => setIsReceiving(true)} disabled={loading}>
+                {loading ? <Spinner/> : <FaCheck />} Receive Items
               </Button>
             )}
-
-            {order.status === "approved" && (
-              <Button variant="success" onClick={handleReceive} disabled={loading}>
-                <FaBox /> Mark as Received
-              </Button>
+            {!["Completed", "Cancelled"].includes(order.status) && (
+              <>
+                <Button variant="outline" disabled={loading}><FaEdit /> Edit Order</Button>
+                <Button variant="danger" onClick={() => handleUpdateStatus("Cancelled")} disabled={loading}>{loading ? <Spinner/> : <FaTimes />} Cancel Order</Button>
+              </>
             )}
-
-            <Button variant="outline">
-              <FaEdit /> Edit Order
-            </Button>
           </ActionButtons>
-        </ModalBody>
-      </ModalContent>
-    </ModalOverlay>
-  )
-}
+        </ModalContent>
+      </ModalOverlay>
+      {isReceiving && (
+        <ReceivePOModal
+          order={order}
+          onClose={() => setIsReceiving(false)}
+          onConfirm={(receivedItemsData) => handleUpdateStatus("Completed", receivedItemsData)}
+          loading={loading}
+        />
+      )}
+    </>
+  );
+};
 
-export default PurchaseOrderDetailsModal
+export default PurchaseOrderDetailsModal;
