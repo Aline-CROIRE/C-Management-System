@@ -44,9 +44,9 @@ export const usePurchaseOrders = (filters) => {
     }
   }, [fetchPOs]);
 
-  const updatePOStatus = useCallback(async (poId, status) => {
+  const updatePOStatus = useCallback(async (poId, status, receivedItemsData = null) => {
     try {
-      const response = await poAPI.updateStatus(poId, status);
+      const response = await poAPI.updateStatus(poId, status, receivedItemsData);
       if (response.success) {
         await fetchPOs();
         return true;

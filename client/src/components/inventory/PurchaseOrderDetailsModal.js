@@ -79,7 +79,7 @@ const PurchaseOrderDetailsModal = ({ order, onClose, onUpdate }) => {
     toast.loading('Generating PDF...');
     try {
         const response = await poAPI.generatePDF(order._id);
-        const url = window.URL.createObjectURL(response.data);
+        const url = window.URL.createObjectURL(response);
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', `PO-${order.orderNumber}.pdf`);
@@ -198,9 +198,7 @@ const PurchaseOrderDetailsModal = ({ order, onClose, onUpdate }) => {
               <Button variant="primary" onClick={() => handleUpdateStatus("Ordered")} disabled={loading}>{loading ? <Spinner/> : <FaShippingFast />} Mark as Ordered</Button>
             )}
             {["Ordered", "Shipped"].includes(order.status) && (
-              <Button variant="success" onClick={() => setIsReceiving(true)} disabled={loading}>
-                {loading ? <Spinner/> : <FaCheck />} Receive Items
-              </Button>
+              <Button variant="success" onClick={() => setIsReceiving(true)} disabled={loading}>{loading ? <Spinner/> : <FaCheck />} Receive Items</Button>
             )}
             {!["Completed", "Cancelled"].includes(order.status) && (
               <>
