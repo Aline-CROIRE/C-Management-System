@@ -113,8 +113,8 @@ export const inventoryAPI = {
   update: (id, itemData) => api.put(`/inventory/${id}`, itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => api.delete(`/inventory/${id}`),
   getStats: (params) => api.get("/inventory/stats", { params }),
-  getDistinctUnits: () => api.get("/inventory/units"),
   exportInventory: (format, filters) => api.get(`/inventory/export/${format}`, { params: filters, responseType: 'blob' }),
+  getDistinctUnits: () => api.get("/inventory/units"),
 };
 
 
@@ -122,6 +122,12 @@ export const inventoryAPI = {
 };
 
 export const metadataAPI = {
+
+  getCategories: () => api.get("/metadata/categories"),
+  getLocations: () => api.get("/metadata/locations"),
+  createCategory: (data) => api.post("/metadata/categories", data),
+  createLocation: (data) => api.post("/metadata/locations", data),
+
   getCategories: () => api.get("/inventory/categories"),
   getLocations: () => api.get("/inventory/locations"),
 
@@ -133,6 +139,7 @@ export const metadataAPI = {
 
   createCategory: (data) => api.post("/inventory/categories", data),
   createLocation: (data) => api.post("/inventory/locations", data),
+
 };
 
 export const supplierAPI = {
@@ -149,6 +156,7 @@ export const poAPI = {
   create: (poData) => api.post("/purchase-orders", poData),
   update: (id, poData) => api.put(`/purchase-orders/${id}`, poData),
   delete: (id) => api.delete(`/purchase-orders/${id}`),
+  
   updateStatus: (id, status, receivedItems = null) => {
     const payload = { status };
     if (receivedItems) {
@@ -156,6 +164,7 @@ export const poAPI = {
     }
     return api.patch(`/purchase-orders/${id}/status`, payload);
   },
+  
   generatePDF: (id) => api.get(`/purchase-orders/${id}/pdf`, {
     responseType: 'blob',
   }),

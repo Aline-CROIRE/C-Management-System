@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { FaCheck, FaTimes } from 'react-icons/fa';
+import { FaBoxes, FaCheck, FaTimes } from 'react-icons/fa';
 import Button from '../common/Button';
 import Input from '../common/Input';
 
