@@ -2,7 +2,7 @@ const express = require("express")
 const router = express.Router()
 const { verifyToken } = require("../middleware/auth")
 
-// Get user notifications
+// Get all notifications
 router.get("/", verifyToken, async (req, res) => {
   try {
     // Mock notifications for now

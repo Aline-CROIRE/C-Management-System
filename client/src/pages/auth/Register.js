@@ -201,6 +201,7 @@ const modules = [
 const Register = () => {
   const { signup } = useAuth()
   const navigate = useNavigate()
+
   const [selectedModules, setSelectedModules] = useState([])
   const [loading, setLoading] = useState(false)
   const { register, handleSubmit, formState: { errors }, watch } = useForm()
@@ -211,6 +212,8 @@ const Register = () => {
   }
 
   const onSubmit = async (data) => {
+    console.log("Form submission initiated. Data:", data)
+    
     if (selectedModules.length === 0) {
       toast.error("Please select at least one module.")
       return
@@ -218,11 +221,25 @@ const Register = () => {
 
     setLoading(true)
     try {
+
       await signup({ ...data, modules: selectedModules })
       toast.success("Registration successful! Welcome.")
       navigate("/dashboard")
     } catch (error) {
       console.error("An error occurred during signup:", error.message)
+
+      const result = await signup({ ...data, modules: selectedModules })
+      console.log("API Response received:", result)
+
+      if (result && result.user) {
+        toast.success("Registration successful! Welcome.")
+      } else {
+        toast.error(result.message || "Registration failed. Please check your details and try again.")
+      }
+    } catch (error) {
+      console.error("An error occurred during signup:", error)
+      toast.error(error.message || "A server or network error occurred. Please try again later.")
+
     } finally {
       setLoading(false)
     }

@@ -10,12 +10,16 @@ const api = axios.create({
   withCredentials: true,
 });
 
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    config.metadata = { startTime: new Date() };
+
     return config;
   },
   (error) => {
@@ -25,6 +29,7 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
+
     if (response.request.responseType === 'blob') {
       return response.data;
     }
@@ -37,12 +42,48 @@ api.interceptors.response.use(
         localStorage.clear();
         sessionStorage.clear();
         window.location.href = "/login";
+-
+    return response.data;
+  },
+  (error) => {
+    if (error.response) {
+      const { status, data } = error.response;
+      const errorMessage = data?.message || "An unexpected error occurred.";
+      switch (status) {
+        case 401:
+          if (window.location.pathname !== "/login") {
+            toast.error("Session expired. Please log in again.");
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = "/login";
+          }
+          break;
+        case 403:
+        case 404:
+        case 500:
+          toast.error(errorMessage);
+          break;
+        case 400:
+        case 422:
+          if (data.errors && Array.isArray(data.errors)) {
+            data.errors.forEach((err) => toast.error(err.msg || err.message));
+          } else {
+            toast.error(errorMessage);
+          }
+          break;
+        default:
+          toast.error(errorMessage);
+      }
+    } else if (error.request) {
+      toast.error("Network Error: Could not connect to the server.");
+      
     } else {
         toast.error(errorMessage);
     }
     return Promise.reject(new Error(errorMessage));
   }
 );
+
 
 export const authAPI = {
   login: (credentials) => api.post("/auth/login", credentials),
@@ -76,9 +117,20 @@ export const inventoryAPI = {
   exportInventory: (format, filters) => api.get(`/inventory/export/${format}`, { params: filters, responseType: 'blob' }),
 };
 
+
+  getDistinctUnits: () => api.get("/inventory/units"),
+};
+
 export const metadataAPI = {
   getCategories: () => api.get("/inventory/categories"),
   getLocations: () => api.get("/inventory/locations"),
+
+
+  getCategories: () => api.get("/inventory/categories"),
+  getLocations: () => api.get("/inventory/locations"),
+  getUnits: () => api.get("/inventory/units"),
+
+
   createCategory: (data) => api.post("/inventory/categories", data),
   createLocation: (data) => api.post("/inventory/locations", data),
 };
