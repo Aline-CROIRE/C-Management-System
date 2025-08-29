@@ -51,6 +51,57 @@ export const AuthProvider = ({ children }) => {
     sessionStorage.removeItem("token")
     window.location.href = '/login'
   }
+  
+  // --- THE CORRECTED LOGIN FUNCTION ---
+  const login = async (credentials, remember = false) => {
+    // Step 1: Authenticate and get the token from the login response.
+    const loginResponse = await authAPI.login(credentials);
+
+    if (loginResponse && loginResponse.token) {
+      // Step 2: Immediately save the new token so the next API call is authenticated.
+      const newToken = loginResponse.token;
+      const storage = remember ? localStorage : sessionStorage;
+      storage.setItem("token", newToken);
+      setToken(newToken);
+
+      try {
+        // Step 3: Fetch the complete and authoritative user profile from the '/auth/me' endpoint.
+        const profileResponse = await authAPI.me();
+        if (profileResponse && profileResponse.user) {
+          // Step 4: Set the user state with the complete data.
+          setUser(profileResponse.user);
+        } else {
+          throw new Error("Login successful, but failed to fetch user profile.");
+        }
+      } catch (error) {
+        logout(); // If fetching profile fails, clear state
+        throw error;
+      }
+    }
+    return loginResponse;
+  }
+
+  const signup = async (registrationData) => {
+    const registerResponse = await authAPI.signup(registrationData)
+    if (registerResponse && registerResponse.token) {
+      const newToken = registerResponse.token
+      localStorage.setItem("token", newToken)
+      setToken(newToken)
+      try {
+        const profileResponse = await authAPI.me()
+        if (profileResponse && profileResponse.user) {
+          setUser(profileResponse.user)
+        } else {
+          throw new Error("Failed to fetch user profile after registration.")
+        }
+      } catch (error) {
+        logout()
+        throw error
+      }
+    }
+    return registerResponse
+  }
+
 
   const login = async (credentials, remember = false) => {
     const loginResponse = await authAPI.login(credentials);
@@ -95,6 +146,7 @@ export const AuthProvider = ({ children }) => {
     return registerResponse
   }
 
+
   const isAdmin = useCallback(() => user?.role === "admin", [user])
 
   const hasModuleAccess = useCallback((requiredModule) => {
@@ -109,15 +161,16 @@ export const AuthProvider = ({ children }) => {
     return userPermissions?.includes(action)
   }, [user, isAdmin])
 
-  // --- THE CRITICAL PART ---
-  // Ensure 'signup' is included in this value object.
+
   const value = {
     user,
     token,
     loading,
     login,
     logout,
-    signup, // This is the line that was likely missing or incorrect
+
+    signup,
+
     isAuthenticated: !!token && !!user,
     isAdmin,
     hasModuleAccess,
