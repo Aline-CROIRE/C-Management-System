@@ -6,7 +6,6 @@ const PDFDocument = require('pdfkit');
 
 const PurchaseOrder = require('../models/PurchaseOrder');
 const Inventory = require('../models/Inventory');
-const Supplier = require('../models/Supplier');
 const { verifyToken } = require('../middleware/auth');
 
 router.get("/", verifyToken, async (req, res) => {
@@ -21,7 +20,7 @@ router.get("/", verifyToken, async (req, res) => {
             .populate('supplier', 'name email phone')
             .populate({
                 path: 'items.item',
-                select: 'name sku',
+                select: 'name sku price', // Ensure price is populated for the receive modal
                 model: 'Inventory'
             })
             .sort({ [sort]: sortOrder })
@@ -46,15 +45,14 @@ router.get("/", verifyToken, async (req, res) => {
         });
 
     } catch (err) {
-        console.error("Error fetching purchase orders:", err);
-        res.status(500).json({ success: false, message: "Server Error: Could not fetch purchase orders.", error: err.message });
+        res.status(500).json({ success: false, message: "Server Error: Could not fetch purchase orders." });
     }
 });
 
 router.post("/", verifyToken, [
-    body('supplier', 'Supplier is required').isMongoId(),
-    body('items', 'Items must be an array').isArray(),
-    body('newItems', 'New items must be an array').optional().isArray(),
+    body('supplier').isMongoId(),
+    body('items').isArray(),
+    body('newItems').optional().isArray(),
 ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -62,7 +60,6 @@ router.post("/", verifyToken, [
     }
 
     const session = await mongoose.startSession();
-    
     try {
         await session.startTransaction();
 
@@ -79,7 +76,7 @@ router.post("/", verifyToken, [
                     unit: 'pcs',
                     quantity: 0,
                     status: 'on-order',
-                    location: '60d5ecb4b39b2a1b2c8d5e8a',
+                    location: '60d5ecb4b39b2a1b2c8d5e8a', // Replace with a real default Location ID
                     minStockLevel: 10,
                 });
                 const savedItem = await newInventoryItem.save({ session });
@@ -93,7 +90,6 @@ router.post("/", verifyToken, [
         }
         
         const orderNumber = await PurchaseOrder.generateOrderNumber();
-
         const newPurchaseOrder = new PurchaseOrder({
             ...poData,
             orderNumber,
@@ -120,7 +116,6 @@ router.post("/", verifyToken, [
 
     } catch (err) {
         await session.abortTransaction();
-        console.error("--- PO CREATION FAILED ---", err);
         res.status(500).json({ success: false, message: err.message || "Server error creating Purchase Order." });
     } finally {
         session.endSession();
@@ -167,8 +162,7 @@ router.patch("/:id/status", verifyToken, [
             for (const poItem of po.items) {
                 const inventoryItem = await Inventory.findById(poItem.item).session(session);
                 if (inventoryItem && inventoryItem.status === 'on-order') {
-                    const newStatus = inventoryItem.quantity > 0 ? 'in-stock' : 'out-of-stock';
-                    inventoryItem.status = newStatus;
+                    inventoryItem.status = inventoryItem.quantity > 0 ? 'in-stock' : 'out-of-stock';
                     await inventoryItem.save({ session });
                 }
             }
@@ -260,7 +254,6 @@ router.get("/:id/pdf", verifyToken, async (req, res) => {
         doc.end();
 
     } catch (err) {
-        console.error("PDF Generation Error:", err);
         res.status(500).json({ success: false, message: "Server error generating PDF." });
     }
 });

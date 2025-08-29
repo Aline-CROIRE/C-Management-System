@@ -8,7 +8,6 @@ import Button from "../common/Button";
 import Input from "../common/Input";
 import Select from "../common/Select";
 
-// --- Styled Components ---
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 const slideIn = keyframes`from { transform: translateY(-30px); opacity: 0; } to { transform: translateY(0); opacity: 1; }`;
 const ModalOverlay = styled.div` position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 1001; padding: 1rem; backdrop-filter: blur(5px); animation: ${fadeIn} 0.3s;`;
@@ -26,13 +25,13 @@ const GrandTotalLabel = styled.span` color: ${(props) => props.theme.colors.text
 const GrandTotalAmount = styled.span` font-size: 1.5rem; font-weight: 700; color: ${(props) => props.theme.colors.primary}; `;
 const Section = styled.section` padding: 1.5rem; border: 1px solid ${(props) => props.theme.colors.border}; border-radius: ${(props) => props.theme.borderRadius.lg}; `;
 const ItemListContainer = styled.div` max-height: 350px; overflow-y: auto; `;
-const TotalsGrid = styled.div` display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-top: 1rem; `;
+const TotalsGrid = styled.div` display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-top: 1rem; @media(max-width: 768px) { grid-template-columns: 1fr; }`;
 const NotesSection = styled.div``;
 const FinancialsSection = styled.div` background: ${(props) => props.theme.colors.surfaceLight}; border-radius: ${(props) => props.theme.borderRadius.md}; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; `;
 const FinancialRow = styled.div` display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; color: ${(props) => props.theme.colors.text}; &.total { font-weight: 700; font-size: 1.1rem; color: ${(props) => props.theme.colors.heading}; border-top: 1px solid ${(props) => props.theme.colors.border}; padding-top: 1rem; margin-top: 0.5rem; } `;
-const SupplierDetails = styled(Section)` background: ${(props) => props.theme.colors.surfaceLight}; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; p { margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: ${(props) => props.theme.colors.text}; svg { color: ${(props) => props.theme.colors.textSecondary}; } } `;
+const SupplierDetails = styled(Section)` background: ${(props) => props.theme.colors.surfaceLight}; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; p { margin: 0; display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: ${(props) => props.theme.colors.text}; svg { color: ${(props) => props.theme.colors.textSecondary}; } } @media(max-width: 768px) { grid-template-columns: 1fr; }`;
 const NewSupplierForm = styled.div` display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; padding: 1rem; background-color: ${(props) => props.theme.colors.surfaceLight}; border-radius: ${(props) => props.theme.borderRadius.md};`;
-const CustomItemForm = styled.div` margin-top: 1rem; padding: 1.5rem; background: ${(props) => props.theme.colors.surfaceLight}; border-radius: ${(props) => props.theme.borderRadius.lg}; display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr auto; gap: 1rem; align-items: flex-end;`;
+const CustomItemForm = styled.div` margin-top: 1rem; padding: 1.5rem; background: ${(props) => props.theme.colors.surfaceLight}; border-radius: ${(props) => props.theme.borderRadius.lg}; display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr auto; gap: 1rem; align-items: flex-end; @media(max-width: 1024px) { grid-template-columns: 1fr; }`;
 const StyledItemTable = styled.table` width: 100%; border-collapse: collapse; th, td { padding: 0.75rem; text-align: left; vertical-align: middle; } thead th { background: ${(props) => props.theme.colors.surfaceLight}; font-weight: 600; font-size: 0.875rem; position: sticky; top: 0; z-index: 1; } tbody tr { border-bottom: 1px solid ${(props) => props.theme.colors.border}; }`;
 
 const PurchaseOrderForm = ({ inventoryItems, suppliers, categories, createSupplier, createCategory, onClose, onSave, loading }) => {
@@ -47,12 +46,15 @@ const PurchaseOrderForm = ({ inventoryItems, suppliers, categories, createSuppli
     const [orderDate] = useState(new Date().toISOString().split('T')[0]);
     const [showCustomItemForm, setShowCustomItemForm] = useState(false);
     const [customItem, setCustomItem] = useState({ name: '', sku: '', unitPrice: '', category: '' });
-    const [newCategory, setNewCategory] = useState('');
+    const [newCategoryName, setNewCategoryName] = useState('');
     const [newSupplierFields, setNewSupplierFields] = useState({ name: '', email: '', phone: '' });
 
     useEffect(() => {
-        if (supplierId && supplierId !== '_add_new_') setSelectedSupplier(suppliers.find(s => s._id === supplierId));
-        else setSelectedSupplier(null);
+        if (supplierId && supplierId !== '_add_new_') {
+            setSelectedSupplier(suppliers.find(s => s._id === supplierId));
+        } else {
+            setSelectedSupplier(null);
+        }
     }, [supplierId, suppliers]);
 
     const subtotal = useMemo(() => poItems.reduce((sum, item) => sum + ((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)), 0), [poItems]);
@@ -63,14 +65,10 @@ const PurchaseOrderForm = ({ inventoryItems, suppliers, categories, createSuppli
     const handleSaveNewSupplier = async () => {
         const { name, email } = newSupplierFields;
         if (!name.trim() || !email.trim()) return alert("Supplier Name and Email are required.");
-        try {
-            const newSupplier = await createSupplier(newSupplierFields);
-            if (newSupplier) {
-                alert('Supplier created successfully!');
-                setSupplierId(newSupplier._id);
-            }
-        } catch (error) {
-            alert(`Error: ${error.response?.data?.message || "An unexpected error occurred."}`);
+        
+        const newSupplier = await createSupplier(newSupplierFields);
+        if (newSupplier && newSupplier._id) {
+            setSupplierId(newSupplier._id);
         }
     };
     
@@ -80,34 +78,48 @@ const PurchaseOrderForm = ({ inventoryItems, suppliers, categories, createSuppli
         setPoItems(updatedItems);
     };
     const removeItem = (index) => setPoItems(poItems.filter((_, i) => i !== index));
-    const addItemToPO = (item) => setPoItems(prev => [...prev, { item: item._id, name: item.name, sku: item.sku, quantity: 1, unitPrice: item.price || 0, isNew: false, category: item.category }]);
+    
+    const handleAddItemFromInventory = (itemId) => {
+        if (!itemId) return;
+        const item = inventoryItems.find(i => i._id === itemId);
+        if (item) {
+            setPoItems(prev => [...prev, {
+                item: item._id, name: item.name, sku: item.sku, quantity: 1, unitPrice: item.price || 0, isNew: false, category: item.category?._id
+            }]);
+        }
+    };
 
-    const handleAddCustomItem = () => {
+    const handleAddCustomItem = async () => {
         if (!customItem.name || !customItem.sku) return alert("Custom item name and SKU are required.");
-        const finalCategory = customItem.category === '_add_new_' ? newCategory.trim() : customItem.category;
-        if (!finalCategory) return alert("Please select or create a category for the new item.");
-        if (poItems.some(i => i.sku === customItem.sku) || inventoryItems.some(i => i.sku === customItem.sku)) return alert("An item with this SKU already exists.");
+        
+        let finalCategoryId = customItem.category;
+        if (customItem.category === '_add_new_') {
+            if (!newCategoryName.trim()) return alert("Please enter a name for the new category.");
+            const newCat = await createCategory({ name: newCategoryName.trim() });
+            finalCategoryId = newCat._id;
+        }
+
+        if (!finalCategoryId) return alert("Please select or create a category for the new item.");
+        if (poItems.some(i => i.sku.toLowerCase() === customItem.sku.toLowerCase()) || inventoryItems.some(i => i.sku.toLowerCase() === customItem.sku.toLowerCase())) {
+            return alert("An item with this SKU already exists.");
+        }
         
         setPoItems(prev => [...prev, {
-            item: null, ...customItem, quantity: 1, unitPrice: Number(customItem.unitPrice) || 0, isNew: true, category: finalCategory
+            item: null, name: customItem.name, sku: customItem.sku, quantity: 1, unitPrice: Number(customItem.unitPrice) || 0, isNew: true, category: finalCategoryId
         }]);
         setCustomItem({ name: '', sku: '', unitPrice: '', category: '' });
-        setNewCategory('');
+        setNewCategoryName('');
         setShowCustomItemForm(false);
     };
 
-    const handleSave = async () => {
+    const handleSave = () => {
         if (!supplierId || supplierId === '_add_new_') return alert("Please select a supplier.");
         if (poItems.length === 0) return alert("Please add at least one item to the order.");
 
-        const newCategoryNames = [...new Set(poItems.filter(i => i.isNew && !categories.includes(i.category)).map(i => i.category))];
-        if (newCategoryNames.length > 0 && createCategory) {
-            await Promise.all(newCategoryNames.map(name => createCategory({ name })));
-        }
-
         const payload = {
-            supplierId, newSupplier: supplierId === '_add_new_' ? newSupplierFields : null,
-            items: poItems.map(i => ({ item: i.item, name: i.name, sku: i.sku, quantity: Number(i.quantity) || 1, unitPrice: Number(i.unitPrice) || 0, isNew: i.isNew, category: i.category })),
+            supplier: supplierId,
+            items: poItems.filter(i => !i.isNew).map(i => ({ item: i.item, quantity: Number(i.quantity) || 1, unitPrice: Number(i.unitPrice) || 0 })),
+            newItems: poItems.filter(i => i.isNew).map(i => ({ name: i.name, sku: i.sku, quantity: Number(i.quantity) || 1, unitPrice: Number(i.unitPrice) || 0, category: i.category })),
             notes, expectedDate: expectedDate || null, orderDate, paymentTerms,
             subtotal, taxAmount, shippingCost: Number(shippingCost) || 0, totalAmount: grandTotal,
         };
@@ -160,19 +172,28 @@ const PurchaseOrderForm = ({ inventoryItems, suppliers, categories, createSuppli
                             <StyledItemTable><thead><tr><th>Item</th><th>SKU</th><th>Quantity</th><th>Unit Price (RWF)</th><th>Subtotal</th><th></th></tr></thead><tbody>{poItems.map((item, index) => (<tr key={index}><td>{item.name}</td><td>{item.sku}</td><td><Input type="number" style={{width: '80px'}} value={item.quantity} onChange={e => handleItemChange(index, 'quantity', e.target.value)} min="1" /></td><td><Input type="number" style={{width: '120px'}} value={item.unitPrice} onChange={e => handleItemChange(index, 'unitPrice', e.target.value)} min="0" step="0.01" /></td><td>RWF {(Number(item.quantity || 0) * Number(item.unitPrice || 0)).toLocaleString()}</td><td><Button variant="danger-ghost" size="sm" iconOnly onClick={() => removeItem(index)}><FaTrash /></Button></td></tr>))}</tbody></StyledItemTable>
                             {poItems.length === 0 && <p style={{textAlign: 'center', padding: '1rem'}}>No items added yet.</p>}
                         </ItemListContainer>
-                        {!showCustomItemForm && (<div style={{marginTop: '1rem'}}><Button type="button" variant="outline" onClick={() => setShowCustomItemForm(true)}><FaPlus/> Add Custom Item</Button></div>)}
+                        <FormGrid style={{marginTop: '1rem', gridTemplateColumns: '1fr auto'}}>
+                            <FormGroup>
+                                <Label>Add Existing Item</Label>
+                                <Select defaultValue="" onChange={(e) => { handleAddItemFromInventory(e.target.value); e.target.value = ""; }}>
+                                    <option value="" disabled>Select an item...</option>
+                                    {inventoryItems.map(item => <option key={item._id} value={item._id}>{item.name} ({item.sku})</option>)}
+                                </Select>
+                            </FormGroup>
+                            <Button type="button" variant="outline" onClick={() => setShowCustomItemForm(p => !p)}><FaPlus/> {showCustomItemForm ? 'Cancel Custom Item' : 'Add Custom Item'}</Button>
+                        </FormGrid>
                         {showCustomItemForm && (
                             <CustomItemForm>
                                 <FormGroup><Label>Name *</Label><Input value={customItem.name} onChange={e => setCustomItem({...customItem, name: e.target.value})} /></FormGroup>
                                 <FormGroup><Label>SKU *</Label><Input value={customItem.sku} onChange={e => setCustomItem({...customItem, sku: e.target.value})} /></FormGroup>
                                 <FormGroup><Label>Unit Price *</Label><Input type="number" value={customItem.unitPrice} onChange={e => setCustomItem({...customItem, unitPrice: e.target.value})} /></FormGroup>
                                 <FormGroup><Label>Category *</Label>
-                                    <Select value={customItem.category} onChange={e => {setCustomItem({...customItem, category: e.target.value}); if (e.target.value !== '_add_new_') setNewCategory('');}}>
+                                    <Select value={customItem.category} onChange={e => {setCustomItem({...customItem, category: e.target.value}); if (e.target.value !== '_add_new_') setNewCategoryName('');}}>
                                         <option value="">Select...</option>
-                                        {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                        {categories.map(cat => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
                                         <option value="_add_new_">-- Add New Category --</option>
                                     </Select>
-                                    {customItem.category === '_add_new_' && (<Input type="text" placeholder="New category name" value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{marginTop: '0.5rem'}} autoFocus />)}
+                                    {customItem.category === '_add_new_' && (<Input type="text" placeholder="New category name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} style={{marginTop: '0.5rem'}} autoFocus />)}
                                 </FormGroup>
                                 <Button size="sm" onClick={handleAddCustomItem}><FaPlus /> Add Item</Button>
                             </CustomItemForm>

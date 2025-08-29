@@ -17,7 +17,9 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     config.metadata = { startTime: new Date() };
+
     return config;
   },
   (error) => {
@@ -27,6 +29,20 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
+
+    if (response.request.responseType === 'blob') {
+      return response.data;
+    }
+    return response.data;
+  },
+  (error) => {
+    const errorMessage = error.response?.data?.message || error.message || "An unexpected error occurred.";
+    if (error.response?.status === 401 && window.location.pathname !== "/login") {
+        toast.error("Session expired. Please log in again.");
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = "/login";
+-
     return response.data;
   },
   (error) => {
@@ -60,13 +76,13 @@ api.interceptors.response.use(
       }
     } else if (error.request) {
       toast.error("Network Error: Could not connect to the server.");
+      
     } else {
-      toast.error(error.message || "An unexpected error occurred.");
+        toast.error(errorMessage);
     }
-    return Promise.reject(error);
+    return Promise.reject(new Error(errorMessage));
   }
 );
-
 
 
 export const authAPI = {
@@ -97,11 +113,8 @@ export const inventoryAPI = {
   update: (id, itemData) => api.put(`/inventory/${id}`, itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => api.delete(`/inventory/${id}`),
   getStats: (params) => api.get("/inventory/stats", { params }),
-  getMovementHistory: (itemId, params) => api.get(`/inventory/${itemId}/history`, { params }),
-  
-  // --- FIX: ADDED MISSING FUNCTION TO FIX THE TypeError ---
-  // The useInventory hook was calling this, but it was not defined.
   getDistinctUnits: () => api.get("/inventory/units"),
+  exportInventory: (format, filters) => api.get(`/inventory/export/${format}`, { params: filters, responseType: 'blob' }),
 };
 
 
@@ -111,6 +124,7 @@ export const inventoryAPI = {
 export const metadataAPI = {
   getCategories: () => api.get("/inventory/categories"),
   getLocations: () => api.get("/inventory/locations"),
+
 
   getCategories: () => api.get("/inventory/categories"),
   getLocations: () => api.get("/inventory/locations"),
@@ -135,13 +149,22 @@ export const poAPI = {
   create: (poData) => api.post("/purchase-orders", poData),
   update: (id, poData) => api.put(`/purchase-orders/${id}`, poData),
   delete: (id) => api.delete(`/purchase-orders/${id}`),
+  updateStatus: (id, status, receivedItems = null) => {
+    const payload = { status };
+    if (receivedItems) {
+      payload.receivedItems = receivedItems;
+    }
+    return api.patch(`/purchase-orders/${id}/status`, payload);
+  },
+  generatePDF: (id) => api.get(`/purchase-orders/${id}/pdf`, {
+    responseType: 'blob',
+  }),
 };
 
 export const notificationsAPI = {
   getAll: (params) => api.get("/notifications", { params }),
   markAsRead: (id) => api.patch(`/notifications/${id}/read`),
   markAllAsRead: () => api.patch("/notifications/mark-all-read"),
-  delete: (id) => api.delete(`/notifications/${id}`),
 };
 
 export default api;
