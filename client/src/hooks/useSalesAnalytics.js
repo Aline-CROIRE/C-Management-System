@@ -1,8 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { analyticsAPI } from '../services/api';
-import toast from 'react-hot-toast';
 
-export const useSalesAnalytics = () => {
+export const useSalesAnalytics = (filters) => {
     const [analytics, setAnalytics] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -11,7 +10,7 @@ export const useSalesAnalytics = () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await analyticsAPI.getSalesSummary();
+            const response = await analyticsAPI.getSalesSummary(filters);
             if (response.success) {
                 setAnalytics(response.data);
             } else {
@@ -22,7 +21,7 @@ export const useSalesAnalytics = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [JSON.stringify(filters)]);
 
     useEffect(() => {
         fetchAnalytics();

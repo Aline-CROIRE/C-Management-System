@@ -128,7 +128,11 @@ export const customerAPI = {
 };
 
 export const analyticsAPI = {
-  getSalesSummary: () => api.get("/analytics/sales"),
+  getSalesSummary: (filters) => api.post("/analytics/sales", filters),
+};
+export const reportsAPI = {
+  getInventoryValuation: (filters) => api.post("/reports/inventory-valuation", filters),
+  getSalesSummary: (filters) => api.post("/reports/sales-summary", filters),
 };
 
 export default api;
