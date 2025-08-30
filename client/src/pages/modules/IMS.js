@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import styled, { keyframes } from "styled-components";
 import {
+
   FaBoxes, FaPlus, FaSearch, FaFilter, FaDownload, FaExclamationTriangle, FaFileCsv, FaFileCode,
   FaChartLine, FaTruck, FaUsers, FaDollarSign, FaSync, FaTimes, FaFileInvoiceDollar, FaUndo, FaBell
 } from "react-icons/fa";
@@ -19,6 +20,7 @@ import SupplierManagement from "../../components/inventory/SupplierManagement";
 import Sales from "../../components/inventory/Sales";
 import ReportsAnalytics from "../../components/inventory/ReportsAnalytics";
 import NotificationPanel from "../../components/inventory/NotificationPanel";
+
 
 // Hook Imports
 import { useInventory } from "../../hooks/useInventory";
@@ -59,21 +61,22 @@ const SpinningFaSync = styled(FaSync)` animation: ${spinAnimation} 1s linear inf
 const FilterIndicator = styled.div` display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.5rem; background-color: #e6f7ff; color: #005f99; border: 1px solid #91d5ff; border-radius: 0.75rem; margin-bottom: 1.5rem; font-weight: 600;`;
 
 const IMS = () => {
-    const [activeTab, setActiveTab] = useState("inventory");
-    const [searchQuery, setSearchQuery] = useState('');
-    const debouncedSearchQuery = useDebounce(searchQuery, 500);
-    const [isModalOpen, setIsModalOpen] = useState({ add: false, edit: false, view: false, filter: false, notifications: false, export: false });
-    const [selectedItem, setSelectedItem] = useState(null);
-    const { unreadCount } = useNotifications();
-    
-    const {
-        inventory, loading: inventoryLoading, stats, error: inventoryError,
-        categories, locations, units, pagination, refreshData,
-        updateFilters, changePage, filters = {},
-        addItem, updateItem, deleteItem, createCategory, createLocation, createUnit,
-    } = useInventory();
-    
-    const { suppliers, loading: suppliersLoading, createSupplier } = useSuppliers();
+
+  const [activeTab, setActiveTab] = useState("inventory")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const [selectedItem, setSelectedItem] = useState(null)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const {
+    inventory, loading, stats, error, categories, locations, pagination,
+    addItem, updateItem, deleteItem, refreshData, createCategory, createLocation,
+    updateFilters, changePage,
+  } = useInventory()
+
+  const { notifications } = useNotifications()
 
     useEffect(() => {
         if (debouncedSearchQuery !== (filters.search || '')) {
