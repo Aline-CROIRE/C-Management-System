@@ -1,11 +1,11 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { FaPlus, FaTimes, FaTrash, FaSearch } from 'react-icons/fa';
 import Button from '../common/Button';
 import Input from '../common/Input';
+import toast from 'react-hot-toast';
 
-// --- STYLED COMPONENTS ---
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 const slideUp = keyframes`from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; }`;
 
@@ -35,7 +35,6 @@ const ModalFooter = styled.div`
 const TotalSection = styled.div``;
 const TotalLabel = styled.span`font-size: 1rem; color: #718096;`;
 const TotalAmount = styled.span`font-size: 1.75rem; font-weight: 700; color: #1a202c; margin-left: 1rem;`;
-
 const FormGroup = styled.div``;
 const Label = styled.label`font-weight: 600; font-size: 0.875rem; color: #4a5568; margin-bottom: 0.5rem; display: block;`;
 const SearchContainer = styled.div`position: relative;`;
@@ -48,24 +47,41 @@ const SearchResults = styled.div`
 const SearchResultItem = styled.div`
   padding: 0.75rem 1rem; cursor: pointer;
   &:hover { background: #f7fafc; }
-  &[data-disabled="true"] {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: #f1f1f1;
-  }
 `;
 const ItemsTable = styled.table`width: 100%; border-collapse: collapse;`;
 const Th = styled.th`text-align: left; padding-bottom: 0.5rem; border-bottom: 2px solid #e2e8f0; font-size: 0.8rem; color: #718096;`;
 const Td = styled.td`padding: 1rem 0.5rem; border-bottom: 1px solid #e2e8f0; vertical-align: middle;`;
 
-
-const CreateSaleModal = ({ inventoryItems, onClose, onSave, loading }) => {
+const CreateSaleModal = ({ inventoryItems, saleToDuplicate, onClose, onSave, loading }) => {
     const [customerName, setCustomerName] = useState('');
     const [items, setItems] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
 
+    useEffect(() => {
+        if (saleToDuplicate) {
+            setCustomerName(saleToDuplicate.customerName || '');
+            const duplicatedItems = saleToDuplicate.items.map(soldItem => {
+                const inventoryItem = inventoryItems.find(i => i._id === soldItem.item._id);
+                if (!inventoryItem || inventoryItem.quantity < soldItem.quantity) {
+                    toast.error(`Could not duplicate "${soldItem.item.name}" due to insufficient stock.`);
+                    return null;
+                }
+                return {
+                    item: inventoryItem._id,
+                    name: inventoryItem.name,
+                    sku: inventoryItem.sku,
+                    quantity: soldItem.quantity,
+                    price: soldItem.price,
+                    originalPrice: inventoryItem.price,
+                    maxQuantity: inventoryItem.quantity,
+                };
+            }).filter(Boolean);
+            setItems(duplicatedItems);
+        }
+    }, [saleToDuplicate, inventoryItems]);
+
     const availableItems = useMemo(() => {
-        const addedItemIds = new Set(items.map(i => i.itemId));
+        const addedItemIds = new Set(items.map(i => i.item));
         return inventoryItems.filter(item => !addedItemIds.has(item._id) && item.quantity > 0);
     }, [items, inventoryItems]);
 
@@ -79,28 +95,36 @@ const CreateSaleModal = ({ inventoryItems, onClose, onSave, loading }) => {
 
     const handleAddItem = (item) => {
         setItems(prev => [...prev, {
-            itemId: item._id,
+            item: item._id,
             name: item.name,
             sku: item.sku,
             quantity: 1,
             price: item.price,
+            originalPrice: item.price,
             maxQuantity: item.quantity,
         }]);
         setSearchTerm('');
     };
 
-    const handleUpdateQuantity = (itemId, newQuantity) => {
+    const handleUpdateItem = (itemId, field, value) => {
         setItems(prev => prev.map(item => {
-            if (item.itemId === itemId) {
-                const quantity = Math.max(1, Math.min(newQuantity, item.maxQuantity));
-                return { ...item, quantity };
+            if (item.item === itemId) {
+                const newItem = { ...item, [field]: value };
+                if (field === 'price' && value < item.originalPrice) {
+                    toast.error(`Price cannot be lower than the minimum of Rwf ${item.originalPrice.toLocaleString()}`);
+                    newItem.price = item.originalPrice;
+                }
+                if (field === 'quantity') {
+                    newItem.quantity = Math.max(1, Math.min(value, item.maxQuantity));
+                }
+                return newItem;
             }
             return item;
         }));
     };
     
     const handleRemoveItem = (itemId) => {
-        setItems(prev => prev.filter(item => item.itemId !== itemId));
+        setItems(prev => prev.filter(item => item.item !== itemId));
     };
 
     const totalAmount = useMemo(() => {
@@ -108,13 +132,10 @@ const CreateSaleModal = ({ inventoryItems, onClose, onSave, loading }) => {
     }, [items]);
 
     const handleSave = () => {
-        if (items.length === 0) {
-            alert("Please add at least one item to the sale.");
-            return;
-        }
+        if (items.length === 0) return toast.error("Please add at least one item to the sale.");
         onSave({
-            customerName,
-            items: items.map(({ itemId, quantity, price }) => ({ itemId, quantity, price })),
+            customerName: customerName.trim(),
+            items: items.map(({ item, quantity, price }) => ({ item, quantity, price })),
             totalAmount,
         });
     };
@@ -123,7 +144,7 @@ const CreateSaleModal = ({ inventoryItems, onClose, onSave, loading }) => {
         <ModalOverlay onClick={onClose}>
             <ModalContent onClick={e => e.stopPropagation()}>
                 <ModalHeader>
-                    <h2>Record New Sale</h2>
+                    <h2>{saleToDuplicate ? `Duplicate Sale #${saleToDuplicate.receiptNumber}` : 'Record New Sale'}</h2>
                     <Button variant="ghost" size="sm" iconOnly onClick={onClose}><FaTimes /></Button>
                 </ModalHeader>
                 <ModalBody>
@@ -140,7 +161,6 @@ const CreateSaleModal = ({ inventoryItems, onClose, onSave, loading }) => {
                                 placeholder="Search by name or SKU..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                icon={<FaSearch />}
                             />
                             {searchResults.length > 0 && (
                                 <SearchResults>
@@ -158,36 +178,45 @@ const CreateSaleModal = ({ inventoryItems, onClose, onSave, loading }) => {
                         <thead><tr><Th style={{width: '40%'}}>Product</Th><Th>Price</Th><Th>Quantity</Th><Th>Subtotal</Th><Th></Th></tr></thead>
                         <tbody>
                             {items.map(item => (
-                                <tr key={item.itemId}>
+                                <tr key={item.item}>
                                     <Td>{item.name}<br/><small style={{color: '#718096'}}>SKU: {item.sku}</small></Td>
-                                    <Td>${item.price.toFixed(2)}</Td>
+                                    <Td>
+                                        <Input
+                                            type="number"
+                                            value={item.price}
+                                            onChange={(e) => handleUpdateItem(item.item, 'price', parseFloat(e.target.value))}
+                                            min={item.originalPrice}
+                                            style={{width: '100px'}}
+                                        />
+                                    </Td>
                                     <Td>
                                         <Input
                                             type="number"
                                             value={item.quantity}
-                                            onChange={(e) => handleUpdateQuantity(item.itemId, parseInt(e.target.value, 10))}
+                                            onChange={(e) => handleUpdateItem(item.item, 'quantity', parseInt(e.target.value, 10))}
                                             min="1"
                                             max={item.maxQuantity}
                                             style={{width: '70px'}}
                                         />
                                     </Td>
-                                    <Td>${(item.quantity * item.price).toFixed(2)}</Td>
-                                    <Td><Button variant="danger-ghost" size="sm" iconOnly onClick={() => handleRemoveItem(item.itemId)}><FaTrash /></Button></Td>
+                                    <Td>Rwf {(item.quantity * item.price).toLocaleString()}</Td>
+                                    <Td><Button variant="danger-ghost" size="sm" iconOnly onClick={() => handleRemoveItem(item.item)}><FaTrash /></Button></Td>
                                 </tr>
                             ))}
                         </tbody>
                     </ItemsTable>
                     {items.length === 0 && <p style={{textAlign:'center', color: '#718096'}}>No items added yet.</p>}
-
                 </ModalBody>
                 <ModalFooter>
                     <TotalSection>
                         <TotalLabel>Total:</TotalLabel>
-                        <TotalAmount>${totalAmount.toFixed(2)}</TotalAmount>
+                        <TotalAmount>Rwf {totalAmount.toLocaleString()}</TotalAmount>
                     </TotalSection>
                     <div>
                         <Button variant="secondary" onClick={onClose} disabled={loading} style={{marginRight: '1rem'}}>Cancel</Button>
-                        <Button variant="primary" onClick={handleSave} loading={loading} disabled={items.length === 0}>Save Sale</Button>
+                        <Button variant="primary" onClick={handleSave} loading={loading} disabled={items.length === 0}>
+                            {saleToDuplicate ? 'Create Duplicate Sale' : 'Save Sale'}
+                        </Button>
                     </div>
                 </ModalFooter>
             </ModalContent>

@@ -1,20 +1,17 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { FaPlus, FaEye, FaFileInvoiceDollar } from 'react-icons/fa';
+import { FaPlus, FaEye, FaFileInvoiceDollar, FaTrash, FaPrint, FaRedo, FaEllipsisV } from 'react-icons/fa';
 
-// Component Imports
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
-import CreateSaleModal from './CreateSalesModal';
-import ViewSaleModal from './ViewSalesModal';
-
-// Hook Imports
+import CreateSaleModal from './CreateSaleModal';
+import ViewSaleModal from './ViewSaleModal';
 import { useSales } from '../../hooks/useSales'; 
 import { useInventory } from '../../hooks/useInventory';
-import { useNotifications } from '../../contexts/NotificationContext';
+import { salesAPI } from '../../services/api';
+import toast from 'react-hot-toast';
 
-// --- STYLED COMPONENTS ---
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 
 const SalesContainer = styled.div`
@@ -32,7 +29,30 @@ const SalesHeader = styled.div`
 const PageTitle = styled.h2`
   margin: 0;
   font-size: 1.75rem;
-  color: ${(props) => props.theme.colors?.heading || '#1a202c'};
+  color: ${(props) => props.theme.colors.heading};
+`;
+const StatsGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+`;
+const StatCard = styled.div`
+    background: ${props => props.theme.colors.surface};
+    border-radius: ${props => props.theme.borderRadius.lg};
+    padding: 1.5rem;
+    box-shadow: ${props => props.theme.shadows.sm};
+    border: 1px solid ${props => props.theme.colors.border};
+`;
+const StatValue = styled.div`
+    font-size: 2rem;
+    font-weight: 700;
+    color: ${props => props.theme.colors.heading};
+`;
+const StatLabel = styled.div`
+    font-size: 0.875rem;
+    color: ${props => props.theme.colors.textSecondary};
+    margin-top: 0.25rem;
 `;
 const TableWrapper = styled.div`
   background: #fff;
@@ -47,94 +67,146 @@ const EmptyState = styled.div`
   padding: 4rem;
   text-align: center;
   color: #718096;
-  .icon {
-    font-size: 3rem;
-    opacity: 0.3;
-    margin-bottom: 1rem;
-  }
+  .icon { font-size: 3rem; opacity: 0.3; margin-bottom: 1rem; }
 `;
+const DropdownMenu = styled.div` position: absolute; right: 0; background: white; border-radius: 8px; box-shadow: ${(props) => props.theme.shadows.lg}; z-index: 10; overflow: hidden;`;
+const DropdownItem = styled(Button)` width: 100%; justify-content: flex-start;`;
 
-// --- Sales Table Sub-component ---
-const SalesTable = ({ sales, onView }) => (
-    <TableWrapper>
-        <Table>
-            <thead>
-                <tr>
-                    <Th>Receipt #</Th>
-                    <Th>Customer</Th>
-                    <Th>Date</Th>
-                    <Th>Items</Th>
-                    <Th>Total Amount</Th>
-                    <Th>Actions</Th>
-                </tr>
-            </thead>
-            <tbody>
-                {sales.map(sale => (
-                    <tr key={sale._id}>
-                        <Td>#{sale.receiptNumber}</Td>
-                        <Td>{sale.customerName || 'N/A'}</Td>
-                        <Td>{new Date(sale.createdAt).toLocaleDateString()}</Td>
-                        <Td>{sale.items.length}</Td>
-                        <Td>${sale.totalAmount.toFixed(2)}</Td>
-                        <Td>
-                            <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(sale)}><FaEye /></Button>
-                        </Td>
-                    </tr>
-                ))}
-            </tbody>
-        </Table>
-    </TableWrapper>
-);
+const SalesTable = ({ sales, onView, onDelete, onDuplicate }) => {
+    const [activeDropdown, setActiveDropdown] = useState(null);
+    const [printLoadingId, setPrintLoadingId] = useState(null);
 
-// --- MAIN SALES COMPONENT ---
-const Sales = () => {
-    const [isCreating, setIsCreating] = useState(false);
-    const [viewingSale, setViewingSale] = useState(null);
-    const { addNotification } = useNotifications();
-
-    // Mock hooks - replace with your actual data-fetching hooks
-    const { sales, loading: salesLoading, error: salesError, createSale } = useSales() || {
-        sales: [
-            { _id: 'sale1', receiptNumber: 'S-001', customerName: 'John Doe', createdAt: new Date(), items: [ { name: 'Wireless Mouse', quantity: 2, price: 25.00 } ], totalAmount: 50.00 },
-            { _id: 'sale2', receiptNumber: 'S-002', customerName: 'Jane Smith', createdAt: new Date(), items: [ { name: 'Laptop Pro', quantity: 1, price: 1200.00 }, { name: 'USB-C Hub', quantity: 1, price: 45.00 } ], totalAmount: 1245.00 },
-        ],
-        salesLoading: false,
-        salesError: null,
-        createSale: async (data) => { console.log("Saving Sale:", data); return { success: true }; },
-    };
-    const { inventory, refreshData: refreshInventory } = useInventory() || {
-        inventory: [
-             { _id: 'item1', name: 'Laptop Pro', sku: 'LP-123', quantity: 15, price: 1200.00 },
-             { _id: 'item2', name: 'Wireless Mouse', sku: 'MS-456', quantity: 50, price: 25.00 },
-             { _id: 'item3', name: 'USB-C Hub', sku: 'HUB-789', quantity: 30, price: 45.00 },
-             { _id: 'item4', name: 'Mechanical Keyboard', sku: 'KB-012', quantity: 0, price: 150.00 }, // Out of stock item
-        ],
-        refreshInventory: () => console.log("Refreshing inventory data..."),
-    };
-
-    const handleSaveSale = async (saleData) => {
-        const result = await createSale(saleData);
-        if (result.success) {
-            setIsCreating(false);
-            addNotification({ type: 'success', title: 'Sale Recorded', message: 'The sale has been saved and inventory updated.' });
-            // This is the most important part: refresh inventory after a sale
-            refreshInventory();
-            // Your useSales hook should also auto-refresh its own list
-        } else {
-            addNotification({ type: 'error', title: 'Save Failed', message: result.message || 'Could not record the sale.' });
+    const handlePrint = async (saleId, receiptNumber) => {
+        setPrintLoadingId(saleId);
+        toast.loading('Generating Receipt...');
+        try {
+            const response = await salesAPI.generatePDF(saleId);
+            const url = window.URL.createObjectURL(new Blob([response], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Receipt-${receiptNumber}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.dismiss();
+            toast.success('Receipt Downloaded!');
+        } catch (error) {
+            toast.dismiss();
+            toast.error(error.message || 'Failed to generate receipt.');
+        } finally {
+            setPrintLoadingId(null);
         }
     };
 
-    if (salesError) return <SalesContainer>Error: {salesError.message}</SalesContainer>;
+    return (
+        <TableWrapper>
+            <Table>
+                <thead>
+                    <tr>
+                        <Th>Receipt #</Th>
+                        <Th>Customer</Th>
+                        <Th>Date</Th>
+                        <Th>Items</Th>
+                        <Th>Total Amount</Th>
+                        <Th>Actions</Th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {sales.map(sale => (
+                        <tr key={sale._id}>
+                            <Td>#{sale.receiptNumber}</Td>
+                            <Td>{sale.customerName || 'Walk-in Customer'}</Td>
+                            <Td>{new Date(sale.createdAt).toLocaleDateString()}</Td>
+                            <Td>{sale.items.length}</Td>
+                            <Td>Rwf {(sale.totalAmount || 0).toLocaleString()}</Td>
+                            <Td style={{display: 'flex', gap: '0.5rem'}}>
+                                <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(sale)}><FaEye /></Button>
+                                <div style={{position: 'relative'}}>
+                                    <Button variant="ghost" size="sm" iconOnly onClick={() => setActiveDropdown(sale._id === activeDropdown ? null : sale._id)}><FaEllipsisV/></Button>
+                                    {activeDropdown === sale._id && (
+                                        <DropdownMenu onMouseLeave={() => setActiveDropdown(null)}>
+                                            <DropdownItem variant="ghost" onClick={() => handlePrint(sale._id, sale.receiptNumber)} disabled={printLoadingId === sale._id}><FaPrint/> {printLoadingId === sale._id ? 'Printing...': 'Print'}</DropdownItem>
+                                            <DropdownItem variant="ghost" onClick={() => onDuplicate(sale)}><FaRedo/> Duplicate</DropdownItem>
+                                            <DropdownItem variant="ghost" onClick={() => onDelete(sale._id)} style={{color: '#c53030'}}><FaTrash/> Delete</DropdownItem>
+                                        </DropdownMenu>
+                                    )}
+                                </div>
+                            </Td>
+                        </tr>
+                    ))}
+                </tbody>
+            </Table>
+        </TableWrapper>
+    )
+};
+
+const Sales = () => {
+    const [isCreating, setIsCreating] = useState(false);
+    const [viewingSale, setViewingSale] = useState(null);
+    const [saleToDuplicate, setSaleToDuplicate] = useState(null);
+
+    const { sales, loading: salesLoading, error: salesError, createSale, deleteSale } = useSales();
+    const { inventory, refetch: refetchInventory } = useInventory();
+
+    const stats = useMemo(() => {
+        if (!sales) return { totalRevenue: 0, salesCount: 0 };
+        return sales.reduce((acc, sale) => {
+            acc.totalRevenue += sale.totalAmount;
+            acc.salesCount += 1;
+            return acc;
+        }, { totalRevenue: 0, salesCount: 0 });
+    }, [sales]);
+
+    const handleSaveSale = async (saleData) => {
+        try {
+            await createSale(saleData);
+            setIsCreating(false);
+            setSaleToDuplicate(null);
+            refetchInventory();
+        } catch(error) {
+            // Error toast is handled by hook
+        }
+    };
+
+    const handleDeleteSale = async (saleId) => {
+        if (window.confirm("Are you sure you want to delete this sale? This will restock the sold items.")) {
+            try {
+                await deleteSale(saleId);
+                toast.success("Sale deleted successfully.");
+                refetchInventory();
+            } catch (err) {
+                toast.error(err.message || "Failed to delete sale.");
+            }
+        }
+    };
+
+    const handleDuplicateSale = (sale) => {
+        setSaleToDuplicate(sale);
+        setIsCreating(true);
+    };
+
+    if (salesError) return <SalesContainer>Error: {salesError}</SalesContainer>;
 
     return (
         <SalesContainer>
             <SalesHeader>
-                <PageTitle>Sales Receipts</PageTitle>
+                <PageTitle>Sales Management</PageTitle>
                 <Button variant="primary" onClick={() => setIsCreating(true)}>
-                    <FaPlus /> Record New Sale
+                    <FaPlus style={{marginRight: '0.5rem'}}/> Record New Sale
                 </Button>
             </SalesHeader>
+
+            <StatsGrid>
+                <StatCard>
+                    <StatValue>Rwf {stats.totalRevenue.toLocaleString()}</StatValue>
+                    <StatLabel>Total Revenue</StatLabel>
+                </StatCard>
+                <StatCard>
+                    <StatValue>{stats.salesCount.toLocaleString()}</StatValue>
+                    <StatLabel>Total Sales Transactions</StatLabel>
+                </StatCard>
+            </StatsGrid>
 
             {salesLoading ? (
                 <div style={{ padding: '4rem', textAlign: 'center' }}><LoadingSpinner /></div>
@@ -145,13 +217,19 @@ const Sales = () => {
                     <p>Click "Record New Sale" to get started.</p>
                 </EmptyState>
             ) : (
-                <SalesTable sales={sales} onView={setViewingSale} />
+                <SalesTable 
+                    sales={sales} 
+                    onView={setViewingSale} 
+                    onDelete={handleDeleteSale}
+                    onDuplicate={handleDuplicateSale}
+                />
             )}
 
             {isCreating && (
                 <CreateSaleModal
                     inventoryItems={inventory}
-                    onClose={() => setIsCreating(false)}
+                    saleToDuplicate={saleToDuplicate}
+                    onClose={() => { setIsCreating(false); setSaleToDuplicate(null); }}
                     onSave={handleSaveSale}
                     loading={salesLoading}
                 />

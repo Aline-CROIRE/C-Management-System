@@ -114,5 +114,13 @@ export const notificationsAPI = {
   markAsRead: (id) => api.patch(`/notifications/${id}/read`),
   markAllAsRead: () => api.patch("/notifications/mark-all-read"),
 };
+export const salesAPI = {
+  getAll: (params) => api.get("/sales", { params }),
+  create: (saleData) => api.post("/sales", saleData),
+  delete: (id) => api.delete(`/sales/${id}`),
+  generatePDF: (id) => api.get(`/sales/${id}/pdf`, {
+    responseType: 'blob',
+  }),
+}
 
 export default api;

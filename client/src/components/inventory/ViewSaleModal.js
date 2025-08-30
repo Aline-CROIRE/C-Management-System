@@ -1,12 +1,15 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { FaTimes, FaPrint } from 'react-icons/fa';
+import { FaTimes, FaPrint, FaSpinner } from 'react-icons/fa';
 import Button from '../common/Button';
+import { salesAPI } from '../../services/api';
+import toast from 'react-hot-toast';
 
-// --- STYLED COMPONENTS (reused patterns) ---
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 const slideUp = keyframes`from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; }`;
+const Spin = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
+const Spinner = styled(FaSpinner)` animation: ${Spin} 1s linear infinite; `;
 
 const ModalOverlay = styled.div`
   position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1010;
@@ -42,8 +45,32 @@ const TotalRow = styled.tr`
   td { font-weight: bold; font-size: 1.1rem; }
 `;
 
-
 const ViewSaleModal = ({ sale, onClose }) => {
+    const [printLoading, setPrintLoading] = useState(false);
+
+    const handlePrint = async () => {
+        setPrintLoading(true);
+        toast.loading('Generating Receipt...');
+        try {
+            const response = await salesAPI.generatePDF(sale._id);
+            const url = window.URL.createObjectURL(new Blob([response], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Receipt-${sale.receiptNumber}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.dismiss();
+            toast.success('Receipt Downloaded!');
+        } catch (error) {
+            toast.dismiss();
+            toast.error(error.message || 'Failed to generate receipt.');
+        } finally {
+            setPrintLoading(false);
+        }
+    };
+
     if (!sale) return null;
 
     return (
@@ -52,7 +79,9 @@ const ViewSaleModal = ({ sale, onClose }) => {
                 <ModalHeader>
                     <h2>Sale Details - #{sale.receiptNumber}</h2>
                     <div>
-                        <Button variant="ghost" size="sm" style={{marginRight: '0.5rem'}}><FaPrint /> Print</Button>
+                        <Button variant="ghost" size="sm" onClick={handlePrint} disabled={printLoading} style={{marginRight: '0.5rem'}}>
+                            {printLoading ? <Spinner/> : <FaPrint />} Print
+                        </Button>
                         <Button variant="ghost" size="sm" iconOnly onClick={onClose}><FaTimes /></Button>
                     </div>
                 </ModalHeader>
@@ -80,16 +109,16 @@ const ViewSaleModal = ({ sale, onClose }) => {
                         </thead>
                         <tbody>
                             {sale.items.map((item, index) => (
-                                <tr key={index}>
-                                    <Td>{item.name}</Td>
+                                <tr key={item.item?._id || index}>
+                                    <Td>{item.item?.name || 'N/A'}</Td>
                                     <Td style={{textAlign: 'right'}}>{item.quantity}</Td>
-                                    <Td style={{textAlign: 'right'}}>${item.price.toFixed(2)}</Td>
-                                    <Td style={{textAlign: 'right'}}>${(item.quantity * item.price).toFixed(2)}</Td>
+                                    <Td style={{textAlign: 'right'}}>Rwf {item.price.toLocaleString()}</Td>
+                                    <Td style={{textAlign: 'right'}}>Rwf {(item.quantity * item.price).toLocaleString()}</Td>
                                 </tr>
                             ))}
                             <TotalRow>
                                 <Td colSpan="3" style={{textAlign: 'right'}}>Total Amount</Td>
-                                <Td style={{textAlign: 'right'}}>${sale.totalAmount.toFixed(2)}</Td>
+                                <Td style={{textAlign: 'right'}}>Rwf {sale.totalAmount.toLocaleString()}</Td>
                             </TotalRow>
                         </tbody>
                     </ItemsTable>
