@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { salesAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
-export const useSales = () => {
+export const useSales = (filters) => {
     const [sales, setSales] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -11,7 +11,7 @@ export const useSales = () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await salesAPI.getAll();
+            const response = await salesAPI.getAll(filters);
             if (response.success) {
                 setSales(response.data || []);
             } else {
@@ -22,7 +22,7 @@ export const useSales = () => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [JSON.stringify(filters)]);
 
     useEffect(() => {
         fetchSales();
@@ -34,11 +34,17 @@ export const useSales = () => {
         return response;
     }, [fetchSales]);
 
+    const processReturn = useCallback(async (saleId, returnedItems) => {
+        const response = await salesAPI.processReturn(saleId, { returnedItems });
+        await fetchSales();
+        return response;
+    }, [fetchSales]);
+    
     const deleteSale = useCallback(async (saleId) => {
         const response = await salesAPI.delete(saleId);
         await fetchSales();
         return response;
     }, [fetchSales]);
 
-    return { sales, loading, error, createSale, deleteSale, refetch: fetchSales };
+    return { sales, loading, error, createSale, deleteSale, processReturn, refetch: fetchSales };
 };

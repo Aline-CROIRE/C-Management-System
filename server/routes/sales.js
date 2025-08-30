@@ -6,15 +6,36 @@ const PDFDocument = require('pdfkit');
 
 const Sale = require("../models/Sale");
 const Inventory = require("../models/Inventory");
+const Customer = require("../models/Customer");
+const Notification = require("../models/Notification");
 const { verifyToken } = require("../middleware/auth");
 
 router.get("/", verifyToken, async (req, res) => {
     try {
-        const sales = await Sale.find()
+        const { customerId, startDate, endDate, paymentMethod } = req.query;
+        const query = {};
+
+        if (customerId) {
+            query.customer = customerId;
+        }
+        if (startDate && endDate) {
+            query.createdAt = {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate),
+            };
+        }
+        if (paymentMethod) {
+            query.paymentMethod = paymentMethod;
+        }
+
+        const sales = await Sale.find(query)
+            .populate('customer', 'name')
             .populate({ path: 'items.item', select: 'name sku' })
             .sort({ createdAt: -1 });
+            
         res.json({ success: true, data: sales });
     } catch (err) {
+        console.error("Error fetching sales:", err);
         res.status(500).json({ success: false, message: "Server Error" });
     }
 });
@@ -22,6 +43,7 @@ router.get("/", verifyToken, async (req, res) => {
 router.post("/", verifyToken, [
     body('items', 'At least one item is required').isArray({ min: 1 }),
     body('totalAmount', 'Total amount is required').isNumeric(),
+    body('paymentMethod', 'Payment method is required').not().isEmpty(),
 ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -32,27 +54,42 @@ router.post("/", verifyToken, [
     session.startTransaction();
 
     try {
-        const { items, customerName, totalAmount } = req.body;
+        const { items, customer, totalAmount, subtotal, taxAmount, paymentMethod, notes } = req.body;
 
         for (const saleItem of items) {
             const inventoryItem = await Inventory.findById(saleItem.item).session(session);
-            if (!inventoryItem) {
-                throw new Error(`Inventory item not found.`);
-            }
-            if (inventoryItem.quantity < saleItem.quantity) {
-                throw new Error(`Not enough stock for ${inventoryItem.name}. Available: ${inventoryItem.quantity}, Requested: ${saleItem.quantity}.`);
-            }
+            if (!inventoryItem) throw new Error(`Inventory item not found.`);
+            if (inventoryItem.quantity < saleItem.quantity) throw new Error(`Not enough stock for ${inventoryItem.name}.`);
+            
             inventoryItem.quantity -= saleItem.quantity;
+            saleItem.costPrice = inventoryItem.costPrice || 0;
+            
+            if (inventoryItem.quantity <= inventoryItem.minStockLevel && inventoryItem.status !== 'low-stock') {
+                 const notification = new Notification({
+                    type: 'low_stock',
+                    title: 'Low Stock Alert',
+                    message: `${inventoryItem.name} (SKU: ${inventoryItem.sku}) is running low. Quantity: ${inventoryItem.quantity}.`,
+                    user: req.user._id,
+                    link: `/inventory`
+                });
+                await notification.save({ session });
+            }
+            
             await inventoryItem.save({ session });
         }
         
         const receiptNumber = await Sale.generateReceiptNumber();
         const newSale = new Sale({
-            receiptNumber,
-            customerName,
-            items,
-            totalAmount,
+            receiptNumber, customer, items, totalAmount,
+            subtotal, taxAmount, paymentMethod, notes,
         });
+        
+        if (customer) {
+            await Customer.findByIdAndUpdate(customer, {
+                $inc: { totalSpent: totalAmount },
+                $set: { lastSaleDate: new Date() }
+            }).session(session);
+        }
         
         const savedSale = await newSale.save({ session });
         await session.commitTransaction();
@@ -67,6 +104,58 @@ router.post("/", verifyToken, [
     }
 });
 
+router.post("/:id/return", verifyToken, [
+    body('returnedItems', 'Returned items data is required').isArray({ min: 1 })
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const { returnedItems } = req.body;
+        const sale = await Sale.findById(req.params.id).session(session);
+        if (!sale) throw new Error("Original sale not found.");
+
+        let totalReturnedValue = 0;
+        let totalItemsInSale = sale.items.reduce((sum, item) => sum + item.quantity, 0);
+        let totalItemsReturnedSoFar = 0;
+
+        for (const returnedItem of returnedItems) {
+            const originalItem = sale.items.find(i => i.item.toString() === returnedItem.item);
+            if (!originalItem) throw new Error("Item not found in original sale.");
+
+            await Inventory.updateOne(
+                { _id: returnedItem.item },
+                { $inc: { quantity: returnedItem.quantity } },
+                { session }
+            );
+            totalReturnedValue += originalItem.price * returnedItem.quantity;
+            totalItemsReturnedSoFar += returnedItem.quantity;
+        }
+
+        sale.status = totalItemsReturnedSoFar >= totalItemsInSale ? 'Returned' : 'Partially Returned';
+        await sale.save({ session });
+        
+        if (sale.customer) {
+             await Customer.findByIdAndUpdate(sale.customer, {
+                $inc: { totalSpent: -totalReturnedValue }
+            }).session(session);
+        }
+
+        await session.commitTransaction();
+        res.json({ success: true, message: "Items returned and inventory restocked." });
+    } catch (err) {
+        await session.abortTransaction();
+        res.status(500).json({ success: false, message: err.message || "Server error processing return." });
+    } finally {
+        session.endSession();
+    }
+});
+
 router.delete("/:id", verifyToken, async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -76,7 +165,6 @@ router.delete("/:id", verifyToken, async (req, res) => {
             throw new Error("Sale not found.");
         }
 
-        // Add back the sold quantities to the inventory
         for (const soldItem of saleToDelete.items) {
             await Inventory.updateOne(
                 { _id: soldItem.item },
@@ -86,10 +174,10 @@ router.delete("/:id", verifyToken, async (req, res) => {
         }
 
         await Sale.findByIdAndDelete(req.params.id).session(session);
-
         await session.commitTransaction();
         res.json({ success: true, message: "Sale deleted and inventory restocked." });
-    } catch (err) {
+    } catch (err)
+ {
         await session.abortTransaction();
         res.status(500).json({ success: false, message: err.message || "Server error deleting sale." });
     } finally {
@@ -99,7 +187,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
 
 router.get("/:id/pdf", verifyToken, async (req, res) => {
     try {
-        const sale = await Sale.findById(req.params.id).populate('items.item', 'name sku');
+        const sale = await Sale.findById(req.params.id).populate('customer').populate('items.item', 'name sku');
         if (!sale) {
             return res.status(404).json({ success: false, message: "Sale not found." });
         }
@@ -118,7 +206,7 @@ router.get("/:id/pdf", verifyToken, async (req, res) => {
         const headerTopY = doc.y;
         doc.fontSize(10).font('Helvetica').text(userName, 50, headerTopY);
         doc.text('123 Business Rd, Kigali, Rwanda');
-
+        
         doc.font('Helvetica-Bold').text('Receipt Number:', 350, headerTopY, { align: 'right' });
         doc.font('Helvetica').text(sale.receiptNumber, 450, headerTopY, { align: 'right' });
         doc.font('Helvetica-Bold').text('Sale Date:', 350, headerTopY + 15, { align: 'right' });
@@ -126,7 +214,7 @@ router.get("/:id/pdf", verifyToken, async (req, res) => {
 
         doc.y = headerTopY + 50;
         doc.font('Helvetica-Bold').text('Customer:');
-        doc.font('Helvetica').text(sale.customerName);
+        doc.font('Helvetica').text(sale.customer?.name || sale.customerName || 'Walk-in Customer');
         doc.moveDown(2);
 
         const tableTop = doc.y;
@@ -165,6 +253,7 @@ router.get("/:id/pdf", verifyToken, async (req, res) => {
 
         doc.end();
     } catch (err) {
+        console.error("PDF Generation Error:", err);
         res.status(500).json({ success: false, message: "Server error generating PDF." });
     }
 });

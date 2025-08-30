@@ -7,6 +7,7 @@ const inventorySchema = new mongoose.Schema({
   quantity: { type: Number, required: true, min: 0, default: 0 },
   unit: { type: String, required: true, trim: true, default: 'pcs' },
   price: { type: Number, required: true, min: 0 },
+  costPrice: { type: Number, required: true, default: 0 },
   totalValue: { type: Number, default: 0 },
   minStockLevel: { type: Number, default: 10, min: 0 },
   maxStockLevel: { type: Number, min: 0 },

@@ -1,9 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
-/**
- * Verifies a JWT token and attaches the user object to req.user.
- */
 const verifyToken = async (req, res, next) => {
   try {
     const token = req.header("Authorization")?.replace("Bearer ", "");
@@ -16,7 +13,6 @@ const verifyToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key");
-
     const user = await User.findById(decoded.userId).select("-password");
 
     if (!user) {
@@ -43,9 +39,6 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-/**
- * Middleware to ensure the authenticated user has a specific role.
- */
 const requireRole = (role) => {
   return (req, res, next) => {
     if (!req.user || req.user.role !== role) {
@@ -58,9 +51,6 @@ const requireRole = (role) => {
   };
 };
 
-/**
- * Checks if the authenticated user has access to a specific module.
- */
 const checkModuleAccess = (moduleName) => {
   return (req, res, next) => {
     if (req.user.role === "admin") return next();
@@ -76,9 +66,6 @@ const checkModuleAccess = (moduleName) => {
   };
 };
 
-/**
- * Middleware to ensure user is an admin.
- */
 const requireAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== "admin") {
     return res.status(403).json({
@@ -89,17 +76,12 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-/**
- * Placeholder for permission check middleware.
- */
 const checkPermission = (module, action) => {
   return (req, res, next) => {
-    // Future permission logic goes here
     next();
   };
 };
 
-// Export middleware using verifyToken as the main auth middleware
 module.exports = {
   verifyToken,
   requireRole,

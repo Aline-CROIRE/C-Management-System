@@ -1,16 +1,17 @@
 "use client";
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { FaPlus, FaEye, FaFileInvoiceDollar, FaTrash, FaPrint, FaRedo, FaEllipsisV } from 'react-icons/fa';
+import { FaPlus, FaEye, FaFileInvoiceDollar, FaChartLine, FaFilter, FaUndo } from 'react-icons/fa';
 
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 import CreateSaleModal from './CreateSaleModal';
 import ViewSaleModal from './ViewSaleModal';
+import SalesAnalyticsDashboard from './SalesAnalyticsDashboard';
+import SalesFilterPanel from './SalesFilterPanel';
 import { useSales } from '../../hooks/useSales'; 
 import { useInventory } from '../../hooks/useInventory';
-import { salesAPI } from '../../services/api';
-import toast from 'react-hot-toast';
+import { useCustomers } from '../../hooks/useCustomers';
 
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 
@@ -31,6 +32,7 @@ const PageTitle = styled.h2`
   font-size: 1.75rem;
   color: ${(props) => props.theme.colors.heading};
 `;
+const HeaderActions = styled.div` display: flex; gap: 1rem; `;
 const StatsGrid = styled.div`
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -69,85 +71,51 @@ const EmptyState = styled.div`
   color: #718096;
   .icon { font-size: 3rem; opacity: 0.3; margin-bottom: 1rem; }
 `;
-const DropdownMenu = styled.div` position: absolute; right: 0; background: white; border-radius: 8px; box-shadow: ${(props) => props.theme.shadows.lg}; z-index: 10; overflow: hidden;`;
-const DropdownItem = styled(Button)` width: 100%; justify-content: flex-start;`;
+const TabContainer = styled.div` display: flex; border-bottom: 2px solid #e2e8f0; margin-bottom: 2rem; `;
+const Tab = styled.button` padding: 1rem 1.5rem; border: none; background: transparent; color: ${(props) => (props.active ? props.theme.colors.primary : props.theme.colors.textSecondary)}; border-bottom: 3px solid ${(props) => (props.active ? props.theme.colors.primary : "transparent")}; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 0.75rem; white-space: nowrap; &:hover { color: ${(props) => props.theme.colors.primary}; } `;
+const FilterIndicator = styled.div` display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.5rem; background-color: #e6fffa; color: #234e52; border: 1px solid #b2f5ea; border-radius: 0.75rem; margin-bottom: 1.5rem; font-weight: 600;`;
 
-const SalesTable = ({ sales, onView, onDelete, onDuplicate }) => {
-    const [activeDropdown, setActiveDropdown] = useState(null);
-    const [printLoadingId, setPrintLoadingId] = useState(null);
-
-    const handlePrint = async (saleId, receiptNumber) => {
-        setPrintLoadingId(saleId);
-        toast.loading('Generating Receipt...');
-        try {
-            const response = await salesAPI.generatePDF(saleId);
-            const url = window.URL.createObjectURL(new Blob([response], { type: 'application/pdf' }));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Receipt-${receiptNumber}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-            toast.dismiss();
-            toast.success('Receipt Downloaded!');
-        } catch (error) {
-            toast.dismiss();
-            toast.error(error.message || 'Failed to generate receipt.');
-        } finally {
-            setPrintLoadingId(null);
-        }
-    };
-
-    return (
-        <TableWrapper>
-            <Table>
-                <thead>
-                    <tr>
-                        <Th>Receipt #</Th>
-                        <Th>Customer</Th>
-                        <Th>Date</Th>
-                        <Th>Items</Th>
-                        <Th>Total Amount</Th>
-                        <Th>Actions</Th>
+const SalesTable = ({ sales, onView }) => (
+    <TableWrapper>
+        <Table>
+            <thead>
+                <tr>
+                    <Th>Receipt #</Th>
+                    <Th>Customer</Th>
+                    <Th>Date</Th>
+                    <Th>Items</Th>
+                    <Th>Total Amount</Th>
+                    <Th>Actions</Th>
+                </tr>
+            </thead>
+            <tbody>
+                {sales.map(sale => (
+                    <tr key={sale._id}>
+                        <Td>#{sale.receiptNumber}</Td>
+                        <Td>{sale.customer?.name || 'Walk-in Customer'}</Td>
+                        <Td>{new Date(sale.createdAt).toLocaleDateString()}</Td>
+                        <Td>{sale.items.length}</Td>
+                        <Td>Rwf {(sale.totalAmount || 0).toLocaleString()}</Td>
+                        <Td>
+                            <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(sale)}><FaEye /></Button>
+                        </Td>
                     </tr>
-                </thead>
-                <tbody>
-                    {sales.map(sale => (
-                        <tr key={sale._id}>
-                            <Td>#{sale.receiptNumber}</Td>
-                            <Td>{sale.customerName || 'Walk-in Customer'}</Td>
-                            <Td>{new Date(sale.createdAt).toLocaleDateString()}</Td>
-                            <Td>{sale.items.length}</Td>
-                            <Td>Rwf {(sale.totalAmount || 0).toLocaleString()}</Td>
-                            <Td style={{display: 'flex', gap: '0.5rem'}}>
-                                <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(sale)}><FaEye /></Button>
-                                <div style={{position: 'relative'}}>
-                                    <Button variant="ghost" size="sm" iconOnly onClick={() => setActiveDropdown(sale._id === activeDropdown ? null : sale._id)}><FaEllipsisV/></Button>
-                                    {activeDropdown === sale._id && (
-                                        <DropdownMenu onMouseLeave={() => setActiveDropdown(null)}>
-                                            <DropdownItem variant="ghost" onClick={() => handlePrint(sale._id, sale.receiptNumber)} disabled={printLoadingId === sale._id}><FaPrint/> {printLoadingId === sale._id ? 'Printing...': 'Print'}</DropdownItem>
-                                            <DropdownItem variant="ghost" onClick={() => onDuplicate(sale)}><FaRedo/> Duplicate</DropdownItem>
-                                            <DropdownItem variant="ghost" onClick={() => onDelete(sale._id)} style={{color: '#c53030'}}><FaTrash/> Delete</DropdownItem>
-                                        </DropdownMenu>
-                                    )}
-                                </div>
-                            </Td>
-                        </tr>
-                    ))}
-                </tbody>
-            </Table>
-        </TableWrapper>
-    )
-};
+                ))}
+            </tbody>
+        </Table>
+    </TableWrapper>
+);
 
 const Sales = () => {
+    const [activeTab, setActiveTab] = useState('transactions');
     const [isCreating, setIsCreating] = useState(false);
     const [viewingSale, setViewingSale] = useState(null);
-    const [saleToDuplicate, setSaleToDuplicate] = useState(null);
-
-    const { sales, loading: salesLoading, error: salesError, createSale, deleteSale } = useSales();
+    const [isFiltering, setIsFiltering] = useState(false);
+    const [filters, setFilters] = useState({});
+    
+    const { sales, loading: salesLoading, error: salesError, createSale, processReturn } = useSales(filters);
     const { inventory, refetch: refetchInventory } = useInventory();
+    const { customers, createCustomer } = useCustomers();
 
     const stats = useMemo(() => {
         if (!sales) return { totalRevenue: 0, salesCount: 0 };
@@ -162,74 +130,117 @@ const Sales = () => {
         try {
             await createSale(saleData);
             setIsCreating(false);
-            setSaleToDuplicate(null);
             refetchInventory();
         } catch(error) {
-            // Error toast is handled by hook
+            // Error is handled by hook
         }
     };
-
-    const handleDeleteSale = async (saleId) => {
-        if (window.confirm("Are you sure you want to delete this sale? This will restock the sold items.")) {
-            try {
-                await deleteSale(saleId);
-                toast.success("Sale deleted successfully.");
-                refetchInventory();
-            } catch (err) {
-                toast.error(err.message || "Failed to delete sale.");
-            }
+    
+    const handleReturn = async (saleId, returnedItems) => {
+        try {
+            await processReturn(saleId, returnedItems);
+            setViewingSale(null);
+            refetchInventory();
+        } catch(error) {
+            // Error is handled by hook
         }
+    }
+    
+    const handleApplyFilters = (appliedFilters) => {
+        setFilters(appliedFilters);
+        setIsFiltering(false);
     };
 
-    const handleDuplicateSale = (sale) => {
-        setSaleToDuplicate(sale);
-        setIsCreating(true);
+    const handleClearFilters = () => {
+        setFilters({});
+        setIsFiltering(false);
     };
+
+    const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
     if (salesError) return <SalesContainer>Error: {salesError}</SalesContainer>;
+
+    const renderContent = () => {
+        if (activeTab === 'analytics') {
+            return <SalesAnalyticsDashboard />;
+        }
+        
+        if (salesLoading) {
+            return <div style={{ padding: '4rem', textAlign: 'center' }}><LoadingSpinner /></div>;
+        }
+        
+        if (sales.length === 0) {
+            return (
+                <EmptyState>
+                    <div className="icon"><FaFileInvoiceDollar /></div>
+                    <h3>No Sales Recorded Yet</h3>
+                    <p>{activeFilterCount > 0 ? "Try adjusting your filters." : "Click 'Record New Sale' to get started."}</p>
+                </EmptyState>
+            );
+        }
+        
+        return <SalesTable sales={sales} onView={setViewingSale} />;
+    };
 
     return (
         <SalesContainer>
             <SalesHeader>
                 <PageTitle>Sales Management</PageTitle>
-                <Button variant="primary" onClick={() => setIsCreating(true)}>
-                    <FaPlus style={{marginRight: '0.5rem'}}/> Record New Sale
-                </Button>
+                <HeaderActions>
+                    <Button variant="secondary" onClick={() => setIsFiltering(p => !p)}>
+                        <FaFilter style={{marginRight: '0.5rem'}}/> Filter {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+                    </Button>
+                    <Button variant="primary" onClick={() => setIsCreating(true)}>
+                        <FaPlus style={{marginRight: '0.5rem'}}/> Record New Sale
+                    </Button>
+                </HeaderActions>
             </SalesHeader>
+            
+            {activeFilterCount > 0 && (
+                 <FilterIndicator>
+                    <span>Showing filtered results</span>
+                    <Button variant="ghost" size="sm" onClick={handleClearFilters}><FaUndo style={{marginRight: '0.5rem'}}/>Clear Filters</Button>
+                </FilterIndicator>
+            )}
 
             <StatsGrid>
                 <StatCard>
                     <StatValue>Rwf {stats.totalRevenue.toLocaleString()}</StatValue>
-                    <StatLabel>Total Revenue</StatLabel>
+                    <StatLabel>{activeFilterCount > 0 ? 'Revenue in Filter' : 'Total Revenue'}</StatLabel>
                 </StatCard>
                 <StatCard>
                     <StatValue>{stats.salesCount.toLocaleString()}</StatValue>
-                    <StatLabel>Total Sales Transactions</StatLabel>
+                    <StatLabel>{activeFilterCount > 0 ? 'Sales in Filter' : 'Total Sales'}</StatLabel>
                 </StatCard>
             </StatsGrid>
+            
+            <TabContainer>
+                <Tab active={activeTab === 'transactions'} onClick={() => setActiveTab('transactions')}>
+                    <FaFileInvoiceDollar/> Transactions
+                </Tab>
+                <Tab active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')}>
+                    <FaChartLine/> Analytics & Reports
+                </Tab>
+            </TabContainer>
 
-            {salesLoading ? (
-                <div style={{ padding: '4rem', textAlign: 'center' }}><LoadingSpinner /></div>
-            ) : sales.length === 0 ? (
-                <EmptyState>
-                    <div className="icon"><FaFileInvoiceDollar /></div>
-                    <h3>No Sales Recorded Yet</h3>
-                    <p>Click "Record New Sale" to get started.</p>
-                </EmptyState>
-            ) : (
-                <SalesTable 
-                    sales={sales} 
-                    onView={setViewingSale} 
-                    onDelete={handleDeleteSale}
-                    onDuplicate={handleDuplicateSale}
+            {renderContent()}
+            
+            {isFiltering && (
+                <SalesFilterPanel
+                    customers={customers}
+                    onApply={handleApplyFilters}
+                    onClear={handleClearFilters}
+                    onClose={() => setIsFiltering(false)}
+                    initialFilters={filters}
                 />
             )}
 
             {isCreating && (
                 <CreateSaleModal
                     inventoryItems={inventory}
-                    saleToDuplicate={saleToDuplicate}
-                    onClose={() => { setIsCreating(false); setSaleToDuplicate(null); }}
+                    customers={customers}
+                    createCustomer={createCustomer}
+                    onClose={() => setIsCreating(false)}
                     onSave={handleSaveSale}
                     loading={salesLoading}
                 />
@@ -239,6 +250,7 @@ const Sales = () => {
                 <ViewSaleModal
                     sale={viewingSale}
                     onClose={() => setViewingSale(null)}
+                    onReturn={handleReturn}
                 />
             )}
         </SalesContainer>

@@ -117,10 +117,18 @@ export const notificationsAPI = {
 export const salesAPI = {
   getAll: (params) => api.get("/sales", { params }),
   create: (saleData) => api.post("/sales", saleData),
+  processReturn: (id, returnData) => api.post(`/sales/${id}/return`, returnData),
   delete: (id) => api.delete(`/sales/${id}`),
-  generatePDF: (id) => api.get(`/sales/${id}/pdf`, {
-    responseType: 'blob',
-  }),
-}
+  generatePDF: (id) => api.get(`/sales/${id}/pdf`, { responseType: 'blob' }),
+};
+
+export const customerAPI = {
+  getAll: () => api.get("/customers"),
+  create: (customerData) => api.post("/customers", customerData),
+};
+
+export const analyticsAPI = {
+  getSalesSummary: () => api.get("/analytics/sales"),
+};
 
 export default api;

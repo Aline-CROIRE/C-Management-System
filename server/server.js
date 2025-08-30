@@ -20,6 +20,8 @@ const dashboardRoutes = require("./routes/dashboard");
 const reportRoutes = require("./routes/reports");
 const salesRoutes = require("./routes/sales");
 const notificationRoutes = require("./routes/notifications");
+const customerRoutes = require('./routes/customers');
+
 
 // --- Middleware Imports ---
 const { verifyToken } = require("./middleware/auth");
@@ -78,6 +80,8 @@ app.use("/api/reports", verifyToken, reportRoutes);
 app.use("/api/notifications", verifyToken, notificationRoutes);
 app.use("/api/metadata", verifyToken, metadataRoutes);
 app.use("/api/sales", verifyToken, salesRoutes);
+app.use("/api/customers", verifyToken, customerRoutes);
+
 
 app.use("/api/*", (req, res) => {
   res.status(404).json({ success: false, message: "API endpoint not found.", path: req.originalUrl });

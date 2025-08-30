@@ -1,10 +1,11 @@
 "use client";
 import React, { useState } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { FaTimes, FaPrint, FaSpinner } from 'react-icons/fa';
+import { FaTimes, FaPrint, FaSpinner, FaUndo } from 'react-icons/fa';
 import Button from '../common/Button';
 import { salesAPI } from '../../services/api';
 import toast from 'react-hot-toast';
+import ReturnSaleModal from './ReturnSaleModal';
 
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 const slideUp = keyframes`from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; }`;
@@ -28,6 +29,10 @@ const ModalHeader = styled.div`
 const ModalBody = styled.div`
   padding: 2rem; flex-grow: 1; overflow-y: auto;
 `;
+const ModalFooter = styled.div`
+  padding: 1.5rem 2rem; border-top: 1px solid #e2e8f0;
+  display: flex; justify-content: flex-end; gap: 1rem;
+`;
 const InfoGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -45,8 +50,9 @@ const TotalRow = styled.tr`
   td { font-weight: bold; font-size: 1.1rem; }
 `;
 
-const ViewSaleModal = ({ sale, onClose }) => {
+const ViewSaleModal = ({ sale, onClose, onReturn }) => {
     const [printLoading, setPrintLoading] = useState(false);
+    const [isReturning, setIsReturning] = useState(false);
 
     const handlePrint = async () => {
         setPrintLoading(true);
@@ -74,57 +80,72 @@ const ViewSaleModal = ({ sale, onClose }) => {
     if (!sale) return null;
 
     return (
-        <ModalOverlay onClick={onClose}>
-            <ModalContent onClick={e => e.stopPropagation()}>
-                <ModalHeader>
-                    <h2>Sale Details - #{sale.receiptNumber}</h2>
-                    <div>
-                        <Button variant="ghost" size="sm" onClick={handlePrint} disabled={printLoading} style={{marginRight: '0.5rem'}}>
+        <>
+            <ModalOverlay onClick={onClose}>
+                <ModalContent onClick={e => e.stopPropagation()}>
+                    <ModalHeader>
+                        <h2>Sale Details - #{sale.receiptNumber}</h2>
+                        <div>
+                            <Button variant="ghost" size="sm" iconOnly onClick={onClose}><FaTimes /></Button>
+                        </div>
+                    </ModalHeader>
+                    <ModalBody>
+                        <InfoGrid>
+                            <InfoItem>
+                                <strong>CUSTOMER</strong>
+                                <span>{sale.customer?.name || 'Walk-in Customer'}</span>
+                            </InfoItem>
+                            <InfoItem>
+                                <strong>DATE OF SALE</strong>
+                                <span>{new Date(sale.createdAt).toLocaleString()}</span>
+                            </InfoItem>
+                        </InfoGrid>
+
+                        <h4>Items Sold</h4>
+                        <ItemsTable>
+                            <thead>
+                                <tr>
+                                    <Th>Product</Th>
+                                    <Th style={{textAlign: 'right'}}>Quantity</Th>
+                                    <Th style={{textAlign: 'right'}}>Unit Price</Th>
+                                    <Th style={{textAlign: 'right'}}>Subtotal</Th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sale.items.map((item, index) => (
+                                    <tr key={item.item?._id || index}>
+                                        <Td>{item.item?.name || 'N/A'}</Td>
+                                        <Td style={{textAlign: 'right'}}>{item.quantity}</Td>
+                                        <Td style={{textAlign: 'right'}}>Rwf {item.price.toLocaleString()}</Td>
+                                        <Td style={{textAlign: 'right'}}>Rwf {(item.quantity * item.price).toLocaleString()}</Td>
+                                    </tr>
+                                ))}
+                                <TotalRow>
+                                    <Td colSpan="3" style={{textAlign: 'right'}}>Total Amount</Td>
+                                    <Td style={{textAlign: 'right'}}>Rwf {sale.totalAmount.toLocaleString()}</Td>
+                                </TotalRow>
+                            </tbody>
+                        </ItemsTable>
+                    </ModalBody>
+                    <ModalFooter>
+                        {sale.status === 'Completed' && (
+                            <Button variant="danger-outline" onClick={() => setIsReturning(true)}><FaUndo/> Process Return</Button>
+                        )}
+                        <Button variant="secondary" onClick={handlePrint} disabled={printLoading}>
                             {printLoading ? <Spinner/> : <FaPrint />} Print
                         </Button>
-                        <Button variant="ghost" size="sm" iconOnly onClick={onClose}><FaTimes /></Button>
-                    </div>
-                </ModalHeader>
-                <ModalBody>
-                    <InfoGrid>
-                        <InfoItem>
-                            <strong>CUSTOMER</strong>
-                            <span>{sale.customerName || 'Walk-in Customer'}</span>
-                        </InfoItem>
-                        <InfoItem>
-                            <strong>DATE OF SALE</strong>
-                            <span>{new Date(sale.createdAt).toLocaleString()}</span>
-                        </InfoItem>
-                    </InfoGrid>
-
-                    <h4>Items Sold</h4>
-                    <ItemsTable>
-                        <thead>
-                            <tr>
-                                <Th>Product</Th>
-                                <Th style={{textAlign: 'right'}}>Quantity</Th>
-                                <Th style={{textAlign: 'right'}}>Unit Price</Th>
-                                <Th style={{textAlign: 'right'}}>Subtotal</Th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sale.items.map((item, index) => (
-                                <tr key={item.item?._id || index}>
-                                    <Td>{item.item?.name || 'N/A'}</Td>
-                                    <Td style={{textAlign: 'right'}}>{item.quantity}</Td>
-                                    <Td style={{textAlign: 'right'}}>Rwf {item.price.toLocaleString()}</Td>
-                                    <Td style={{textAlign: 'right'}}>Rwf {(item.quantity * item.price).toLocaleString()}</Td>
-                                </tr>
-                            ))}
-                            <TotalRow>
-                                <Td colSpan="3" style={{textAlign: 'right'}}>Total Amount</Td>
-                                <Td style={{textAlign: 'right'}}>Rwf {sale.totalAmount.toLocaleString()}</Td>
-                            </TotalRow>
-                        </tbody>
-                    </ItemsTable>
-                </ModalBody>
-            </ModalContent>
-        </ModalOverlay>
+                    </ModalFooter>
+                </ModalContent>
+            </ModalOverlay>
+            
+            {isReturning && (
+                <ReturnSaleModal
+                    sale={sale}
+                    onClose={() => setIsReturning(false)}
+                    onConfirm={onReturn}
+                />
+            )}
+        </>
     );
 };
 

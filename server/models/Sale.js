@@ -3,14 +3,29 @@ const mongoose = require('mongoose');
 const saleItemSchema = new mongoose.Schema({
     item: { type: mongoose.Schema.Types.ObjectId, ref: 'Inventory', required: true },
     quantity: { type: Number, required: true, min: 1 },
-    price: { type: Number, required: true }, // Price at the time of sale
+    price: { type: Number, required: true },
+    costPrice: { type: Number, required: true },
 }, { _id: false });
 
 const saleSchema = new mongoose.Schema({
     receiptNumber: { type: String, required: true, unique: true, index: true },
-    customerName: { type: String, trim: true, default: 'Walk-in Customer' },
+    customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
     items: [saleItemSchema],
+    subtotal: { type: Number, required: true },
+    taxAmount: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
+    paymentMethod: {
+        type: String,
+        enum: ['Cash', 'Credit Card', 'Mobile Money', 'Bank Transfer'],
+        required: true,
+        default: 'Cash',
+    },
+    status: {
+        type: String,
+        enum: ['Completed', 'Returned', 'Partially Returned'],
+        default: 'Completed'
+    },
+    notes: { type: String, trim: true },
 }, { timestamps: true });
 
 saleSchema.statics.generateReceiptNumber = async function() {
