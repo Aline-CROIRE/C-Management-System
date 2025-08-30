@@ -34,7 +34,7 @@ const NewSupplierForm = styled.div` display: flex; flex-direction: column; gap: 
 const CustomItemForm = styled.div` margin-top: 1rem; padding: 1.5rem; background: ${(props) => props.theme.colors.surfaceLight}; border-radius: ${(props) => props.theme.borderRadius.lg}; display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr auto; gap: 1rem; align-items: flex-end; @media(max-width: 1024px) { grid-template-columns: 1fr; }`;
 const StyledItemTable = styled.table` width: 100%; border-collapse: collapse; th, td { padding: 0.75rem; text-align: left; vertical-align: middle; } thead th { background: ${(props) => props.theme.colors.surfaceLight}; font-weight: 600; font-size: 0.875rem; position: sticky; top: 0; z-index: 1; } tbody tr { border-bottom: 1px solid ${(props) => props.theme.colors.border}; }`;
 
-const PurchaseOrderForm = ({ inventoryItems, suppliers, categories, createSupplier, createCategory, onClose, onSave, loading }) => {
+const PurchaseOrderForm = ({ poToDuplicate, inventoryItems, suppliers, categories, createSupplier, createCategory, onClose, onSave, loading }) => {
     const [supplierId, setSupplierId] = useState('');
     const [selectedSupplier, setSelectedSupplier] = useState(null);
     const [poItems, setPoItems] = useState([]);
@@ -48,6 +48,25 @@ const PurchaseOrderForm = ({ inventoryItems, suppliers, categories, createSuppli
     const [customItem, setCustomItem] = useState({ name: '', sku: '', unitPrice: '', category: '' });
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newSupplierFields, setNewSupplierFields] = useState({ name: '', email: '', phone: '' });
+
+    useEffect(() => {
+        if (poToDuplicate) {
+            setSupplierId(poToDuplicate.supplier._id);
+            setPoItems(poToDuplicate.items.map(item => ({
+                item: item.item._id,
+                name: item.item.name,
+                sku: item.item.sku,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                isNew: false,
+                category: item.item.category
+            })));
+            setNotes(`Re-order of PO #${poToDuplicate.orderNumber}`);
+            setPaymentTerms(poToDuplicate.paymentTerms);
+            setTaxRate(poToDuplicate.taxAmount / poToDuplicate.subtotal * 100 || 0);
+            setShippingCost(poToDuplicate.shippingCost);
+        }
+    }, [poToDuplicate]);
 
     useEffect(() => {
         if (supplierId && supplierId !== '_add_new_') {
@@ -130,7 +149,7 @@ const PurchaseOrderForm = ({ inventoryItems, suppliers, categories, createSuppli
         <ModalOverlay onClick={onClose}>
             <ModalContent onClick={e => e.stopPropagation()}>
                 <ModalHeader>
-                    <ModalTitle>Create New Purchase Order</ModalTitle>
+                    <ModalTitle>{poToDuplicate ? `Re-ordering PO #${poToDuplicate.orderNumber}` : 'Create New Purchase Order'}</ModalTitle>
                     <Button variant="ghost" size="sm" onClick={onClose}><FaTimes /></Button>
                 </ModalHeader>
                 <ModalBody>
@@ -213,7 +232,7 @@ const PurchaseOrderForm = ({ inventoryItems, suppliers, categories, createSuppli
                   <GrandTotalDisplay><GrandTotalLabel>Grand Total:</GrandTotalLabel><GrandTotalAmount>RWF {grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</GrandTotalAmount></GrandTotalDisplay>
                   <div>
                     <Button variant="secondary" onClick={onClose} style={{marginRight: '1rem'}}>Cancel</Button>
-                    <Button variant="primary" onClick={handleSave} disabled={loading || poItems.length === 0}><FaSave /> Create Purchase Order</Button>
+                    <Button variant="primary" onClick={handleSave} disabled={loading || poItems.length === 0}><FaSave /> {poToDuplicate ? 'Create Re-order' : 'Create Purchase Order'}</Button>
                   </div>
                 </ModalFooter>
             </ModalContent>

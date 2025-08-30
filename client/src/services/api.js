@@ -25,7 +25,7 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
-    if (response.request.responseType === 'blob') {
+    if (response.config.responseType === 'blob') {
       return response.data;
     }
     return response.data;
@@ -97,7 +97,6 @@ export const poAPI = {
   create: (poData) => api.post("/purchase-orders", poData),
   update: (id, poData) => api.put(`/purchase-orders/${id}`, poData),
   delete: (id) => api.delete(`/purchase-orders/${id}`),
-  
   updateStatus: (id, status, receivedItems = null) => {
     const payload = { status };
     if (receivedItems) {
@@ -105,7 +104,6 @@ export const poAPI = {
     }
     return api.patch(`/purchase-orders/${id}/status`, payload);
   },
-  
   generatePDF: (id) => api.get(`/purchase-orders/${id}/pdf`, {
     responseType: 'blob',
   }),

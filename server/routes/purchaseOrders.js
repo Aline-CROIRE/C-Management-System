@@ -20,7 +20,7 @@ router.get("/", verifyToken, async (req, res) => {
             .populate('supplier', 'name email phone')
             .populate({
                 path: 'items.item',
-                select: 'name sku price', // Ensure price is populated for the receive modal
+                select: 'name sku price',
                 model: 'Inventory'
             })
             .sort({ [sort]: sortOrder })
@@ -43,7 +43,6 @@ router.get("/", verifyToken, async (req, res) => {
                 totalPages: Math.ceil(total / limitNum),
             }
         });
-
     } catch (err) {
         res.status(500).json({ success: false, message: "Server Error: Could not fetch purchase orders." });
     }
@@ -62,7 +61,6 @@ router.post("/", verifyToken, [
     const session = await mongoose.startSession();
     try {
         await session.startTransaction();
-
         const { supplier, items, newItems, ...poData } = req.body;
         const allPoItems = [...items];
 
@@ -76,11 +74,10 @@ router.post("/", verifyToken, [
                     unit: 'pcs',
                     quantity: 0,
                     status: 'on-order',
-                    location: '60d5ecb4b39b2a1b2c8d5e8a', // Replace with a real default Location ID
+                    location: '60d5ecb4b39b2a1b2c8d5e8a',
                     minStockLevel: 10,
                 });
                 const savedItem = await newInventoryItem.save({ session });
-                
                 allPoItems.push({
                     item: savedItem._id,
                     quantity: newItemData.quantity || 1,
@@ -111,9 +108,7 @@ router.post("/", verifyToken, [
 
         await session.commitTransaction();
         const populatedPO = await PurchaseOrder.findById(savedPO._id).populate('supplier', 'name email');
-        
         res.status(201).json({ success: true, message: "Purchase Order created successfully!", data: populatedPO });
-
     } catch (err) {
         await session.abortTransaction();
         res.status(500).json({ success: false, message: err.message || "Server error creating Purchase Order." });
@@ -132,7 +127,6 @@ router.patch("/:id/status", verifyToken, [
     }
 
     const session = await mongoose.startSession();
-    
     try {
         await session.startTransaction();
         const { status, receivedItems } = req.body;
@@ -146,14 +140,12 @@ router.patch("/:id/status", verifyToken, [
                 throw new Error("Received items data is required to complete an order.");
             }
             for (const receivedItem of receivedItems) {
-                await Inventory.updateOne(
-                    { _id: receivedItem.item },
-                    { 
-                        $inc: { quantity: receivedItem.quantityReceived },
-                        $set: { price: receivedItem.sellingPrice }
-                    },
-                    { session, runValidators: true }
-                );
+                const inventoryItem = await Inventory.findById(receivedItem.item).session(session);
+                if (inventoryItem) {
+                    inventoryItem.quantity += receivedItem.quantityReceived;
+                    inventoryItem.price = receivedItem.sellingPrice;
+                    await inventoryItem.save({ session });
+                }
             }
             po.receivedDate = new Date();
         }
@@ -170,13 +162,44 @@ router.patch("/:id/status", verifyToken, [
 
         po.status = status;
         const updatedPO = await po.save({ session });
-
         await session.commitTransaction();
         res.json({ success: true, message: `Order status updated to ${status}.`, data: updatedPO });
     } catch (err) {
         await session.abortTransaction();
-        console.error("--- PO STATUS UPDATE FAILED ---", err);
         res.status(500).json({ success: false, message: err.message });
+    } finally {
+        session.endSession();
+    }
+});
+
+router.delete("/:id", verifyToken, async (req, res) => {
+    const session = await mongoose.startSession();
+    try {
+        await session.startTransaction();
+        const poId = req.params.id;
+        const poToDelete = await PurchaseOrder.findById(poId).session(session);
+
+        if (!poToDelete) {
+            throw new Error("Purchase Order not found.");
+        }
+
+        if (['Pending', 'Ordered', 'Shipped'].includes(poToDelete.status)) {
+            for (const poItem of poToDelete.items) {
+                const inventoryItem = await Inventory.findById(poItem.item).session(session);
+                if (inventoryItem && inventoryItem.status === 'on-order') {
+                    inventoryItem.status = inventoryItem.quantity > 0 ? 'in-stock' : 'out-of-stock';
+                    await inventoryItem.save({ session });
+                }
+            }
+        }
+
+        await PurchaseOrder.findByIdAndDelete(poId).session(session);
+        await session.commitTransaction();
+        res.json({ success: true, message: "Purchase Order deleted successfully." });
+
+    } catch (err) {
+        await session.abortTransaction();
+        res.status(500).json({ success: false, message: err.message || "Server error deleting Purchase Order." });
     } finally {
         session.endSession();
     }
@@ -193,67 +216,87 @@ router.get("/:id/pdf", verifyToken, async (req, res) => {
         }
 
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
-
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=PO-${po.orderNumber}.pdf`);
-
         doc.pipe(res);
 
-        doc.fontSize(20).font('Helvetica-Bold').text('PURCHASE ORDER', { align: 'center' });
-        doc.moveDown();
+        const formatCurrency = (amount) => `Rwf ${amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+        const userName = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || 'System User';
 
-        doc.fontSize(10).font('Helvetica').text('Your Company Name', { align: 'left' });
-        doc.text('123 Business Rd, Kigali, Rwanda', { align: 'left' });
-        
-        doc.text(`PO Number: ${po.orderNumber}`, { align: 'right' });
-        doc.text(`Order Date: ${new Date(po.orderDate).toLocaleDateString()}`, { align: 'right' });
+        doc.fontSize(20).font('Helvetica-Bold').text('PURCHASE ORDER', { align: 'center' });
         doc.moveDown(2);
 
+        const headerTopY = doc.y;
+        doc.fontSize(10).font('Helvetica').text(userName, 50, headerTopY);
+        doc.text('123 Business Rd, Kigali, Rwanda');
+        
+        doc.font('Helvetica-Bold').text('PO Number:', 400, headerTopY, { width: 80, align: 'left' });
+        doc.font('Helvetica').text(po.orderNumber, 480, headerTopY, { align: 'left' });
+        doc.font('Helvetica-Bold').text('Order Date:', 400, headerTopY + 15, { width: 80, align: 'left' });
+        doc.font('Helvetica').text(new Date(po.orderDate).toLocaleDateString(), 480, headerTopY + 15, { align: 'left' });
+
+        doc.y = headerTopY + 50;
+        doc.moveDown(1);
+        
         doc.font('Helvetica-Bold').text('Supplier:');
         doc.font('Helvetica').text(po.supplier.name);
-        doc.text(po.supplier.email || '');
+        doc.text(po.supplier.email || 'No email provided');
         doc.moveDown(2);
 
         const tableTop = doc.y;
+        const itemX = 50;
+        const quantityX = 300;
+        const unitPriceX = 380;
+        const totalX = 470;
+
         doc.font('Helvetica-Bold');
-        doc.text('Item', 50, tableTop);
-        doc.text('Quantity', 250, tableTop, { width: 90, align: 'right' });
-        doc.text('Unit Price', 340, tableTop, { width: 90, align: 'right' });
-        doc.text('Total', 430, tableTop, { width: 100, align: 'right' });
-        doc.moveTo(50, doc.y + 5).lineTo(550, doc.y + 5).stroke();
-        doc.moveDown();
+        doc.text('Item', itemX, tableTop);
+        doc.text('Quantity', quantityX, tableTop, { width: 80, align: 'center' });
+        doc.text('Unit Price', unitPriceX, tableTop, { width: 90, align: 'right' });
+        doc.text('Total', totalX, tableTop, { width: 90, align: 'right' });
+
+        const tableHeaderY = tableTop + 20;
+        doc.moveTo(itemX, tableHeaderY).lineTo(doc.page.width - itemX, tableHeaderY).stroke();
+        
+        let currentY = tableHeaderY + 10;
+        doc.font('Helvetica');
+
+        po.items.forEach(item => {
+            doc.text(item.item.name, itemX, currentY);
+            doc.text(item.quantity.toString(), quantityX, currentY, { width: 80, align: 'center' });
+            doc.text(`Rwf ${item.unitPrice.toLocaleString()}`, unitPriceX, currentY, { width: 90, align: 'right' });
+            doc.text(`Rwf ${(item.quantity * item.unitPrice).toLocaleString()}`, totalX, currentY, { width: 90, align: 'right' });
+            currentY += 20;
+        });
+
+        const tableFooterY = currentY;
+        doc.moveTo(itemX, tableFooterY).lineTo(doc.page.width - itemX, tableFooterY).stroke();
+        doc.y = tableFooterY + 10;
+        
+        const totalsXLabel = 380;
+        const totalsXValue = 470;
+        let totalsY = doc.y;
 
         doc.font('Helvetica');
-        po.items.forEach(item => {
-            const y = doc.y;
-            doc.text(item.item.name, 50, y);
-            doc.text(item.quantity.toString(), 250, y, { width: 90, align: 'right' });
-            doc.text(`Rwf ${item.unitPrice.toLocaleString()}`, 340, y, { width: 90, align: 'right' });
-            doc.text(`Rwf ${(item.quantity * item.unitPrice).toLocaleString()}`, 430, y, { width: 100, align: 'right' });
-            doc.moveDown();
-        });
-        doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-        doc.moveDown();
+        doc.text('Subtotal:', totalsXLabel, totalsY, { align: 'left' });
+        doc.text(formatCurrency(po.subtotal), totalsXValue, totalsY, { align: 'right' });
+        totalsY += 15;
+        doc.text('Tax:', totalsXLabel, totalsY, { align: 'left' });
+        doc.text(formatCurrency(po.taxAmount), totalsXValue, totalsY, { align: 'right' });
+        totalsY += 15;
+        doc.text('Shipping:', totalsXLabel, totalsY, { align: 'left' });
+        doc.text(formatCurrency(po.shippingCost), totalsXValue, totalsY, { align: 'right' });
+        doc.moveDown(1);
         
-        const totalsY = doc.y;
-        doc.font('Helvetica');
-        doc.text('Subtotal:', 350, totalsY, { align: 'right' });
-        doc.text(`Rwf ${po.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 450, totalsY, { align: 'right' });
-        doc.moveDown(0.5);
-        doc.text('Tax:', 350, doc.y, { align: 'right' });
-        doc.text(`Rwf ${po.taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 450, doc.y, { align: 'right' });
-        doc.moveDown(0.5);
-        doc.text('Shipping:', 350, doc.y, { align: 'right' });
-        doc.text(`Rwf ${po.shippingCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 450, doc.y, { align: 'right' });
-        doc.moveDown();
-        
+        totalsY = doc.y;
         doc.font('Helvetica-Bold');
-        doc.text('Grand Total:', 350, doc.y, { align: 'right' });
-        doc.text(`Rwf ${po.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 450, doc.y, { align: 'right' });
+        doc.text('Grand Total:', totalsXLabel, totalsY, { align: 'left' });
+        doc.text(formatCurrency(po.totalAmount), totalsXValue, totalsY, { align: 'right' });
 
         doc.end();
 
     } catch (err) {
+        console.error("PDF Generation Error:", err);
         res.status(500).json({ success: false, message: "Server error generating PDF." });
     }
 });

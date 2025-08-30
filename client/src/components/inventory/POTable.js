@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { FaEye, FaSpinner, FaSort, FaSortUp, FaSortDown, FaEllipsisV, FaPrint, FaRedo, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaEye, FaSpinner, FaSort, FaSortUp, FaSortDown, FaEllipsisV, FaPrint, FaRedo, FaTrash, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Button from '../common/Button';
 import Select from '../common/Select';
+import { poAPI } from '../../services/api';
+import toast from 'react-hot-toast';
 
 const shimmer = keyframes`0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; }`;
 
@@ -96,18 +98,42 @@ const TableFooter = styled.div`
   font-size: 0.875rem; color: ${(props) => props.theme.colors.textSecondary};
 `;
 const PaginationControls = styled.div` display: flex; gap: 0.5rem; `;
-const DropdownMenu = styled.div` position: absolute; background: white; border-radius: 8px; box-shadow: ${(props) => props.theme.shadows.lg}; z-index: 10;`;
+const DropdownMenu = styled.div` position: absolute; right: 0; background: white; border-radius: 8px; box-shadow: ${(props) => props.theme.shadows.lg}; z-index: 10; overflow: hidden;`;
 const DropdownItem = styled(Button)` width: 100%; justify-content: flex-start;`;
 
-const POTable = ({ data, loading, pagination, onUpdateStatus, onView, onPageChange, onSortChange, currentSort }) => {
+const POTable = ({ data, loading, pagination, onUpdateStatus, onView, onPageChange, onSortChange, currentSort, onReorder, onDelete }) => {
   const [updatingId, setUpdatingId] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
+  const [printLoadingId, setPrintLoadingId] = useState(null);
 
   const handleStatusChange = async (poId, newStatus) => {
     setUpdatingId(poId);
     try { await onUpdateStatus(poId, newStatus); }
     catch (error) { console.error("Failed to update status:", error); }
     finally { setUpdatingId(null); }
+  };
+
+  const handlePrint = async (poId, orderNumber) => {
+    setPrintLoadingId(poId);
+    toast.loading('Generating PDF...');
+    try {
+        const response = await poAPI.generatePDF(poId);
+        const url = window.URL.createObjectURL(response);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `PO-${orderNumber}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        toast.dismiss();
+        toast.success('PDF Downloaded!');
+    } catch (error) {
+        toast.dismiss();
+        toast.error(error.message || 'Failed to generate PDF.');
+    } finally {
+        setPrintLoadingId(null);
+    }
   };
 
   const handleSort = (key) => {
@@ -176,8 +202,9 @@ const POTable = ({ data, loading, pagination, onUpdateStatus, onView, onPageChan
                         <Button variant="ghost" size="sm" iconOnly onClick={() => setActiveDropdown(po._id === activeDropdown ? null : po._id)}><FaEllipsisV/></Button>
                         {activeDropdown === po._id && (
                             <DropdownMenu onMouseLeave={() => setActiveDropdown(null)}>
-                                <DropdownItem variant="ghost"><FaPrint/> Print</DropdownItem>
-                                <DropdownItem variant="ghost"><FaRedo/> Duplicate</DropdownItem>
+                                <DropdownItem variant="ghost" onClick={() => handlePrint(po._id, po.orderNumber)} disabled={printLoadingId === po._id}><FaPrint/> {printLoadingId === po._id ? 'Printing...': 'Print'}</DropdownItem>
+                                <DropdownItem variant="ghost" onClick={() => onReorder(po)}><FaRedo/> Duplicate</DropdownItem>
+                                <DropdownItem variant="ghost" onClick={() => onDelete(po._id)} style={{color: '#c53030'}}><FaTrash/> Delete</DropdownItem>
                             </DropdownMenu>
                         )}
                     </div>

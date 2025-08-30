@@ -21,7 +21,6 @@ export const usePurchaseOrders = (filters) => {
       }
     } catch (err) {
       setError(err.message);
-      toast.error(err.message);
     } finally {
       setLoading(false);
     }
@@ -32,30 +31,19 @@ export const usePurchaseOrders = (filters) => {
   }, [fetchPOs]);
 
   const createPO = useCallback(async (poData) => {
-    try {
-      const response = await poAPI.create(poData);
-      if (response.success) {
-        await fetchPOs();
-        return true;
-      }
-      return false;
-    } catch (err) {
-      throw err;
-    }
+    await poAPI.create(poData);
+    await fetchPOs();
   }, [fetchPOs]);
 
   const updatePOStatus = useCallback(async (poId, status, receivedItemsData = null) => {
-    try {
-      const response = await poAPI.updateStatus(poId, status, receivedItemsData);
-      if (response.success) {
-        await fetchPOs();
-        return true;
-      }
-      return false;
-    } catch (err) {
-      throw err;
-    }
+    await poAPI.updateStatus(poId, status, receivedItemsData);
+    await fetchPOs();
   }, [fetchPOs]);
 
-  return { purchaseOrders, pagination, loading, error, createPO, updatePOStatus, refetch: fetchPOs };
+  const deletePO = useCallback(async (poId) => {
+    await poAPI.delete(poId);
+    await fetchPOs();
+  }, [fetchPOs]);
+
+  return { purchaseOrders, pagination, loading, error, createPO, updatePOStatus, deletePO };
 };

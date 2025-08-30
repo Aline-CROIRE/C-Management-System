@@ -1,13 +1,11 @@
 "use client";
 
 import React, { useState } from 'react';
-import ReactDOM from 'react-dom';
 import styled, { keyframes } from 'styled-components';
-import { FaPlus, FaEye, FaTimes, FaPrint, FaRedo } from 'react-icons/fa';
+import { FaPlus } from 'react-icons/fa';
 
 import { usePurchaseOrders } from '../../hooks/usePurchaseOrders';
 import Button from '../common/Button';
-import LoadingSpinner from '../common/LoadingSpinner';
 import PurchaseOrderForm from './PurchaseOrderForm';
 import POTable from './POTable';
 import PurchaseOrderDetailsModal from './PurchaseOrderDetailsModal';
@@ -38,14 +36,14 @@ const PageTitle = styled.h2`
 
 const PurchaseOrders = ({ inventoryData, suppliersData, categoriesData, isDataLoading, createSupplier, createCategory, onAction }) => {
   const [filters, setFilters] = useState({ page: 1, limit: 10, sort: 'orderDate', order: 'desc' });
-  const { purchaseOrders, pagination, loading: poLoading, error, createPO, updatePOStatus, refetch } = usePurchaseOrders(filters);
+  const { purchaseOrders, pagination, loading: poLoading, error, createPO, updatePOStatus, deletePO } = usePurchaseOrders(filters);
   
   const [modalState, setModalState] = useState({ view: false, create: false, receive: false });
   const [selectedPO, setSelectedPO] = useState(null);
 
   const handleOpenModal = (modal, po = null) => {
     setSelectedPO(po);
-    setModalState(prev => ({ ...prev, [modal]: true }));
+    setModalState({ view: false, create: false, receive: false, [modal]: true });
   };
 
   const handleCloseModals = () => {
@@ -68,7 +66,7 @@ const PurchaseOrders = ({ inventoryData, suppliersData, categoriesData, isDataLo
         toast.success("Purchase Order created successfully!");
         if(onAction) onAction();
     } catch(err) {
-        // Error is handled by interceptor/hook
+        toast.error(err.message || "Failed to create PO.");
     }
   };
 
@@ -81,7 +79,24 @@ const PurchaseOrders = ({ inventoryData, suppliersData, categoriesData, isDataLo
             onAction();
         }
     } catch(err) {
-        // Error is handled by interceptor/hook
+        toast.error(err.message || "Failed to update status.");
+    }
+  };
+
+  const handleReorder = (poToDuplicate) => {
+    handleCloseModals();
+    handleOpenModal('create', poToDuplicate);
+  };
+  
+  const handleDelete = async (poId) => {
+    if (window.confirm("Are you sure you want to delete this PO? This action cannot be undone.")) {
+        try {
+            await deletePO(poId);
+            handleCloseModals();
+            toast.success("Purchase Order deleted.");
+        } catch (err) {
+            toast.error(err.message || "Failed to delete PO.");
+        }
     }
   };
 
@@ -103,6 +118,8 @@ const PurchaseOrders = ({ inventoryData, suppliersData, categoriesData, isDataLo
         loading={isLoading}
         pagination={pagination}
         onView={(po) => handleOpenModal('view', po)}
+        onReorder={handleReorder}
+        onDelete={handleDelete}
         onUpdateStatus={handleUpdateStatus}
         onPageChange={handlePageChange}
         onSortChange={handleSortChange}
@@ -111,6 +128,7 @@ const PurchaseOrders = ({ inventoryData, suppliersData, categoriesData, isDataLo
       
       {modalState.create && (
         <PurchaseOrderForm
+          poToDuplicate={selectedPO}
           inventoryItems={inventoryData || []}
           suppliers={suppliersData || []}
           categories={categoriesData || []}
@@ -128,7 +146,9 @@ const PurchaseOrders = ({ inventoryData, suppliersData, categoriesData, isDataLo
             onClose={handleCloseModals}
             onReceive={() => handleOpenModal('receive', selectedPO)}
             onCancel={(poId) => handleUpdateStatus(poId, 'Cancelled')}
+            onDelete={handleDelete}
             onMarkAsOrdered={(poId) => handleUpdateStatus(poId, 'Ordered')}
+            onReorder={handleReorder}
         />
       )}
 
@@ -145,3 +165,4 @@ const PurchaseOrders = ({ inventoryData, suppliersData, categoriesData, isDataLo
 };
 
 export default PurchaseOrders;
+

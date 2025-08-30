@@ -4,12 +4,11 @@ import React, { useState } from "react";
 import styled, { keyframes } from "styled-components";
 import {
   FaTimes, FaEdit, FaPrint, FaCheck, FaShippingFast, FaCalendar, FaUser, FaFileInvoiceDollar,
-  FaBox, FaClipboardList, FaSpinner, FaRedo
+  FaBox, FaClipboardList, FaSpinner, FaRedo, FaTrash
 } from "react-icons/fa";
 import Button from "../common/Button";
 import { poAPI } from "../../services/api";
 import toast from "react-hot-toast";
-import ReceivePOModal from "./ReceivePOModal";
 
 const ModalOverlay = styled.div` position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; backdrop-filter: blur(5px); `;
 const ModalContent = styled.div` background: white; border-radius: 1rem; width: 100%; max-width: 900px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); `;
@@ -44,33 +43,21 @@ const TableCell = styled.td` padding: 1rem; font-size: 0.875rem; color: #2d3748;
 const TotalSection = styled.div` display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; @media(max-width: 768px) { grid-template-columns: 1fr; } `;
 const TotalBreakdown = styled.div` background: #f7fafc; border-radius: 0.75rem; padding: 1.5rem; border: 1px solid #e2e8f0; margin-top: auto;`;
 const TotalRow = styled.div` display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; &:not(:last-child) { margin-bottom: 0.75rem; } strong { font-weight: 600; color: #718096; } span { font-weight: 500; color: #2d3748; } &.grand-total { font-size: 1.25rem; font-weight: 700; padding-top: 1rem; border-top: 2px solid #e2e8f0; strong, span { color: #1a202c; } } `;
-const ActionButtons = styled.div` display: flex; gap: 1rem; flex-wrap: wrap; justify-content: flex-end; padding: 1.5rem 2rem; border-top: 1px solid #e2e8f0; background: #f7fafc; `;
+const ActionButtons = styled.div` display: flex; gap: 1rem; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 1.5rem 2rem; border-top: 1px solid #e2e8f0; background: #f7fafc; `;
+const MainActions = styled.div` display: flex; gap: 1rem; flex-wrap: wrap; justify-content: flex-end; `;
 const Spin = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
 const Spinner = styled(FaSpinner)` animation: ${Spin} 1s linear infinite; `;
 
-const PurchaseOrderDetailsModal = ({ order, onClose, onUpdate }) => {
+const PurchaseOrderDetailsModal = ({ order, onClose, onReceive, onCancel, onMarkAsOrdered, onReorder, onDelete }) => {
   const [loading, setLoading] = useState(false);
   const [printLoading, setPrintLoading] = useState(false);
-  const [isReceiving, setIsReceiving] = useState(false);
 
-  const handleUpdateStatus = async (newStatus, receivedItemsData = null) => {
-    const confirmText = newStatus === 'Cancelled'
-      ? "This will cancel the order and revert item statuses. Continue?"
-      : `Are you sure you want to mark this order as "${newStatus}"?`;
-      
-    if (newStatus !== 'Completed' && !window.confirm(confirmText)) return;
-
+  const handleUpdateStatus = async (newStatus) => {
     setLoading(true);
     try {
-      await poAPI.updateStatus(order._id, newStatus, receivedItemsData);
-      toast.success(`Order status updated to ${newStatus}!`);
-      if (onUpdate) onUpdate();
-      onClose();
-    } catch (error) {
-      toast.error(error.message || `Failed to update status.`);
+      await onCancel(order._id, newStatus);
     } finally {
       setLoading(false);
-      setIsReceiving(false);
     }
   };
 
@@ -78,8 +65,8 @@ const PurchaseOrderDetailsModal = ({ order, onClose, onUpdate }) => {
     setPrintLoading(true);
     toast.loading('Generating PDF...');
     try {
-        const response = await poAPI.generatePDF(order._id);
-        const url = window.URL.createObjectURL(response);
+        const responseBlob = await poAPI.generatePDF(order._id);
+        const url = window.URL.createObjectURL(new Blob([responseBlob], { type: 'application/pdf' }));
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', `PO-${order.orderNumber}.pdf`);
@@ -116,20 +103,18 @@ const PurchaseOrderDetailsModal = ({ order, onClose, onUpdate }) => {
   if (!order) return null;
   
   return (
-    <>
-      <ModalOverlay onClick={onClose}>
-        <ModalContent onClick={(e) => e.stopPropagation()}>
-          <ModalHeader>
-            <HeaderInfo>
-              <OrderNumber>{order.orderNumber}</OrderNumber>
-              <OrderStatus status={order.status}>{getStatusIcon(order.status)} {order.status}</OrderStatus>
-            </HeaderInfo>
-            <HeaderActions>
-              <Button variant="ghost" iconOnly onClick={onClose}><FaTimes size={20}/></Button>
-            </HeaderActions>
-          </ModalHeader>
-
-          <ModalBody>
+    <ModalOverlay onClick={onClose}>
+      <ModalContent onClick={(e) => e.stopPropagation()}>
+        <ModalHeader>
+          <HeaderInfo>
+            <OrderNumber>{order.orderNumber}</OrderNumber>
+            <OrderStatus status={order.status}>{getStatusIcon(order.status)} {order.status}</OrderStatus>
+          </HeaderInfo>
+          <HeaderActions>
+            <Button variant="ghost" iconOnly onClick={onClose}><FaTimes size={20}/></Button>
+          </HeaderActions>
+        </ModalHeader>
+        <ModalBody>
             <InfoGrid>
               <InfoCard>
                 <InfoTitle><FaUser /> Supplier Information</InfoTitle>
@@ -190,34 +175,29 @@ const PurchaseOrderDetailsModal = ({ order, onClose, onUpdate }) => {
                 <InfoValue style={{ whiteSpace: "pre-wrap" }}>{order.notes}</InfoValue>
               </InfoCard>
             )}
-          </ModalBody>
-          <ActionButtons>
+        </ModalBody>
+        <ActionButtons>
+          <div>
+            <Button variant="danger-outline" onClick={() => onDelete(order._id)} disabled={loading}>
+              <FaTrash /> Delete
+            </Button>
+          </div>
+          <MainActions>
             <Button variant="outline" onClick={handlePrint} disabled={printLoading}>{printLoading ? <Spinner/> : <FaPrint />} Print PDF</Button>
-            <Button variant="secondary" disabled={loading}><FaRedo /> Re-order</Button>
+            <Button variant="secondary" onClick={() => onReorder(order)} disabled={loading}><FaRedo /> Re-order</Button>
             {order.status === "Pending" && (
-              <Button variant="primary" onClick={() => handleUpdateStatus("Ordered")} disabled={loading}>{loading ? <Spinner/> : <FaShippingFast />} Mark as Ordered</Button>
+              <Button variant="primary" onClick={() => onMarkAsOrdered(order._id)} disabled={loading}>{loading ? <Spinner/> : <FaShippingFast />} Mark as Ordered</Button>
             )}
             {["Ordered", "Shipped"].includes(order.status) && (
-              <Button variant="success" onClick={() => setIsReceiving(true)} disabled={loading}>{loading ? <Spinner/> : <FaCheck />} Receive Items</Button>
+              <Button variant="success" onClick={onReceive} disabled={loading}><FaCheck /> Receive Items</Button>
             )}
             {!["Completed", "Cancelled"].includes(order.status) && (
-              <>
-                <Button variant="outline" disabled={loading}><FaEdit /> Edit Order</Button>
-                <Button variant="danger" onClick={() => handleUpdateStatus("Cancelled")} disabled={loading}>{loading ? <Spinner/> : <FaTimes />} Cancel Order</Button>
-              </>
+              <Button variant="outline" disabled={loading}><FaEdit /> Edit Order</Button>
             )}
-          </ActionButtons>
-        </ModalContent>
-      </ModalOverlay>
-      {isReceiving && (
-        <ReceivePOModal
-          order={order}
-          onClose={() => setIsReceiving(false)}
-          onConfirm={(receivedItemsData) => handleUpdateStatus("Completed", receivedItemsData)}
-          loading={loading}
-        />
-      )}
-    </>
+          </MainActions>
+        </ActionButtons>
+      </ModalContent>
+    </ModalOverlay>
   );
 };
 
