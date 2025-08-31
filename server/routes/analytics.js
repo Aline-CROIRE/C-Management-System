@@ -1,102 +1,101 @@
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const Sale = require("../models/Sale");
+const Inventory = require("../models/Inventory");
 const { verifyToken } = require("../middleware/auth");
-const moment = require("moment"); // You may need to run: npm install moment
+const moment = require("moment");
+const PDFDocument = require('pdfkit');
 
-router.get("/sales", verifyToken, async (req, res) => {
-    try {
-        const thirtyDaysAgo = moment().subtract(30, 'days').toDate();
+const getSalesAnalyticsData = async (filters) => {
+    const { startDate, endDate, customerId } = filters;
+    const dateQuery = {};
+    if (startDate && endDate) {
+        dateQuery.createdAt = {
+            $gte: moment(startDate).startOf('day').toDate(),
+            $lte: moment(endDate).endOf('day').toDate(),
+        };
+    }
+    const salesQuery = { ...dateQuery };
+    if (customerId) salesQuery.customer = new mongoose.Types.ObjectId(customerId);
 
-        const salesOverTime = await Sale.aggregate([
-            { $match: { createdAt: { $gte: thirtyDaysAgo } } },
-            {
-                $group: {
-                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-                    totalRevenue: { $sum: "$totalAmount" },
-                }
-            },
+    const [salesOverTime, categoryPerformance, locationPerformance] = await Promise.all([
+        Sale.aggregate([
+            { $match: salesQuery },
+            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, totalRevenue: { $sum: "$totalAmount" } } },
             { $sort: { _id: 1 } }
-        ]);
+        ]),
+        Sale.aggregate([
+            { $match: salesQuery }, { $unwind: "$items" },
+            { $lookup: { from: "inventories", localField: "items.item", foreignField: "_id", as: "inventory" }},
+            { $unwind: "$inventory" },
+            { $lookup: { from: "categories", localField: "inventory.category", foreignField: "_id", as: "category" }},
+            { $unwind: "$category" },
+            { $group: { _id: "$category.name", value: { $sum: { $multiply: ["$items.quantity", "$items.price"] } } } },
+            { $sort: { value: -1 } },
+            { $project: { name: "$_id", value: "$value", _id: 0 } }
+        ]),
+        Sale.aggregate([
+            { $match: salesQuery }, { $unwind: "$items" },
+            { $lookup: { from: "inventories", localField: "items.item", foreignField: "_id", as: "inventory" }},
+            { $unwind: "$inventory" },
+            { $lookup: { from: "locations", localField: "inventory.location", foreignField: "_id", as: "location" }},
+            { $unwind: "$location" },
+            { $group: { _id: "$location.name", value: { $sum: { $multiply: ["$items.quantity", "$items.price"] } } } },
+            { $sort: { value: -1 } },
+            { $project: { name: "$_id", value: "$value", _id: 0 } }
+        ])
+    ]);
+    
+    return { salesOverTime, categoryPerformance, locationPerformance };
+};
 
-        const topSellingProducts = await Sale.aggregate([
-            { $unwind: "$items" },
-            {
-                $group: {
-                    _id: "$items.item",
-                    totalQuantitySold: { $sum: "$items.quantity" },
-                }
-            },
-            { $sort: { totalQuantitySold: -1 } },
-            { $limit: 5 },
-            {
-                $lookup: {
-                    from: "inventories",
-                    localField: "_id",
-                    foreignField: "_id",
-                    as: "productDetails"
-                }
-            },
-            { $unwind: "$productDetails" },
-            { $project: { name: "$productDetails.name", sku: "$productDetails.sku", totalQuantitySold: 1 } }
-        ]);
-
-        const mostProfitableProducts = await Sale.aggregate([
-            { $unwind: "$items" },
-            {
-                $group: {
-                    _id: "$items.item",
-                    totalProfit: { $sum: { $multiply: ["$items.quantity", { $subtract: ["$items.price", "$items.costPrice"] }] } }
-                }
-            },
-            { $sort: { totalProfit: -1 } },
-            { $limit: 5 },
-            {
-                $lookup: {
-                    from: "inventories",
-                    localField: "_id",
-                    foreignField: "_id",
-                    as: "productDetails"
-                }
-            },
-            { $unwind: "$productDetails" },
-            { $project: { name: "$productDetails.name", sku: "$productDetails.sku", totalProfit: 1 } }
-        ]);
-
-        const topCustomers = await Sale.aggregate([
-            { $match: { customer: { $ne: null } } },
-            {
-                $group: {
-                    _id: "$customer",
-                    totalSpent: { $sum: "$totalAmount" },
-                }
-            },
-            { $sort: { totalSpent: -1 } },
-            { $limit: 5 },
-            {
-                $lookup: {
-                    from: "customers",
-                    localField: "_id",
-                    foreignField: "_id",
-                    as: "customerDetails"
-                }
-            },
-            { $unwind: "$customerDetails" },
-            { $project: { name: "$customerDetails.name", email: "$customerDetails.email", totalSpent: 1 } }
-        ]);
-
-        res.json({
-            success: true,
-            data: {
-                salesOverTime,
-                topSellingProducts,
-                mostProfitableProducts,
-                topCustomers
-            }
-        });
+router.post("/sales", verifyToken, async (req, res) => {
+    try {
+        const data = await getSalesAnalyticsData(req.body);
+        res.json({ success: true, data });
     } catch (err) {
         console.error("Sales analytics error:", err);
         res.status(500).json({ success: false, message: "Server Error fetching analytics." });
+    }
+});
+
+router.post("/print", verifyToken, async (req, res) => {
+    try {
+        const analyticsData = await getSalesAnalyticsData(req.body);
+        const { startDate, endDate } = req.body;
+        const userName = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || 'System User';
+        
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=Sales-Report.pdf`);
+        doc.pipe(res);
+
+        doc.fontSize(20).font('Helvetica-Bold').text('Sales Analytics Report', { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(10).font('Helvetica').text(`Generated by: ${userName}`);
+        if(startDate && endDate) {
+            doc.text(`Reporting Period: ${moment(startDate).format('MMM D, YYYY')} - ${moment(endDate).format('MMM D, YYYY')}`);
+        }
+        doc.moveDown(2);
+
+        doc.fontSize(14).font('Helvetica-Bold').text('Top Categories by Revenue');
+        doc.moveDown(0.5);
+        analyticsData.categoryPerformance.forEach(cat => {
+            doc.fontSize(10).font('Helvetica').text(`- ${cat.name}: Rwf ${cat.value.toLocaleString()}`);
+        });
+        doc.moveDown(1.5);
+        
+        doc.fontSize(14).font('Helvetica-Bold').text('Top Locations by Revenue');
+        doc.moveDown(0.5);
+        analyticsData.locationPerformance.forEach(loc => {
+            doc.fontSize(10).font('Helvetica').text(`- ${loc.name}: Rwf ${loc.value.toLocaleString()}`);
+        });
+
+        doc.end();
+    } catch (err) {
+        console.error("Report PDF Generation Error:", err);
+        res.status(500).json({ success: false, message: "Server error generating report PDF." });
     }
 });
 

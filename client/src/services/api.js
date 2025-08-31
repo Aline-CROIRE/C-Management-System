@@ -127,12 +127,15 @@ export const customerAPI = {
   create: (customerData) => api.post("/customers", customerData),
 };
 
+
 export const analyticsAPI = {
   getSalesSummary: (filters) => api.post("/analytics/sales", filters),
+  printSalesReport: (filters) => api.post("/analytics/print", filters, { responseType: 'blob' }),
 };
+
 export const reportsAPI = {
-  getInventoryValuation: (filters) => api.post("/reports/inventory-valuation", filters),
-  getSalesSummary: (filters) => api.post("/reports/sales-summary", filters),
+  getReportData: (filters) => api.post("/reports", filters),
+  printReport: (filters) => api.post("/reports/print", filters, { responseType: 'blob' }),
 };
 
 export default api;
