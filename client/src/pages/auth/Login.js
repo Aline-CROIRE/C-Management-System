@@ -1,16 +1,17 @@
 "use client"
 
-import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
-import styled from "styled-components"
-import { FaEnvelope, FaEye, FaEyeSlash, FaLeaf, FaExclamationTriangle } from "react-icons/fa"
-import { useAuth } from "../../contexts/AuthContext"
-import Card from "../../components/common/Card"
-import Input from "../../components/common/Input"
-import Button from "../../components/common/Button"
-import LoadingSpinner from "../../components/common/LoadingSpinner"
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import styled from "styled-components";
+import { FaEnvelope, FaEye, FaEyeSlash, FaLeaf, FaExclamationTriangle } from "react-icons/fa";
+import { useAuth } from "../../contexts/AuthContext";
+import Card from "../../components/common/Card";
+import Input from "../../components/common/Input";
+import Button from "../../components/common/Button";
+import LoadingSpinner from "../../components/common/LoadingSpinner";
+import toast from "react-hot-toast";
 
-// --- STYLED COMPONENTS (No changes needed, already well-styled) ---
 const LoginContainer = styled.div`
   min-height: 100vh;
   display: flex;
@@ -18,7 +19,7 @@ const LoginContainer = styled.div`
   justify-content: center;
   background: ${(props) => props.theme.gradients?.hero || "linear-gradient(135deg, #0f2419 0%, #1b4332 50%, #2d5016 100%)"};
   padding: ${(props) => props.theme.spacing?.md || "1rem"};
-`
+`;
 
 const LoginCard = styled(Card)`
   max-width: 440px;
@@ -26,12 +27,12 @@ const LoginCard = styled(Card)`
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: ${(props) => props.theme.shadows?.glowLarge}, ${(props) => props.theme.shadows?.xl};
-`
+`;
 
 const LogoContainer = styled.div`
   text-align: center;
   margin-bottom: ${(props) => props.theme.spacing?.["2xl"] || "3rem"};
-`
+`;
 
 const Logo = styled.div`
   width: 72px;
@@ -45,7 +46,7 @@ const Logo = styled.div`
   font-size: ${(props) => props.theme.typography?.fontSize?.["3xl"]};
   margin: 0 auto ${(props) => props.theme.spacing?.md};
   box-shadow: ${(props) => props.theme.shadows?.glow};
-`
+`;
 
 const Title = styled.h1`
   text-align: center;
@@ -53,26 +54,26 @@ const Title = styled.h1`
   font-size: ${(props) => props.theme.typography?.fontSize?.["2xl"]};
   font-weight: ${(props) => props.theme.typography?.fontWeight?.bold};
   margin-bottom: ${(props) => props.theme.spacing?.sm};
-`
+`;
 
 const Subtitle = styled.p`
   text-align: center;
   color: ${(props) => props.theme.colors?.textSecondary};
   margin-bottom: ${(props) => props.theme.spacing?.xl};
-`
+`;
 
 const Form = styled.form`
   display: flex;
   flex-direction: column;
   gap: ${(props) => props.theme.spacing?.lg};
-`
+`;
 
 const Options = styled.div`
   display: flex;
   justify-content: flex-end;
   align-items: center;
   margin-top: -${(props) => props.theme.spacing?.sm};
-`
+`;
 
 const ForgotPasswordLink = styled(Link)`
   color: ${(props) => props.theme.colors?.accent};
@@ -82,7 +83,7 @@ const ForgotPasswordLink = styled(Link)`
   &:hover {
     color: ${(props) => props.theme.colors?.primary};
   }
-`
+`;
 
 const SignUpSection = styled.div`
   text-align: center;
@@ -90,7 +91,7 @@ const SignUpSection = styled.div`
   padding-top: ${(props) => props.theme.spacing?.xl};
   border-top: 1px solid ${(props) => props.theme.colors?.border};
   font-size: ${(props) => props.theme.typography?.fontSize?.sm};
-`
+`;
 
 const SignUpLink = styled(Link)`
   color: ${(props) => props.theme.colors?.accent};
@@ -98,54 +99,28 @@ const SignUpLink = styled(Link)`
   &:hover {
     text-decoration: underline;
   }
-`
+`;
 
-const ErrorMessage = styled.div`
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: ${(props) => props.theme.borderRadius?.md};
-  padding: ${(props) => props.theme.spacing?.md};
-  color: #991b1b;
-  font-size: ${(props) => props.theme.typography?.fontSize?.sm};
-  display: flex;
-  align-items: center;
-  gap: ${(props) => props.theme.spacing?.sm};
-  font-weight: ${(props) => props.theme.typography?.fontWeight?.medium};
-
-  .icon {
-    font-size: 1.1rem;
-    color: #b91c1c;
-  }
-`
-
-// --- COMPONENT LOGIC ---
 const Login = () => {
-  const [formData, setFormData] = useState({ email: "", password: "" })
-  const [showPassword, setShowPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const { login } = useAuth()
-  const navigate = useNavigate()
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const { register, handleSubmit, formState: { errors } } = useForm();
 
-  const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-    if (error) setError("")
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
+  const onSubmit = async (credentials) => {
+    setLoading(true);
     try {
-      await login(formData.email, formData.password)
-      navigate("/dashboard")
+      await login(credentials, true); // 'true' to remember the user
+      toast.success("Login successful! Welcome back.");
+      navigate("/dashboard");
     } catch (err) {
-      setError(err.message || "Login failed. Please check your credentials.")
+      console.error("Login failed:", err.message);
+      // Error toast is already handled by the API interceptor
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <LoginContainer>
@@ -156,36 +131,31 @@ const Login = () => {
         <Title>Welcome Back</Title>
         <Subtitle>Sign in to continue to your dashboard.</Subtitle>
 
-        {error && (
-          <ErrorMessage>
-            <FaExclamationTriangle className="icon" />
-            <span>{error}</span>
-          </ErrorMessage>
-        )}
-
-        <Form onSubmit={handleSubmit}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <Input
             type="email"
-            name="email"
             placeholder="Email Address"
-            value={formData.email}
-            onChange={handleChange}
-            // FIXED: Pass the component reference
             icon={FaEnvelope}
-            required
             autoComplete="email"
+            {...register("email", { 
+              required: "Email is required",
+              pattern: { 
+                value: /^\S+@\S+$/i, 
+                message: "Invalid email address" 
+              } 
+            })}
+            error={errors.email?.message}
           />
           <Input
             type={showPassword ? "text" : "password"}
-            name="password"
             placeholder="Password"
-            value={formData.password}
-            onChange={handleChange}
-            // FIXED: Pass the component reference with conditional logic
             icon={showPassword ? FaEyeSlash : FaEye}
             onIconClick={() => setShowPassword(!showPassword)}
-            required
             autoComplete="current-password"
+            {...register("password", { 
+              required: "Password is required" 
+            })}
+            error={errors.password?.message}
           />
           <Options>
             <ForgotPasswordLink to="/forgot-password">Forgot Password?</ForgotPasswordLink>
@@ -200,7 +170,7 @@ const Login = () => {
         </SignUpSection>
       </LoginCard>
     </LoginContainer>
-  )
-}
+  );
+};
 
-export default Login
+export default Login;
