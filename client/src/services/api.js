@@ -114,6 +114,7 @@ export const notificationsAPI = {
   markAsRead: (id) => api.patch(`/notifications/${id}/read`),
   markAllAsRead: () => api.patch("/notifications/mark-all-read"),
 };
+
 export const salesAPI = {
   getAll: (params) => api.get("/sales", { params }),
   create: (saleData) => api.post("/sales", saleData),
@@ -128,8 +129,9 @@ export const customerAPI = {
 };
 
 export const analyticsAPI = {
-  getSalesSummary: (filters) => api.post("/analytics/sales", filters),
+  getSalesSummary: (filters) => api.post("/sales/analytics", filters),
 };
+
 export const reportsAPI = {
   getInventoryValuation: (filters) => api.post("/reports/inventory-valuation", filters),
   getSalesSummary: (filters) => api.post("/reports/sales-summary", filters),

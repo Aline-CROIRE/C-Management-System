@@ -3,6 +3,7 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const { body, validationResult } = require("express-validator");
 const PDFDocument = require('pdfkit');
+const moment = require("moment");
 
 const Sale = require("../models/Sale");
 const Inventory = require("../models/Inventory");
@@ -15,18 +16,11 @@ router.get("/", verifyToken, async (req, res) => {
         const { customerId, startDate, endDate, paymentMethod } = req.query;
         const query = {};
 
-        if (customerId) {
-            query.customer = customerId;
-        }
+        if (customerId) query.customer = customerId;
         if (startDate && endDate) {
-            query.createdAt = {
-                $gte: new Date(startDate),
-                $lte: new Date(endDate),
-            };
+            query.createdAt = { $gte: new Date(startDate), $lte: new Date(endDate) };
         }
-        if (paymentMethod) {
-            query.paymentMethod = paymentMethod;
-        }
+        if (paymentMethod) query.paymentMethod = paymentMethod;
 
         const sales = await Sale.find(query)
             .populate('customer', 'name')
@@ -104,6 +98,49 @@ router.post("/", verifyToken, [
     }
 });
 
+router.post("/analytics", verifyToken, async (req, res) => {
+    try {
+        const { startDate, endDate } = req.body;
+
+        if (!startDate || !endDate || !moment(startDate).isValid() || !moment(endDate).isValid()) {
+            return res.status(400).json({ success: false, message: "Invalid or missing start/end dates." });
+        }
+
+        const dateQuery = {
+            createdAt: {
+                $gte: moment(startDate).startOf('day').toDate(),
+                $lte: moment(endDate).endOf('day').toDate(),
+            },
+        };
+
+        const salesOverTime = await Sale.aggregate([
+            { $match: dateQuery },
+            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, totalRevenue: { $sum: "$totalAmount" } } },
+            { $sort: { _id: 1 } }
+        ]);
+
+        const mostProfitableProducts = await Sale.aggregate([
+            { $match: dateQuery }, { $unwind: "$items" },
+            { $group: { _id: "$items.item", totalProfit: { $sum: { $multiply: ["$items.quantity", { $subtract: ["$items.price", "$items.costPrice"] }] } } } },
+            { $sort: { totalProfit: -1 } }, { $limit: 5 },
+            { $lookup: { from: "inventories", localField: "_id", foreignField: "_id", as: "product" }},
+            { $unwind: "$product" },
+            { $project: { name: "$product.name", sku: "$product.sku", totalProfit: 1 } }
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                salesOverTime,
+                mostProfitableProducts,
+            }
+        });
+    } catch (err) {
+        console.error("Sales analytics error:", err);
+        res.status(500).json({ success: false, message: "Server Error fetching analytics." });
+    }
+});
+
 router.post("/:id/return", verifyToken, [
     body('returnedItems', 'Returned items data is required').isArray({ min: 1 })
 ], async (req, res) => {
@@ -176,8 +213,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
         await Sale.findByIdAndDelete(req.params.id).session(session);
         await session.commitTransaction();
         res.json({ success: true, message: "Sale deleted and inventory restocked." });
-    } catch (err)
- {
+    } catch (err) {
         await session.abortTransaction();
         res.status(500).json({ success: false, message: err.message || "Server error deleting sale." });
     } finally {
