@@ -8,7 +8,7 @@ const moment = require("moment");
 const Sale = require("../models/Sale");
 const Inventory = require("../models/Inventory");
 const Customer = require("../models/Customer");
-const Notification = require("../models/Notification");
+const Notification = require("../models/Notification"); // Import Notification model
 const { verifyToken } = require("../middleware/auth");
 
 router.get("/", verifyToken, async (req, res) => {
@@ -75,17 +75,40 @@ router.post("/", verifyToken, [
             inventoryItem.quantity -= saleItem.quantity;
             saleItem.costPrice = inventoryItem.costPrice || 0; 
             
-            if (inventoryItem.quantity <= inventoryItem.minStockLevel && inventoryItem.status !== 'low-stock') {
+            // --- Notification Logic for Low Stock / Out of Stock after a sale ---
+            const newQuantity = inventoryItem.quantity;
+            const minStockLevel = inventoryItem.minStockLevel || 0;
+
+            if (newQuantity <= 0 && inventoryItem.status !== 'out-of-stock') { // Item is now out of stock
                  const notification = new Notification({
-                    type: 'low_stock',
-                    title: 'Low Stock Alert',
-                    message: `${inventoryItem.name} (SKU: ${inventoryItem.sku}) is running low. Quantity: ${inventoryItem.quantity}.`,
                     user: req.user._id,
-                    link: `/inventory`
+                    type: 'out_of_stock',
+                    title: 'Out of Stock Alert',
+                    message: `${inventoryItem.name} (SKU: ${inventoryItem.sku}) is now out of stock.`,
+                    priority: 'critical',
+                    link: `/inventory/${inventoryItem._id}`,
+                    relatedId: inventoryItem._id,
                 });
                 await notification.save({ session });
+                inventoryItem.status = 'out-of-stock'; // Update status
+            } else if (newQuantity <= minStockLevel && newQuantity > 0 && inventoryItem.status !== 'low-stock') { // Item is now low stock
+                 const notification = new Notification({
+                    user: req.user._id,
+                    type: 'low_stock',
+                    title: 'Low Stock Alert',
+                    message: `${inventoryItem.name} (SKU: ${inventoryItem.sku}) is running low. Quantity: ${newQuantity}.`,
+                    priority: 'high',
+                    link: `/inventory/${inventoryItem._id}`,
+                    relatedId: inventoryItem._id,
+                });
+                await notification.save({ session });
+                inventoryItem.status = 'low-stock'; // Update status
+            } else if (newQuantity > minStockLevel && newQuantity > 0 && (inventoryItem.status === 'low-stock' || inventoryItem.status === 'out-of-stock')) {
+                // Item is back in healthy stock range (if it was previously low/out)
+                inventoryItem.status = 'in-stock'; // Reset status if it's healthy now
             }
-            
+            // End Notification Logic
+
             await inventoryItem.save({ session });
         }
         
@@ -135,7 +158,7 @@ router.post("/analytics", verifyToken, async (req, res) => {
 
         const salesOverTime = await Sale.aggregate([
             { $match: dateQuery },
-            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, totalRevenue: { $sum: { $ifNull: ["$totalAmount", 0] } } } },
+            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, totalRevenue: { $sum: { $ifNull: [{ $toDouble: "$totalAmount" }, 0] } } } },
             { $sort: { _id: 1 } }
         ]);
 
@@ -144,20 +167,20 @@ router.post("/analytics", verifyToken, async (req, res) => {
             { $unwind: "$items" },
             { $group: { 
                 _id: "$items.item", 
-                totalProfit: { $sum: { $multiply: [{ $ifNull: ["$items.quantity", 0] }, { $subtract: [{ $ifNull: ["$items.price", 0] }, { $ifNull: ["$items.costPrice", 0] }] }] } } 
+                totalProfit: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$items.quantity" }, 0] }, { $subtract: [{ $ifNull: [{ $toDouble: "$items.price" }, 0] }, { $ifNull: [{ $toDouble: "$items.costPrice" }, 0] }] }] } } 
             }},
             { $sort: { totalProfit: -1 } }, 
             { $limit: 5 },
             { $lookup: { from: "inventories", localField: "_id", foreignField: "_id", as: "product" }},
             { $unwind: "$product" },
-            { $project: { name: "$product.name", sku: "$product.sku", totalProfit: 1 } }
+            { $project: { name: "$product.name", sku: "$product.name", totalProfit: 1 } } // Changed sku to name for product, check your schema if sku is better
         ]);
 
         const salesByPaymentMethod = await Sale.aggregate([
             { $match: dateQuery },
             { $group: { 
-                _id: { $ifNull: ["$paymentMethod", "Other/Unknown Payment"] }, // Corrected for robust label
-                totalAmount: { $sum: { $ifNull: ["$totalAmount", 0] } }, 
+                _id: { $ifNull: ["$paymentMethod", "Other/Unknown Payment"] }, 
+                totalAmount: { $sum: { $ifNull: [{ $toDouble: "$totalAmount" }, 0] } }, 
                 count: { $sum: 1 } 
             }},
             { $sort: { totalAmount: -1 } }
@@ -166,7 +189,7 @@ router.post("/analytics", verifyToken, async (req, res) => {
         const topSellingProductsByQuantity = await Sale.aggregate([
             { $match: dateQuery }, 
             { $unwind: "$items" },
-            { $group: { _id: "$items.item", totalQuantitySold: { $sum: { $ifNull: ["$items.quantity", 0] } } } },
+            { $group: { _id: "$items.item", totalQuantitySold: { $sum: { $ifNull: [{ $toDouble: "$items.quantity" }, 0] } } } },
             { $sort: { totalQuantitySold: -1 } }, 
             { $limit: 5 },
             { $lookup: { from: "inventories", localField: "_id", foreignField: "_id", as: "product" }},
@@ -198,7 +221,7 @@ router.post("/analytics", verifyToken, async (req, res) => {
             {
                 $group: {
                     _id: { $ifNull: ["$categoryDetails.name", "Uncategorized"] },
-                    totalRevenue: { $sum: { $multiply: [{ $ifNull: ["$items.quantity", 0] }, { $ifNull: ["$items.price", 0] }] } }
+                    totalRevenue: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$items.quantity" }, 0] }, { $ifNull: [{ $toDouble: "$items.price" }, 0] }] } }
                 }
             },
             { $sort: { totalRevenue: -1 } },
@@ -210,7 +233,7 @@ router.post("/analytics", verifyToken, async (req, res) => {
             { $match: dateQuery },
             { $group: {
                 _id: null,
-                totalRevenue: { $sum: { $ifNull: ["$totalAmount", 0] } },
+                totalRevenue: { $sum: { $ifNull: [{ $toDouble: "$totalAmount" }, 0] } },
                 totalSalesCount: { $sum: 1 },
             }},
             { $project: {
@@ -226,7 +249,7 @@ router.post("/analytics", verifyToken, async (req, res) => {
             {
                 $group: {
                     _id: null,
-                    totalProfit: { $sum: { $multiply: [{ $ifNull: ["$items.quantity", 0] }, { $subtract: [{ $ifNull: ["$items.price", 0] }, { $ifNull: ["$items.costPrice", 0] }] }] } }
+                    totalProfit: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$items.quantity" }, 0] }, { $subtract: [{ $ifNull: [{ $toDouble: "$items.price" }, 0] }, { $ifNull: [{ $toDouble: "$items.costPrice" }, 0] }] }] } }
                 }
             },
             { $project: { _id: 0, totalProfit: 1 } }
@@ -251,7 +274,7 @@ router.post("/analytics", verifyToken, async (req, res) => {
         });
     } catch (err) {
         console.error("Sales analytics error:", err);
-        res.status(500).json({ success: false, message: "Server Error fetching analytics." });
+        res.status(500).json({ success: false, message: "Server error fetching analytics." });
     }
 });
 
@@ -279,11 +302,22 @@ router.post("/:id/return", verifyToken, [
             const originalItem = sale.items.find(i => i.item.toString() === returnedItem.item);
             if (!originalItem) throw new Error("Item not found in original sale.");
 
-            await Inventory.updateOne(
-                { _id: returnedItem.item },
-                { $inc: { quantity: returnedItem.quantity } },
-                { session }
-            );
+            const inventoryItem = await Inventory.findById(returnedItem.item).session(session);
+            if (!inventoryItem) throw new Error(`Inventory item ${returnedItem.item} not found for return.`);
+
+            inventoryItem.quantity += returnedItem.quantity; // Increase quantity for returned items
+
+            // Check if status needs to be reverted from out-of-stock/low-stock to in-stock
+            const newQuantity = inventoryItem.quantity;
+            const minStockLevel = inventoryItem.minStockLevel || 0;
+            if (inventoryItem.status === 'out-of-stock' && newQuantity > 0) {
+                inventoryItem.status = (newQuantity <= minStockLevel) ? 'low-stock' : 'in-stock';
+            } else if (inventoryItem.status === 'low-stock' && newQuantity > minStockLevel) {
+                inventoryItem.status = 'in-stock';
+            }
+            await inventoryItem.save({ session });
+
+
             totalReturnedValue += originalItem.price * returnedItem.quantity;
             totalItemsReturnedSoFar += returnedItem.quantity;
         }
@@ -301,6 +335,7 @@ router.post("/:id/return", verifyToken, [
         res.json({ success: true, message: "Items returned and inventory restocked." });
     } catch (err) {
         await session.abortTransaction();
+        console.error("Error processing return:", err);
         res.status(500).json({ success: false, message: err.message || "Server error processing return." });
     } finally {
         session.endSession();
@@ -317,11 +352,20 @@ router.delete("/:id", verifyToken, async (req, res) => {
         }
 
         for (const soldItem of saleToDelete.items) {
-            await Inventory.updateOne(
-                { _id: soldItem.item },
-                { $inc: { quantity: soldItem.quantity } },
-                { session }
-            );
+            const inventoryItem = await Inventory.findById(soldItem.item).session(session);
+            if (inventoryItem) {
+                inventoryItem.quantity += soldItem.quantity; // Restock items on sale deletion
+
+                // Adjust status if needed after restocking
+                const newQuantity = inventoryItem.quantity;
+                const minStockLevel = inventoryItem.minStockLevel || 0;
+                if (inventoryItem.status === 'out-of-stock' && newQuantity > 0) {
+                    inventoryItem.status = (newQuantity <= minStockLevel) ? 'low-stock' : 'in-stock';
+                } else if (inventoryItem.status === 'low-stock' && newQuantity > minStockLevel) {
+                    inventoryItem.status = 'in-stock';
+                }
+                await inventoryItem.save({ session });
+            }
         }
 
         await Sale.findByIdAndDelete(req.params.id).session(session);
@@ -329,6 +373,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
         res.json({ success: true, message: "Sale deleted and inventory restocked." });
     } catch (err) {
         await session.abortTransaction();
+        console.error("Error deleting sale:", err);
         res.status(500).json({ success: false, message: err.message || "Server error deleting sale." });
     } finally {
         session.endSession();

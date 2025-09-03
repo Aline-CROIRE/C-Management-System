@@ -7,6 +7,7 @@ const moment = require("moment");
 
 const PurchaseOrder = require('../models/PurchaseOrder');
 const Inventory = require('../models/Inventory');
+const Notification = require("../models/Notification"); // Import Notification model
 const { verifyToken } = require('../middleware/auth');
 
 router.get("/", verifyToken, async (req, res) => {
@@ -71,19 +72,19 @@ router.post("/", verifyToken, [
                     name: newItemData.name,
                     sku: newItemData.sku,
                     category: newItemData.category,
-                    price: newItemData.sellingPrice || 0, // This is the initial selling price
-                    costPrice: newItemData.unitPrice, // This is the cost price from the PO
+                    price: newItemData.sellingPrice || 0,
+                    costPrice: newItemData.unitPrice,
                     unit: 'pcs',
                     quantity: 0,
                     status: 'on-order',
-                    location: '60d5ecb4b39b2a1b2c8d5e8a', // Placeholder, update as needed
+                    location: '60d5ecb4b39b2a1b2c8d5e8a',
                     minStockLevel: 10,
                 });
                 const savedItem = await newInventoryItem.save({ session });
                 allPoItems.push({
                     item: savedItem._id,
                     quantity: newItemData.quantity || 1,
-                    unitPrice: newItemData.unitPrice // unitPrice on PO item is your cost
+                    unitPrice: newItemData.unitPrice
                 });
             }
         }
@@ -151,29 +152,23 @@ router.patch("/:id/status", verifyToken, [
                 }
                 const inventoryItem = await Inventory.findById(receivedItem.item).session(session);
                 if (inventoryItem) {
-                    // --- Validation: Selling Price cannot be below Cost Price ---
-                    const currentCostPrice = inventoryItem.costPrice || 0; // Get current costPrice from inventory
+                    const currentCostPrice = inventoryItem.costPrice || 0;
                     if (Number(receivedItem.sellingPrice) < currentCostPrice) {
                         throw new Error(`Selling price for ${inventoryItem.name} (Rwf ${receivedItem.sellingPrice.toLocaleString()}) cannot be below its cost price (Rwf ${currentCostPrice.toLocaleString()}).`);
                     }
 
                     inventoryItem.quantity += receivedItem.quantityReceived;
-                    inventoryItem.price = receivedItem.sellingPrice; // Update selling price
+                    inventoryItem.price = receivedItem.sellingPrice;
 
-                    // --- Cost Price Logic: Update only if it's currently 0 or explicitly intended to reflect latest PO cost ---
                     const originalPoItem = po.items.find(item => item.item.toString() === receivedItem.item);
                     if (originalPoItem) {
-                        // If costPrice is not yet set or we want it to always reflect the latest PO cost
-                        // Based on "don't change cost price" from your request, we only set if it's 0.
-                        // If you prefer costPrice to always update to the latest PO's unitPrice on receipt,
-                        // remove the `|| !inventoryItem.costPrice` check.
-                        if (!inventoryItem.costPrice) { // Only set if not already set or is 0
+                        if (!inventoryItem.costPrice) { 
                             inventoryItem.costPrice = originalPoItem.unitPrice;
                         }
                     } else {
                         console.warn(`Original PO item not found for inventory item ${receivedItem.item} in PO ${po._id}. Cost price not updated.`);
                     }
-                    inventoryItem.status = 'in-stock'; // Mark as in-stock
+                    inventoryItem.status = 'in-stock';
                     
                     await inventoryItem.save({ session });
                 } else {
@@ -181,6 +176,18 @@ router.patch("/:id/status", verifyToken, [
                 }
             }
             po.receivedDate = new Date();
+
+            // --- Notification for PO Completion ---
+            const notification = new Notification({
+                user: req.user._id,
+                title: 'Purchase Order Completed',
+                message: `Purchase Order #${po.orderNumber} has been successfully completed.`,
+                type: 'po_completed',
+                priority: 'low',
+                link: `/purchase-orders/${po._id}`,
+                relatedId: po._id,
+            });
+            await notification.save({ session });
         }
 
         if (status === 'Cancelled') {
@@ -195,6 +202,17 @@ router.patch("/:id/status", verifyToken, [
                     await inventoryItem.save({ session });
                 }
             }
+            // --- Notification for PO Cancellation ---
+            const notification = new Notification({
+                user: req.user._id,
+                title: 'Purchase Order Cancelled',
+                message: `Purchase Order #${po.orderNumber} has been cancelled.`,
+                type: 'warning',
+                priority: 'medium',
+                link: `/purchase-orders/${po._id}`,
+                relatedId: po._id,
+            });
+            await notification.save({ session });
         }
 
         po.status = status;
@@ -203,7 +221,6 @@ router.patch("/:id/status", verifyToken, [
         res.json({ success: true, message: `Order status updated to ${status}.`, data: updatedPO });
     } catch (err) {
         await session.abortTransaction();
-        // Capture specific validation errors for better frontend display
         if (err.message.includes("Selling price for")) {
              return res.status(400).json({ success: false, message: err.message });
         }
