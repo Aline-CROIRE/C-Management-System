@@ -156,7 +156,7 @@ router.post("/analytics", verifyToken, async (req, res) => {
         const salesByPaymentMethod = await Sale.aggregate([
             { $match: dateQuery },
             { $group: { 
-                _id: { $ifNull: ["$paymentMethod", "Other/Unknown Payment"] }, 
+                _id: { $ifNull: ["$paymentMethod", "Other/Unknown Payment"] }, // Corrected for robust label
                 totalAmount: { $sum: { $ifNull: ["$totalAmount", 0] } }, 
                 count: { $sum: 1 } 
             }},

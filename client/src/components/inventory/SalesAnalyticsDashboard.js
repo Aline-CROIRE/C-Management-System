@@ -7,7 +7,8 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, LabelList
 } from 'recharts';
-import { FaExclamationTriangle } from 'react-icons/fa';
+import { FaExclamationTriangle, FaPrint } from 'react-icons/fa'; // Import FaPrint
+import Button from '../common/Button'; // Import Button for the print button
 
 const AnalyticsGrid = styled.div`
     display: grid; 
@@ -15,6 +16,11 @@ const AnalyticsGrid = styled.div`
     gap: 1.5rem;
     @media (max-width: 1024px) { 
         grid-template-columns: 1fr; 
+    }
+    // Add print styles for the grid
+    @media print {
+      grid-template-columns: 1fr; // Stack charts on print
+      padding: 1rem; // Add some padding around the report
     }
 `;
 const ChartCard = styled.div`
@@ -31,6 +37,14 @@ const ChartCard = styled.div`
         font-size: 1.1rem; 
         color: #1a202c; 
         margin-bottom: 1rem;
+    }
+    // Add print styles for individual cards
+    @media print {
+      min-height: auto;
+      box-shadow: none;
+      border: 1px solid #eee; // Subtle border
+      margin-bottom: 1rem; // Spacing between cards
+      page-break-inside: avoid; // Keep content of card together
     }
 `;
 const FilterBar = styled(ChartCard)`
@@ -49,6 +63,10 @@ const FilterBar = styled(ChartCard)`
         font-weight: 500;
         color: #4a5568;
     }
+    // Hide filter bar during print
+    @media print {
+      display: none;
+    }
 `;
 const InfoList = styled.ul`
     list-style: none; 
@@ -65,6 +83,11 @@ const InfoList = styled.ul`
         span { color: #4a5568; } 
         strong { color: #1a202c; } 
     }
+    @media print {
+      li {
+        border-bottom-color: #eee;
+      }
+    }
 `;
 const EmptyListState = styled.p`text-align: center; color: #a0aec0; margin-top: 4rem;`;
 const ErrorContainer = styled.div`
@@ -75,14 +98,27 @@ const ErrorContainer = styled.div`
     color: #c53030; 
     text-align: center;
     grid-column: 1 / -1;
+    @media print {
+      box-shadow: none;
+      border: 1px solid #fecaca;
+    }
 `;
-const StatBox = styled(ChartCard)`
+const StatBox = styled.div`
+    background: #fff; 
+    border-radius: 1rem; 
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+    border: 1px solid #e2e8f0;
     text-align: center;
     justify-content: center;
     align-items: center;
     h3 { margin-bottom: 0.5rem; }
     .value { font-size: 2.2rem; font-weight: 700; color: #2F855A; }
     .label { font-size: 0.9rem; color: #718096; }
+    @media print {
+      box-shadow: none;
+      border: 1px solid #eee;
+    }
 `;
 const CHART_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF1942', '#8B008B', '#FFD700', '#6A5ACD', '#DC143C'];
 
@@ -111,14 +147,17 @@ const SalesAnalyticsDashboard = ({ analyticsFilters, setAnalyticsFilters }) => {
         </ErrorContainer>
     );
 
+    const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString()}`;
+    const formatNumber = (num) => Number(num || 0).toLocaleString();
+
     const formattedSalesData = analytics?.salesOverTime?.map(d => ({
         date: new Date(d._id).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        Revenue: Number(d.totalRevenue || 0) // Ensure revenue is a number
+        Revenue: Number(d.totalRevenue || 0)
     })) || [];
 
     const formattedPaymentData = analytics?.salesByPaymentMethod?.map(d => ({
-        name: d.name || d._id || 'Other Payment Method', // Use d.name, fallback to d._id, then default string
-        value: Number(d.totalAmount || 0) // Ensure value is a number
+        name: d._id || 'Other Payment Method',
+        value: Number(d.totalAmount || 0)
     })) || [];
 
     const formattedTopSellingProducts = analytics?.topSellingProductsByQuantity?.map(d => ({
@@ -128,25 +167,26 @@ const SalesAnalyticsDashboard = ({ analyticsFilters, setAnalyticsFilters }) => {
 
     const formattedSalesByCategory = analytics?.salesByCategory?.map(d => ({
         name: d.name || 'Uncategorized', 
-        value: Number(d.value || 0) // Ensure value is a number
+        value: Number(d.value || 0)
     })) || [];
 
     const totalRevenue = analytics?.overallStats?.totalRevenue || 0;
     const totalSalesCount = analytics?.overallStats?.totalSalesCount || 0;
     const totalProfit = analytics?.overallStats?.totalProfit || 0;
 
-    // Custom formatter for LabelList - improved robustness
-    const renderLabelText = ({ name, percent }) => {
-      // Check if name is valid and if percent is a valid number
-      if (!name || isNaN(percent) || percent === 0) {
-        return null; // Don't display label if name is missing or percentage is 0/NaN
+    const renderLabelText = ({ name, percent, value }) => {
+      if (!name || isNaN(percent) || percent === 0 || value === 0) {
+        return null;
       }
       const formattedPercent = (percent * 100).toFixed(0);
-      // Optionally hide very small slices unless they are 'Other' or 'Uncategorized' and have some value
-      if (formattedPercent < 5 && name !== 'Other Payment Method' && name !== 'Uncategorized' && Number(formattedPercent) === 0) {
+      if (formattedPercent < 5 && name !== 'Other Payment Method' && name !== 'Uncategorized') {
         return null;
       }
       return `${name} ${formattedPercent}%`;
+    };
+
+    const handlePrint = () => {
+        window.print();
     };
 
 
@@ -174,23 +214,26 @@ const SalesAnalyticsDashboard = ({ analyticsFilters, setAnalyticsFilters }) => {
                         onChange={handleDateChange}
                     />
                 </div>
+                <Button variant="secondary" onClick={handlePrint}>
+                    <FaPrint style={{marginRight: '0.5rem'}}/> Print Report
+                </Button>
             </FilterBar>
             
             {loading ? <div style={{padding: '4rem', textAlign: 'center', gridColumn: '1 / -1'}}><LoadingSpinner /></div> : (
             <>
                 <StatBox>
                     <h3>Total Revenue</h3>
-                    <div className="value">Rwf {totalRevenue.toLocaleString()}</div>
+                    <div className="value">{formatCurrency(totalRevenue)}</div>
                     <div className="label">For selected period</div>
                 </StatBox>
                 <StatBox>
                     <h3>Total Sales</h3>
-                    <div className="value">{totalSalesCount.toLocaleString()}</div>
+                    <div className="value">{formatNumber(totalSalesCount)}</div>
                     <div className="label">Transactions</div>
                 </StatBox>
                 <StatBox>
                     <h3>Total Profit</h3>
-                    <div className="value">Rwf {totalProfit.toLocaleString()}</div>
+                    <div className="value">{formatCurrency(totalProfit)}</div>
                     <div className="label">For selected period</div>
                 </StatBox>
 
@@ -202,7 +245,7 @@ const SalesAnalyticsDashboard = ({ analyticsFilters, setAnalyticsFilters }) => {
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="date" />
                                 <YAxis tickFormatter={(value) => `Rwf ${(value / 1000).toFixed(0)}k`} />
-                                <Tooltip formatter={(value) => [`Rwf ${Number(value).toLocaleString()}`, 'Revenue']}/>
+                                <Tooltip formatter={(value) => formatCurrency(value)}/>
                                 <Legend />
                                 <Bar dataKey="Revenue" fill="#2F855A" />
                             </BarChart>
@@ -219,7 +262,7 @@ const SalesAnalyticsDashboard = ({ analyticsFilters, setAnalyticsFilters }) => {
                              {analytics.mostProfitableProducts.map((p, index) => (
                                 <li key={p._id || `profitable-${index}`}>
                                     <span>{p.name} {p.sku ? `(${p.sku})` : ''}</span>
-                                    <strong>Rwf {Number(p.totalProfit).toLocaleString()}</strong>
+                                    <strong>{formatCurrency(p.totalProfit)}</strong>
                                 </li>
                             ))}
                         </InfoList>
@@ -253,7 +296,7 @@ const SalesAnalyticsDashboard = ({ analyticsFilters, setAnalyticsFilters }) => {
                                         fontSize={12}
                                     />
                                 </Pie>
-                                <Tooltip formatter={(value) => `Rwf ${Number(value).toLocaleString()}`}/>
+                                <Tooltip formatter={(value) => formatCurrency(value)}/>
                                 <Legend />
                             </PieChart>
                         </ResponsiveContainer>
@@ -287,7 +330,7 @@ const SalesAnalyticsDashboard = ({ analyticsFilters, setAnalyticsFilters }) => {
                                         fontSize={12}
                                     />
                                 </Pie>
-                                <Tooltip formatter={(value) => `Rwf ${Number(value).toLocaleString()}`}/>
+                                <Tooltip formatter={(value) => formatCurrency(value)}/>
                                 <Legend />
                             </PieChart>
                         </ResponsiveContainer>
@@ -302,9 +345,9 @@ const SalesAnalyticsDashboard = ({ analyticsFilters, setAnalyticsFilters }) => {
                         <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={formattedTopSellingProducts} layout="vertical">
                                 <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis type="number" tickFormatter={(value) => `${value}`} />
+                                <XAxis type="number" tickFormatter={formatNumber} />
                                 <YAxis dataKey="name" type="category" width={100} />
-                                <Tooltip formatter={(value) => [`${Number(value).toLocaleString()} Units`, 'Quantity Sold']}/>
+                                <Tooltip formatter={(value) => [`${formatNumber(value)} Units`, 'Quantity Sold']}/>
                                 <Legend />
                                 <Bar dataKey="Quantity Sold" fill="#8884d8" />
                             </BarChart>

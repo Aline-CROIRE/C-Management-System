@@ -1,9 +1,9 @@
-// routes/poRoutes.js
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
 const { body, validationResult } = require("express-validator");
 const PDFDocument = require('pdfkit');
+const moment = require("moment");
 
 const PurchaseOrder = require('../models/PurchaseOrder');
 const Inventory = require('../models/Inventory');
@@ -21,7 +21,7 @@ router.get("/", verifyToken, async (req, res) => {
             .populate('supplier', 'name email phone')
             .populate({
                 path: 'items.item',
-                select: 'name sku price status quantity', // Also select status and quantity for context
+                select: 'name sku price status quantity costPrice',
                 model: 'Inventory'
             })
             .sort({ [sort]: sortOrder })
@@ -71,10 +71,11 @@ router.post("/", verifyToken, [
                     name: newItemData.name,
                     sku: newItemData.sku,
                     category: newItemData.category,
-                    price: newItemData.unitPrice,
+                    price: newItemData.sellingPrice || 0, // This is the initial selling price
+                    costPrice: newItemData.unitPrice, // This is the cost price from the PO
                     unit: 'pcs',
                     quantity: 0,
-                    status: 'on-order', // New items start as 'on-order'
+                    status: 'on-order',
                     location: '60d5ecb4b39b2a1b2c8d5e8a', // Placeholder, update as needed
                     minStockLevel: 10,
                 });
@@ -82,7 +83,7 @@ router.post("/", verifyToken, [
                 allPoItems.push({
                     item: savedItem._id,
                     quantity: newItemData.quantity || 1,
-                    unitPrice: newItemData.unitPrice
+                    unitPrice: newItemData.unitPrice // unitPrice on PO item is your cost
                 });
             }
         }
@@ -102,7 +103,7 @@ router.post("/", verifyToken, [
         if (existingItemIdsToUpdate.length > 0) {
             await Inventory.updateMany(
                 { _id: { $in: existingItemIdsToUpdate } },
-                { $set: { status: "on-order" } }, // Mark existing items as 'on-order'
+                { $set: { status: "on-order" } },
                 { session }
             );
         }
@@ -135,8 +136,6 @@ router.patch("/:id/status", verifyToken, [
         
         if (!po) throw new Error("Purchase Order not found.");
         
-        // Prevent status changes if the PO is already Completed or Cancelled,
-        // unless a specific workflow for re-opening/re-completing is defined.
         if (['Completed', 'Cancelled'].includes(po.status) && po.status !== status) {
             throw new Error(`Order is already ${po.status}. Cannot change its status.`);
         }
@@ -152,9 +151,30 @@ router.patch("/:id/status", verifyToken, [
                 }
                 const inventoryItem = await Inventory.findById(receivedItem.item).session(session);
                 if (inventoryItem) {
+                    // --- Validation: Selling Price cannot be below Cost Price ---
+                    const currentCostPrice = inventoryItem.costPrice || 0; // Get current costPrice from inventory
+                    if (Number(receivedItem.sellingPrice) < currentCostPrice) {
+                        throw new Error(`Selling price for ${inventoryItem.name} (Rwf ${receivedItem.sellingPrice.toLocaleString()}) cannot be below its cost price (Rwf ${currentCostPrice.toLocaleString()}).`);
+                    }
+
                     inventoryItem.quantity += receivedItem.quantityReceived;
-                    inventoryItem.price = receivedItem.sellingPrice;
-                    inventoryItem.status = 'in-stock'; // <-- THIS IS THE KEY ADDITION
+                    inventoryItem.price = receivedItem.sellingPrice; // Update selling price
+
+                    // --- Cost Price Logic: Update only if it's currently 0 or explicitly intended to reflect latest PO cost ---
+                    const originalPoItem = po.items.find(item => item.item.toString() === receivedItem.item);
+                    if (originalPoItem) {
+                        // If costPrice is not yet set or we want it to always reflect the latest PO cost
+                        // Based on "don't change cost price" from your request, we only set if it's 0.
+                        // If you prefer costPrice to always update to the latest PO's unitPrice on receipt,
+                        // remove the `|| !inventoryItem.costPrice` check.
+                        if (!inventoryItem.costPrice) { // Only set if not already set or is 0
+                            inventoryItem.costPrice = originalPoItem.unitPrice;
+                        }
+                    } else {
+                        console.warn(`Original PO item not found for inventory item ${receivedItem.item} in PO ${po._id}. Cost price not updated.`);
+                    }
+                    inventoryItem.status = 'in-stock'; // Mark as in-stock
+                    
                     await inventoryItem.save({ session });
                 } else {
                     console.warn(`Inventory item with ID ${receivedItem.item} not found when receiving PO ${po._id}.`);
@@ -164,7 +184,6 @@ router.patch("/:id/status", verifyToken, [
         }
 
         if (status === 'Cancelled') {
-            // When an order is cancelled, revert 'on-order' items to 'in-stock' or 'out-of-stock'
             for (const poItem of po.items) {
                  if (!mongoose.Types.ObjectId.isValid(poItem.item)) {
                     console.warn(`Skipping invalid item ID in PO items for cancellation of PO ${po._id}: ${poItem.item}`);
@@ -184,6 +203,10 @@ router.patch("/:id/status", verifyToken, [
         res.json({ success: true, message: `Order status updated to ${status}.`, data: updatedPO });
     } catch (err) {
         await session.abortTransaction();
+        // Capture specific validation errors for better frontend display
+        if (err.message.includes("Selling price for")) {
+             return res.status(400).json({ success: false, message: err.message });
+        }
         res.status(500).json({ success: false, message: err.message || "Server error updating Purchase Order status." });
     } finally {
         session.endSession();
@@ -193,7 +216,6 @@ router.patch("/:id/status", verifyToken, [
 router.delete("/:id", verifyToken, async (req, res) => {
     const session = await mongoose.startSession();
     try {
-        await session.startTransaction();
         const poId = req.params.id;
         const poToDelete = await PurchaseOrder.findById(poId).session(session);
 
@@ -201,7 +223,6 @@ router.delete("/:id", verifyToken, async (req, res) => {
             throw new Error("Purchase Order not found.");
         }
 
-        // If a PO is deleted before completion, revert 'on-order' items status
         if (['Pending', 'Ordered', 'Shipped'].includes(poToDelete.status)) {
             for (const poItem of poToDelete.items) {
                  if (!mongoose.Types.ObjectId.isValid(poItem.item)) {

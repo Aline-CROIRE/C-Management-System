@@ -131,13 +131,13 @@ export const customerAPI = {
 };
 
 export const analyticsAPI = {
-  getInventoryValuation: (filters) => api.post("/reports/inventory-valuation", filters),
-  getSalesSummary: (filters) => api.post("/reports/sales-summary", filters), // This now points to the same sales analytics endpoint
+  getSalesSummary: (filters) => api.post("/sales/analytics", filters), // This might become redundant, adjust as needed
 };
 
 export const reportsAPI = {
-  getInventoryValuation: (filters) => api.post("/reports/inventory-valuation", filters),
-  getSalesSummary: (filters) => api.post("/reports/sales-summary", filters),
+  getInventoryValuation: (filters) => api.post("/reports/inventory-valuation", filters), // Keep if still used
+  getSalesSummary: (filters) => api.post("/reports/sales-summary", filters), // Keep if still used
+  getComprehensiveReport: (filters) => api.post("/reports/comprehensive", filters), // NEW
 };
 
 export default api;

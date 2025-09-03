@@ -1,9 +1,8 @@
-// components/Sales/Sales.js
 "use client";
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { FaPlus, FaEye, FaFileInvoiceDollar, FaChartLine, FaFilter, FaUndo } from 'react-icons/fa';
-import moment from 'moment'; // Import moment for default analytics filters
+import moment from 'moment';
 
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -112,10 +111,9 @@ const Sales = () => {
     const [activeTab, setActiveTab] = useState('transactions');
     const [isCreating, setIsCreating] = useState(false);
     const [viewingSale, setViewingSale] = useState(null);
-    const [isFiltering, setIsFiltering] = useState(false); // For transaction table filters
-    const [filters, setFilters] = useState({}); // Filters for the sales transactions table
+    const [isFiltering, setIsFiltering] = useState(false);
+    const [filters, setFilters] = useState({});
     
-    // New state for analytics dashboard filters, initialized to the last 30 days
     const [analyticsFilters, setAnalyticsFilters] = useState({
         startDate: moment().subtract(30, 'days').toDate(),
         endDate: moment().toDate(),
@@ -125,7 +123,6 @@ const Sales = () => {
     const { inventory, refetch: refetchInventory } = useInventory();
     const { customers, createCustomer } = useCustomers();
 
-    // Stats for the transactions table, based on `filters`
     const transactionStats = useMemo(() => {
         if (!sales) return { totalRevenue: 0, salesCount: 0 };
         return sales.reduce((acc, sale) => {
@@ -157,7 +154,6 @@ const Sales = () => {
     
     const handleApplyFilters = (appliedFilters) => {
         setFilters(appliedFilters);
-        // Also update analytics filters if they are date-related and user is applying filters
         if (appliedFilters.startDate || appliedFilters.endDate) {
             setAnalyticsFilters(prev => ({
                 ...prev,
@@ -170,7 +166,6 @@ const Sales = () => {
 
     const handleClearFilters = () => {
         setFilters({});
-        // Reset analytics filters to default too
         setAnalyticsFilters({
             startDate: moment().subtract(30, 'days').toDate(),
             endDate: moment().toDate(),
@@ -233,11 +228,11 @@ const Sales = () => {
             <StatsGrid>
                 <StatCard>
                     <StatValue>Rwf {transactionStats.totalRevenue.toLocaleString()}</StatValue>
-                    <StatLabel>Total Revenue (Transactions Table)</StatLabel> {/* Clarified label */}
+                    <StatLabel>Total Revenue (Transactions Table)</StatLabel>
                 </StatCard>
                 <StatCard>
                     <StatValue>{transactionStats.salesCount.toLocaleString()}</StatValue>
-                    <StatLabel>Total Sales Count (Transactions Table)</StatLabel> {/* Clarified label */}
+                    <StatLabel>Total Sales Count (Transactions Table)</StatLabel>
                 </StatCard>
             </StatsGrid>
             
