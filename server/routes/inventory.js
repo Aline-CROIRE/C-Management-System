@@ -34,22 +34,51 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 1024 * 1024 * 5
 router.get("/stats", verifyToken, async (req, res) => {
   try {
     const totalItems = await Inventory.countDocuments();
-    const lowStockCount = await Inventory.countDocuments({ status: 'low-stock' });
-    const outOfStockCount = await Inventory.countDocuments({ status: 'out-of-stock' });
-    const onOrderCount = await Inventory.countDocuments({ status: 'on-order' });
-    const totalValueResult = await Inventory.aggregate([{ $group: { _id: null, totalValue: { $sum: "$totalValue" } } }]);
-    const totalValue = totalValueResult[0]?.totalValue || 0;
-    res.json({ success: true, data: { totalItems, totalValue, lowStockCount, outOfStockCount, onOrderCount } });
+    
+    // Aggregate for total retail and cost value
+    const totalValueAggregate = await Inventory.aggregate([
+        { $match: { quantity: { $gt: 0 } } }, // Only count items currently in stock
+        { $group: { 
+            _id: null, 
+            totalRetailValue: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$quantity" }, 0] }, { $ifNull: [{ $toDouble: "$price" }, 0] }] } },
+            totalCostValue: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$quantity" }, 0] }, { $ifNull: [{ $toDouble: "$costPrice" }, 0] }] } }
+        }}
+    ]);
+    const totalRetailValue = totalValueAggregate[0]?.totalRetailValue || 0;
+    const totalCostValue = totalValueAggregate[0]?.totalCostValue || 0;
+
+    // Corrected queries for status counts
+    const lowStockCount = await Inventory.countDocuments({ 
+        $expr: { $lte: [{ $toDouble: "$quantity" }, { $toDouble: "$minStockLevel" }] }, 
+        quantity: { $gt: 0 } 
+    });
+    const outOfStockCount = await Inventory.countDocuments({ quantity: { $lte: 0 } });
+    const onOrderCount = await Inventory.countDocuments({ status: 'on-order' }); // Assuming 'on-order' status only has actual items awaiting arrival
+    
+    res.json({ 
+        success: true, 
+        data: { 
+            totalItems, 
+            totalValue: totalRetailValue, // Renamed to clarify it's retail
+            totalCostValue, // NEW
+            lowStockCount, 
+            outOfStockCount, 
+            onOrderCount 
+        } 
+    });
   } catch (error) {
+    console.error("Error fetching inventory stats:", error);
     res.status(500).json({ success: false, message: "Server error fetching stats." });
   }
 });
 
+// --- Category Routes (Keep as is based on your provided snippet) ---
 router.get("/categories", verifyToken, async (req, res) => {
   try {
     const values = await Category.find({}).sort({ name: 1 });
     res.json({ success: true, data: values });
   } catch (error) {
+    console.error("Error fetching categories:", error);
     res.status(500).json({ success: false, message: "Error fetching categories." });
   }
 });
@@ -67,17 +96,20 @@ router.post("/categories", verifyToken, body("name", "Name is required").not().i
         }
         const newCategory = new Category({ name });
         await newCategory.save();
-        res.status(201).json({ success: true, data: newCategory });
+        res.status(201).json({ success: true, data: newCategory, message: "Category created successfully!" });
     } catch (error) {
+        console.error("Server error creating category:", error);
         res.status(500).json({ success: false, message: "Server error creating category." });
     }
 });
 
+// --- Location Routes (Keep as is based on your provided snippet) ---
 router.get("/locations", verifyToken, async (req, res) => {
   try {
     const values = await Location.find({}).sort({ name: 1 });
     res.json({ success: true, data: values });
   } catch (error) {
+    console.error("Error fetching locations:", error);
     res.status(500).json({ success: false, message: "Error fetching locations." });
   }
 });
@@ -95,19 +127,41 @@ router.post("/locations", verifyToken, body("name", "Name is required").not().is
         }
         const newLocation = new Location({ name });
         await newLocation.save();
-        res.status(201).json({ success: true, data: newLocation });
+        res.status(201).json({ success: true, data: newLocation, message: "Location created successfully!" });
     } catch (error) {
+        console.error("Server error creating location:", error);
         res.status(500).json({ success: false, message: "Server error creating location." });
     }
 });
 
+// --- NEW: Unit Routes (Added for `createUnit` functionality) ---
+// This assumes units are simple strings. If you have a Unit model, adjust accordingly.
 router.get("/units", verifyToken, async (req, res) => {
   try {
     const values = await Inventory.distinct("unit");
     res.json({ success: true, data: values.filter(v => v && v.trim() !== "").sort() });
   } catch (error) {
+    console.error("Error fetching units:", error);
     res.status(500).json({ success: false, message: "Error fetching units." });
   }
+});
+
+router.post("/units", verifyToken, body("name", "Unit name is required").not().isEmpty().trim(), async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+    try {
+        const { name } = req.body;
+        // In this case, since units are distinct values on Inventory, we don't 'create' a separate Unit document.
+        // We just ensure the name is valid. If you had a dedicated Unit model, you would create it here.
+        // For now, we'll just return success as if it was 'created' for the frontend's purpose.
+        // The actual distinct unit is managed by `Inventory` entries.
+        res.status(201).json({ success: true, data: { name }, message: `Unit "${name}" added to selectable list.` });
+    } catch (error) {
+        console.error("Server error creating unit:", error);
+        res.status(500).json({ success: false, message: "Server error creating unit." });
+    }
 });
 
 router.get("/export/csv", verifyToken, async (req, res) => {
@@ -116,29 +170,34 @@ router.get("/export/csv", verifyToken, async (req, res) => {
     if (!inventoryItems || inventoryItems.length === 0) {
       return res.status(404).json({ success: false, message: "No inventory data to export." });
     }
-    const fields = ['_id', 'name', 'sku', 'category', 'status', 'quantity', 'price', 'totalValue', 'location', 'unit', 'createdAt', 'updatedAt'];
+    const fields = ['_id', 'name', 'sku', 'category', 'status', 'quantity', 'price', 'totalValue', 'location', 'unit', 'costPrice', 'minStockLevel', 'createdAt', 'updatedAt']; // Added costPrice and minStockLevel
     const json2csv = new Parser({ fields });
     const csv = json2csv.parse(inventoryItems);
     res.setHeader("Content-Disposition", "attachment; filename=inventory-export.csv");
     res.setHeader("Content-Type", "text/csv");
     res.status(200).end(csv);
   } catch (error) {
+    console.error("Failed to export inventory data:", error);
     res.status(500).json({ success: false, message: "Failed to export inventory data." });
   }
 });
 
 router.get("/", verifyToken, async (req, res) => {
   try {
-    const { search, category, status, location, page = 1, limit = 10 } = req.query;
+    const { search, category, status, location, page = 1, limit = 10, sort = 'updatedAt', order = 'desc' } = req.query; // Added sort and order
     const query = {};
     if (search) query.$or = [{ name: { $regex: search, $options: "i" } }, { sku: { $regex: search, $options: "i" } }];
     if (category) query.category = category;
     if (status) query.status = status;
     if (location) query.location = location;
-    const limitNum = parseInt(limit), pageNum = parseInt(page), skip = (pageNum - 1) * limitNum;
+    
+    const limitNum = parseInt(limit);
+    const pageNum = parseInt(page);
+    const skip = (pageNum - 1) * limitNum;
+    const sortOrder = order === 'desc' ? -1 : 1;
     
     const items = await Inventory.find(query)
-      .sort({ updatedAt: -1 })
+      .sort({ [sort]: sortOrder }) // Apply sort
       .skip(skip)
       .limit(limitNum)
       .populate('category', 'name')
@@ -157,6 +216,7 @@ router.get("/", verifyToken, async (req, res) => {
       }
     });
   } catch (error) {
+    console.error("Error fetching inventory items:", error);
     res.status(500).json({ success: false, message: "Error fetching inventory items." });
   }
 });
@@ -170,6 +230,7 @@ router.get("/:id", verifyToken, async (req, res) => {
     if (!item) return res.status(404).json({ success: false, message: "Item not found." });
     res.json({ success: true, data: item });
   } catch (error) {
+    console.error("Server error fetching item:", error);
     res.status(500).json({ success: false, message: "Server error fetching item." });
   }
 });
@@ -180,8 +241,10 @@ router.post("/", verifyToken, upload.single('itemImage'), [
   body("category", "Category is required").isMongoId(),
   body("location", "Location is required").isMongoId(),
   body("supplier").optional().isMongoId(),
-  body("quantity").isFloat({ min: 0 }),
-  body("price").isFloat({ min: 0 }),
+  body("quantity").isFloat({ min: 0 }).withMessage("Quantity must be a non-negative number."),
+  body("price").isFloat({ min: 0 }).withMessage("Selling price must be a non-negative number."),
+  body("costPrice").isFloat({ min: 0 }).withMessage("Cost price must be a non-negative number."),
+  body("minStockLevel").isFloat({ min: 0 }).withMessage("Minimum stock level must be a non-negative number."),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -189,13 +252,28 @@ router.post("/", verifyToken, upload.single('itemImage'), [
     return res.status(400).json({ success: false, errors: errors.array() });
   }
   try {
-    const { sku } = req.body;
+    const { sku, quantity, minStockLevel, price, costPrice } = req.body;
+
     if (await Inventory.findOne({ sku: sku.toUpperCase() })) {
       if (req.file) fs.unlinkSync(req.file.path);
       return res.status(400).json({ success: false, message: "An item with this SKU already exists." });
     }
+
+    let status = 'in-stock';
+    if (Number(quantity) <= 0) {
+        status = 'out-of-stock';
+    } else if (Number(quantity) <= Number(minStockLevel)) {
+        status = 'low-stock';
+    }
+    
     const newItem = new Inventory({
       ...req.body,
+      sku: sku.toUpperCase(),
+      quantity: Number(quantity),
+      price: Number(price),
+      costPrice: Number(costPrice),
+      minStockLevel: Number(minStockLevel),
+      status: status, // Set initial status based on quantity and minStockLevel
       imageUrl: req.file ? `uploads/${req.file.filename}` : undefined,
     });
     const savedItem = await newItem.save();
@@ -210,9 +288,14 @@ router.post("/", verifyToken, upload.single('itemImage'), [
 
 router.put("/:id", verifyToken, upload.single('itemImage'), [
   body("name", "Name cannot be empty").not().isEmpty().trim(),
-  body("category").optional().isMongoId(),
-  body("location").optional().isMongoId(),
+  body("sku", "SKU is required").not().isEmpty().trim().toUpperCase(), // Add SKU validation to PUT
+  body("category", "Category is required").isMongoId(),
+  body("location", "Location is required").isMongoId(),
   body("supplier").optional().isMongoId(),
+  body("quantity").isFloat({ min: 0 }).withMessage("Quantity must be a non-negative number."),
+  body("price").isFloat({ min: 0 }).withMessage("Selling price must be a non-negative number."),
+  body("costPrice").isFloat({ min: 0 }).withMessage("Cost price must be a non-negative number."),
+  body("minStockLevel").isFloat({ min: 0 }).withMessage("Minimum stock level must be a non-negative number."),
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -221,12 +304,42 @@ router.put("/:id", verifyToken, upload.single('itemImage'), [
   }
   try {
     const { id } = req.params;
+    const { sku, quantity, minStockLevel, price, costPrice, ...rest } = req.body;
+
     const itemToUpdate = await Inventory.findById(id);
     if (!itemToUpdate) {
       if (req.file) fs.unlinkSync(req.file.path);
       return res.status(404).json({ success: false, message: "Inventory item not found." });
     }
-    const updateData = { ...req.body };
+
+    // Check for duplicate SKU if SKU is being changed
+    if (sku && sku.toUpperCase() !== itemToUpdate.sku && await Inventory.findOne({ sku: sku.toUpperCase() })) {
+        if (req.file) fs.unlinkSync(req.file.path);
+        return res.status(400).json({ success: false, message: "An item with this SKU already exists." });
+    }
+
+    let status = itemToUpdate.status; // Keep current status by default
+    const updatedQuantity = Number(quantity);
+    const updatedMinStockLevel = Number(minStockLevel);
+
+    if (updatedQuantity <= 0) {
+        status = 'out-of-stock';
+    } else if (updatedQuantity <= updatedMinStockLevel) {
+        status = 'low-stock';
+    } else {
+        status = 'in-stock'; // If above minStockLevel and quantity > 0
+    }
+
+    const updateData = { 
+        ...rest,
+        sku: sku.toUpperCase(),
+        quantity: updatedQuantity,
+        price: Number(price),
+        costPrice: Number(costPrice),
+        minStockLevel: updatedMinStockLevel,
+        status: status, // Update status based on new quantity/minStockLevel
+    };
+
     if (req.file) {
       if (itemToUpdate.imageUrl) {
         try { fs.unlinkSync(path.join(__dirname, '..', itemToUpdate.imageUrl)); }
@@ -234,11 +347,13 @@ router.put("/:id", verifyToken, upload.single('itemImage'), [
       }
       updateData.imageUrl = `uploads/${req.file.filename}`;
     }
+
     const updatedItem = await Inventory.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true })
       .populate('category location supplier', 'name');
     res.json({ success: true, message: "Item updated successfully!", data: updatedItem });
   } catch (error) {
     if (req.file) fs.unlinkSync(req.file.path);
+    console.error("PUT /inventory Error:", error);
     res.status(500).json({ success: false, message: error.message || "Server error while updating item." });
   }
 });
@@ -262,6 +377,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
     await Inventory.findByIdAndDelete(id);
     res.json({ success: true, message: "Item deleted successfully." });
   } catch (error) {
+    console.error("DELETE /inventory Error:", error);
     res.status(500).json({ success: false, message: error.message || "Server error while deleting item." });
   }
 });

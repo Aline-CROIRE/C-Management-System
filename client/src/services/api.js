@@ -71,7 +71,7 @@ export const inventoryAPI = {
   create: (itemData) => api.post("/inventory", itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   update: (id, itemData) => api.put(`/inventory/${id}`, itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => api.delete(`/inventory/${id}`),
-  getStats: (params) => api.get("/inventory/stats", { params }),
+  getStats: (params) => api.get("/inventory/stats", { params }), // This endpoint will return detailed stats
   exportInventory: (format, filters) => api.get(`/inventory/export/${format}`, { params: filters, responseType: 'blob' }),
   getDistinctUnits: () => api.get("/inventory/units"),
 };
@@ -81,6 +81,7 @@ export const metadataAPI = {
   getLocations: () => api.get("/metadata/locations"),
   createCategory: (data) => api.post("/metadata/categories", data),
   createLocation: (data) => api.post("/metadata/locations", data),
+  createUnit: (data) => api.post("/metadata/units", data), // NEW: Route for creating units
 };
 
 export const supplierAPI = {
@@ -130,14 +131,10 @@ export const customerAPI = {
   create: (customerData) => api.post("/customers", customerData),
 };
 
-export const analyticsAPI = {
-  getSalesSummary: (filters) => api.post("/sales/analytics", filters), // This might become redundant, adjust as needed
-};
-
 export const reportsAPI = {
-  getInventoryValuation: (filters) => api.post("/reports/inventory-valuation", filters), // Keep if still used
-  getSalesSummary: (filters) => api.post("/reports/sales-summary", filters), // Keep if still used
-  getComprehensiveReport: (filters) => api.post("/reports/comprehensive", filters), // NEW
+  getInventoryValuation: (filters) => api.post("/reports/inventory-valuation", filters),
+  getSalesSummary: (filters) => api.post("/reports/sales-summary", filters),
+  getComprehensiveReport: (filters) => api.post("/reports/comprehensive", filters),
 };
 
 export default api;
