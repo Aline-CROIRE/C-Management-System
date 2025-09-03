@@ -8,8 +8,14 @@ const saleItemSchema = new mongoose.Schema({
 }, { _id: false });
 
 const saleSchema = new mongoose.Schema({
-    receiptNumber: { type: String, required: true, unique: true, index: true },
-    customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
+    user: { // <-- IMPORTANT: Add user reference
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+        index: true,
+    },
+    receiptNumber: { type: String, required: true, unique: true, index: true }, // receiptNumber should still be globally unique
+    customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' }, // Assuming customers are global or assigned to a user elsewhere
     items: [saleItemSchema],
     subtotal: { type: Number, required: true },
     taxAmount: { type: Number, default: 0 },
@@ -29,6 +35,7 @@ const saleSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 saleSchema.statics.generateReceiptNumber = async function() {
+    // Receipt numbers should likely be unique across all users, not per user.
     const lastSale = await this.findOne().sort({ createdAt: -1 });
     let nextNum = 1;
     if (lastSale && lastSale.receiptNumber) {

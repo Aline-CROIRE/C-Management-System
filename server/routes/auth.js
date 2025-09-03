@@ -1,3 +1,4 @@
+// routes/authRoutes.js (UPDATED - more detailed error logging)
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
@@ -33,8 +34,9 @@ router.post("/register", authActionLimiter, async (req, res) => {
   try {
     const { firstName, lastName, email, password, company, phone, modules, role = "user" } = req.body;
 
+    // Frontend validation should ideally cover this, but a backend check is good.
     if (!firstName || !lastName || !email || !password || !company) {
-      return res.status(400).json({ success: false, message: "Required fields are missing." });
+      return res.status(400).json({ success: false, message: "All required fields (first name, last name, email, password, company) are missing." });
     }
 
     const existingUser = await User.findOne({ email });
@@ -46,14 +48,15 @@ router.post("/register", authActionLimiter, async (req, res) => {
       firstName,
       lastName,
       email,
-      password,
+      password, // Password hashing should happen in a pre-save hook in your User model
       company,
-      phone,
-      modules,
+      phone: phone || null, // Ensure optional fields handle undefined gracefully
+      modules: modules || [], // Ensure modules is an array, even if empty
       role,
     });
 
-    await user.save();
+    await user.save(); // This is where Mongoose validation errors would typically occur
+
     const token = generateToken(user._id);
 
     res.status(201).json({
@@ -63,6 +66,13 @@ router.post("/register", authActionLimiter, async (req, res) => {
     });
   } catch (error) {
     console.error("Registration error:", error);
+
+    // Provide more specific error messages for known Mongoose errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.keys(error.errors).map(key => error.errors[key].message);
+      return res.status(400).json({ success: false, message: `Validation failed: ${errors.join(', ')}` });
+    }
+    
     res.status(500).json({ success: false, message: "Server error during registration." });
   }
 });

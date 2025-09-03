@@ -1,4 +1,4 @@
-// models/Notification.js
+// models/Notification.js (No changes needed)
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
@@ -24,18 +24,17 @@ const notificationSchema = new mongoose.Schema({
         type: Boolean,
         default: false,
     },
-    priority: { // Optional: for visual urgency in frontend
+    priority: {
         type: String,
         enum: ['low', 'medium', 'high', 'critical'],
         default: 'medium',
     },
-    link: { // Optional: URL to navigate to when clicking notification
+    link: {
         type: String,
     },
-    relatedId: { // Optional: ID of the related item (e.g., Inventory, PO, Sale)
+    relatedId: {
         type: mongoose.Schema.Types.ObjectId,
-        // No ref here, as it could relate to different models
     },
-}, { timestamps: true }); // `createdAt` and `updatedAt` will be automatically added
+}, { timestamps: true });
 
 module.exports = mongoose.model('Notification', notificationSchema);

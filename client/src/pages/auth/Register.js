@@ -195,7 +195,7 @@ const modules = [
   { id: "IMS", name: "Inventory", icon: MdInventory, description: "Track stock and control inventory flow." },
   { id: "ISA", name: "Agriculture", icon: MdAgriculture, description: "Manage crops, fields, and resources." },
   { id: "Waste", name: "Waste Mgmt", icon: MdRecycling, description: "Oversee waste and recycling programs." },
-  { id: "Construction", name: "Construction", icon: MdConstruction, description: "Manage sites and heavy equipment." },
+  { id: "Construction Sites", name: "Construction Sites", icon: MdConstruction, description: "Manage sites and heavy equipment." },
 ]
 
 const Register = () => {

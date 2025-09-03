@@ -8,23 +8,25 @@ const moment = require("moment");
 const Sale = require("../models/Sale");
 const Inventory = require("../models/Inventory");
 const Customer = require("../models/Customer");
-const Notification = require("../models/Notification"); // Import Notification model
+const Notification = require("../models/Notification");
 const { verifyToken } = require("../middleware/auth");
 
 router.get("/", verifyToken, async (req, res) => {
     try {
+        const userId = req.user._id; // Get user ID
         const { customerId, startDate, endDate, paymentMethod, page = 1, limit = 10, sort = 'createdAt', order = 'desc' } = req.query;
-        const query = {};
-        const limitNum = parseInt(limit);
-        const pageNum = parseInt(page);
-        const skip = (pageNum - 1) * limitNum;
-        const sortOrder = order === 'desc' ? -1 : 1;
+        const query = { user: userId }; // Filter by user ID here!
 
         if (customerId) query.customer = customerId;
         if (startDate && endDate) {
             query.createdAt = { $gte: new Date(startDate), $lte: new Date(endDate) };
         }
         if (paymentMethod) query.paymentMethod = paymentMethod;
+
+        const limitNum = parseInt(limit);
+        const pageNum = parseInt(page);
+        const skip = (pageNum - 1) * limitNum;
+        const sortOrder = order === 'desc' ? -1 : 1;
 
         const sales = await Sale.find(query)
             .populate('customer', 'name')
@@ -65,23 +67,23 @@ router.post("/", verifyToken, [
     session.startTransaction();
 
     try {
+        const userId = req.user._id; // Get user ID
         const { items, customer, totalAmount, subtotal, taxAmount, paymentMethod, notes } = req.body;
 
         for (const saleItem of items) {
-            const inventoryItem = await Inventory.findById(saleItem.item).session(session);
-            if (!inventoryItem) throw new Error(`Inventory item not found.`);
+            const inventoryItem = await Inventory.findOne({ _id: saleItem.item, user: userId }).session(session); // Filter by user
+            if (!inventoryItem) throw new Error(`Inventory item not found or does not belong to user.`);
             if (inventoryItem.quantity < saleItem.quantity) throw new Error(`Not enough stock for ${inventoryItem.name}.`);
             
             inventoryItem.quantity -= saleItem.quantity;
             saleItem.costPrice = inventoryItem.costPrice || 0; 
             
-            // --- Notification Logic for Low Stock / Out of Stock after a sale ---
             const newQuantity = inventoryItem.quantity;
             const minStockLevel = inventoryItem.minStockLevel || 0;
 
-            if (newQuantity <= 0 && inventoryItem.status !== 'out-of-stock') { // Item is now out of stock
+            if (newQuantity <= 0 && inventoryItem.status !== 'out-of-stock') {
                  const notification = new Notification({
-                    user: req.user._id,
+                    user: userId,
                     type: 'out_of_stock',
                     title: 'Out of Stock Alert',
                     message: `${inventoryItem.name} (SKU: ${inventoryItem.sku}) is now out of stock.`,
@@ -90,10 +92,10 @@ router.post("/", verifyToken, [
                     relatedId: inventoryItem._id,
                 });
                 await notification.save({ session });
-                inventoryItem.status = 'out-of-stock'; // Update status
-            } else if (newQuantity <= minStockLevel && newQuantity > 0 && inventoryItem.status !== 'low-stock') { // Item is now low stock
+                inventoryItem.status = 'out-of-stock';
+            } else if (newQuantity <= minStockLevel && newQuantity > 0 && inventoryItem.status !== 'low-stock') {
                  const notification = new Notification({
-                    user: req.user._id,
+                    user: userId,
                     type: 'low_stock',
                     title: 'Low Stock Alert',
                     message: `${inventoryItem.name} (SKU: ${inventoryItem.sku}) is running low. Quantity: ${newQuantity}.`,
@@ -102,12 +104,10 @@ router.post("/", verifyToken, [
                     relatedId: inventoryItem._id,
                 });
                 await notification.save({ session });
-                inventoryItem.status = 'low-stock'; // Update status
+                inventoryItem.status = 'low-stock';
             } else if (newQuantity > minStockLevel && newQuantity > 0 && (inventoryItem.status === 'low-stock' || inventoryItem.status === 'out-of-stock')) {
-                // Item is back in healthy stock range (if it was previously low/out)
-                inventoryItem.status = 'in-stock'; // Reset status if it's healthy now
+                inventoryItem.status = 'in-stock';
             }
-            // End Notification Logic
 
             await inventoryItem.save({ session });
         }
@@ -116,9 +116,11 @@ router.post("/", verifyToken, [
         const newSale = new Sale({
             receiptNumber, customer, items, totalAmount,
             subtotal, taxAmount, paymentMethod, notes,
+            user: userId, // <-- IMPORTANT: Assign user ID to the Sale itself
         });
         
         if (customer) {
+            // Assuming customer is global or has its own user filtering for updates
             await Customer.findByIdAndUpdate(customer, {
                 $inc: { totalSpent: totalAmount },
                 $set: { lastSaleDate: new Date() }
@@ -132,6 +134,7 @@ router.post("/", verifyToken, [
 
     } catch (err) {
         await session.abortTransaction();
+        console.error("Error creating sale:", err);
         res.status(500).json({ success: false, message: err.message || "Server error while creating sale." });
     } finally {
         session.endSession();
@@ -140,6 +143,7 @@ router.post("/", verifyToken, [
 
 router.post("/analytics", verifyToken, async (req, res) => {
     try {
+        const userId = req.user._id; // Get user ID
         const { startDate, endDate } = req.body;
 
         if (!startDate || !endDate || !moment(startDate).isValid() || !moment(endDate).isValid()) {
@@ -154,6 +158,7 @@ router.post("/analytics", verifyToken, async (req, res) => {
                 $gte: queryStartDate,
                 $lte: queryEndDate,
             },
+            user: userId, // Filter by user ID
         };
 
         const salesOverTime = await Sale.aggregate([
@@ -165,6 +170,9 @@ router.post("/analytics", verifyToken, async (req, res) => {
         const mostProfitableProducts = await Sale.aggregate([
             { $match: dateQuery }, 
             { $unwind: "$items" },
+            { $lookup: { from: "inventories", localField: "items.item", foreignField: "_id", as: "product" }}, // Lookup inventory
+            { $unwind: "$product" },
+            { $match: { "product.user": userId } }, // Ensure linked product also belongs to user
             { $group: { 
                 _id: "$items.item", 
                 totalProfit: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$items.quantity" }, 0] }, { $subtract: [{ $ifNull: [{ $toDouble: "$items.price" }, 0] }, { $ifNull: [{ $toDouble: "$items.costPrice" }, 0] }] }] } } 
@@ -173,7 +181,7 @@ router.post("/analytics", verifyToken, async (req, res) => {
             { $limit: 5 },
             { $lookup: { from: "inventories", localField: "_id", foreignField: "_id", as: "product" }},
             { $unwind: "$product" },
-            { $project: { name: "$product.name", sku: "$product.name", totalProfit: 1 } } // Changed sku to name for product, check your schema if sku is better
+            { $project: { name: "$product.name", sku: "$product.sku", totalProfit: 1 } }
         ]);
 
         const salesByPaymentMethod = await Sale.aggregate([
@@ -189,6 +197,9 @@ router.post("/analytics", verifyToken, async (req, res) => {
         const topSellingProductsByQuantity = await Sale.aggregate([
             { $match: dateQuery }, 
             { $unwind: "$items" },
+            { $lookup: { from: "inventories", localField: "items.item", foreignField: "_id", as: "product" }}, // Lookup inventory
+            { $unwind: "$product" },
+            { $match: { "product.user": userId } }, // Ensure linked product also belongs to user
             { $group: { _id: "$items.item", totalQuantitySold: { $sum: { $ifNull: [{ $toDouble: "$items.quantity" }, 0] } } } },
             { $sort: { totalQuantitySold: -1 } }, 
             { $limit: 5 },
@@ -209,6 +220,7 @@ router.post("/analytics", verifyToken, async (req, res) => {
                 }
             },
             { $unwind: "$inventoryItem" },
+            { $match: { "inventoryItem.user": userId } }, // Filter by user for inventory item
             {
                 $lookup: {
                     from: "categories",
@@ -246,6 +258,9 @@ router.post("/analytics", verifyToken, async (req, res) => {
         const totalProfitCalculation = await Sale.aggregate([
             { $match: dateQuery },
             { $unwind: "$items" },
+            { $lookup: { from: "inventories", localField: "items.item", foreignField: "_id", as: "product" }}, // Lookup inventory
+            { $unwind: "$product" },
+            { $match: { "product.user": userId } }, // Ensure linked product also belongs to user
             {
                 $group: {
                     _id: null,
@@ -290,9 +305,10 @@ router.post("/:id/return", verifyToken, [
     session.startTransaction();
 
     try {
+        const userId = req.user._id; // Get user ID
         const { returnedItems } = req.body;
-        const sale = await Sale.findById(req.params.id).session(session);
-        if (!sale) throw new Error("Original sale not found.");
+        const sale = await Sale.findOne({ _id: req.params.id, user: userId }).session(session); // Filter by user
+        if (!sale) throw new Error("Original sale not found or does not belong to user.");
 
         let totalReturnedValue = 0;
         let totalItemsInSale = sale.items.reduce((sum, item) => sum + item.quantity, 0);
@@ -302,12 +318,11 @@ router.post("/:id/return", verifyToken, [
             const originalItem = sale.items.find(i => i.item.toString() === returnedItem.item);
             if (!originalItem) throw new Error("Item not found in original sale.");
 
-            const inventoryItem = await Inventory.findById(returnedItem.item).session(session);
-            if (!inventoryItem) throw new Error(`Inventory item ${returnedItem.item} not found for return.`);
+            const inventoryItem = await Inventory.findOne({ _id: returnedItem.item, user: userId }).session(session); // Filter by user
+            if (!inventoryItem) throw new Error(`Inventory item ${returnedItem.item} not found or does not belong to user for return.`);
 
-            inventoryItem.quantity += returnedItem.quantity; // Increase quantity for returned items
+            inventoryItem.quantity += returnedItem.quantity;
 
-            // Check if status needs to be reverted from out-of-stock/low-stock to in-stock
             const newQuantity = inventoryItem.quantity;
             const minStockLevel = inventoryItem.minStockLevel || 0;
             if (inventoryItem.status === 'out-of-stock' && newQuantity > 0) {
@@ -326,6 +341,7 @@ router.post("/:id/return", verifyToken, [
         await sale.save({ session });
         
         if (sale.customer) {
+             // Assuming customer is global or has its own user filtering for updates
              await Customer.findByIdAndUpdate(sale.customer, {
                 $inc: { totalSpent: -totalReturnedValue }
             }).session(session);
@@ -346,17 +362,17 @@ router.delete("/:id", verifyToken, async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-        const saleToDelete = await Sale.findById(req.params.id).session(session);
+        const userId = req.user._id; // Get user ID
+        const saleToDelete = await Sale.findOne({ _id: req.params.id, user: userId }).session(session); // Filter by user
         if (!saleToDelete) {
-            throw new Error("Sale not found.");
+            throw new Error("Sale not found or does not belong to user.");
         }
 
         for (const soldItem of saleToDelete.items) {
-            const inventoryItem = await Inventory.findById(soldItem.item).session(session);
+            const inventoryItem = await Inventory.findOne({ _id: soldItem.item, user: userId }).session(session); // Filter by user
             if (inventoryItem) {
-                inventoryItem.quantity += soldItem.quantity; // Restock items on sale deletion
+                inventoryItem.quantity += soldItem.quantity;
 
-                // Adjust status if needed after restocking
                 const newQuantity = inventoryItem.quantity;
                 const minStockLevel = inventoryItem.minStockLevel || 0;
                 if (inventoryItem.status === 'out-of-stock' && newQuantity > 0) {
@@ -368,7 +384,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
             }
         }
 
-        await Sale.findByIdAndDelete(req.params.id).session(session);
+        await Sale.findByIdAndDelete({ _id: req.params.id, user: userId }).session(session); // Filter by user
         await session.commitTransaction();
         res.json({ success: true, message: "Sale deleted and inventory restocked." });
     } catch (err) {
@@ -382,9 +398,10 @@ router.delete("/:id", verifyToken, async (req, res) => {
 
 router.get("/:id/pdf", verifyToken, async (req, res) => {
     try {
-        const sale = await Sale.findById(req.params.id).populate('customer').populate('items.item', 'name sku');
+        const userId = req.user._id; // Get user ID
+        const sale = await Sale.findOne({ _id: req.params.id, user: userId }).populate('customer').populate('items.item', 'name sku'); // Filter by user
         if (!sale) {
-            return res.status(404).json({ success: false, message: "Sale not found." });
+            return res.status(404).json({ success: false, message: "Sale not found or does not belong to user." });
         }
 
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -410,43 +427,6 @@ router.get("/:id/pdf", verifyToken, async (req, res) => {
         doc.y = headerTopY + 50;
         doc.font('Helvetica-Bold').text('Customer:');
         doc.font('Helvetica').text(sale.customer?.name || sale.customerName || 'Walk-in Customer');
-        doc.moveDown(2);
-
-        const tableTop = doc.y;
-        const itemX = 50;
-        const quantityX = 300;
-        const unitPriceX = 380;
-        const totalX = 470;
-
-        doc.font('Helvetica-Bold');
-        doc.text('Item', itemX, tableTop);
-        doc.text('Quantity', quantityX, tableTop, { width: 80, align: 'center' });
-        doc.text('Unit Price', unitPriceX, tableTop, { width: 90, align: 'right' });
-        doc.text('Total', totalX, tableTop, { width: 90, align: 'right' });
-
-        const tableHeaderY = tableTop + 20;
-        doc.moveTo(itemX, tableHeaderY).lineTo(doc.page.width - itemX, tableHeaderY).stroke();
-        
-        let currentY = tableHeaderY + 10;
-        doc.font('Helvetica');
-
-        sale.items.forEach(item => {
-            doc.text(item.item.name, itemX, currentY);
-            doc.text(item.quantity.toString(), quantityX, currentY, { width: 80, align: 'center' });
-            doc.text(`Rwf ${item.price.toLocaleString()}`, unitPriceX, currentY, { width: 90, align: 'right' });
-            doc.text(`Rwf ${(item.quantity * item.price).toLocaleString()}`, totalX, currentY, { width: 90, align: 'right' });
-            currentY += 20;
-        });
-
-        const tableFooterY = currentY;
-        doc.moveTo(itemX, tableFooterY).lineTo(doc.page.width - itemX, tableFooterY).stroke();
-        doc.y = tableFooterY + 20;
-
-        doc.font('Helvetica-Bold').fontSize(12);
-        doc.text('Grand Total:', 350, doc.y, { align: 'right' });
-        doc.text(formatCurrency(sale.totalAmount), 450, doc.y, { align: 'right' });
-
-        doc.end();
     } catch (err) {
         console.error("PDF Generation Error:", err);
         res.status(500).json({ success: false, message: "Server error generating PDF." });

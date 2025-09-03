@@ -7,18 +7,19 @@ const moment = require("moment");
 
 const PurchaseOrder = require('../models/PurchaseOrder');
 const Inventory = require('../models/Inventory');
-const Notification = require("../models/Notification"); // Import Notification model
+const Notification = require("../models/Notification");
 const { verifyToken } = require('../middleware/auth');
 
 router.get("/", verifyToken, async (req, res) => {
     try {
+        const userId = req.user._id; // Get user ID
         const { page = 1, limit = 10, sort = 'orderDate', order = 'desc' } = req.query;
         const limitNum = parseInt(limit);
         const pageNum = parseInt(page);
         const skip = (pageNum - 1) * limitNum;
         const sortOrder = order === 'desc' ? -1 : 1;
         
-        const purchaseOrders = await PurchaseOrder.find()
+        const purchaseOrders = await PurchaseOrder.find({ user: userId }) // Filter by user
             .populate('supplier', 'name email phone')
             .populate({
                 path: 'items.item',
@@ -29,7 +30,7 @@ router.get("/", verifyToken, async (req, res) => {
             .skip(skip)
             .limit(limitNum);
 
-        const total = await PurchaseOrder.countDocuments();
+        const total = await PurchaseOrder.countDocuments({ user: userId }); // Filter by user
             
         const validPOs = purchaseOrders.filter(po => 
             po.items.every(item => item.item !== null)
@@ -46,6 +47,7 @@ router.get("/", verifyToken, async (req, res) => {
             }
         });
     } catch (err) {
+        console.error("Error fetching purchase orders:", err);
         res.status(500).json({ success: false, message: "Server Error: Could not fetch purchase orders." });
     }
 });
@@ -63,11 +65,13 @@ router.post("/", verifyToken, [
     const session = await mongoose.startSession();
     try {
         await session.startTransaction();
+        const userId = req.user._id; // Get user ID
         const { supplier, items, newItems, ...poData } = req.body;
         const allPoItems = [...items];
 
         if (newItems && newItems.length > 0) {
             for (const newItemData of newItems) {
+                // When creating new inventory items through PO, assign user ID
                 const newInventoryItem = new Inventory({
                     name: newItemData.name,
                     sku: newItemData.sku,
@@ -77,8 +81,9 @@ router.post("/", verifyToken, [
                     unit: 'pcs',
                     quantity: 0,
                     status: 'on-order',
-                    location: '60d5ecb4b39b2a1b2c8d5e8a',
+                    location: '60d5ecb4b39b2a1b2c8d5e8a', // Placeholder, update as needed
                     minStockLevel: 10,
+                    user: userId, // <-- IMPORTANT: Assign user ID
                 });
                 const savedItem = await newInventoryItem.save({ session });
                 allPoItems.push({
@@ -96,6 +101,7 @@ router.post("/", verifyToken, [
             supplier,
             items: allPoItems,
             status: 'Pending',
+            user: userId, // <-- IMPORTANT: Assign user ID to the PO itself
         });
 
         const savedPO = await newPurchaseOrder.save({ session });
@@ -103,7 +109,7 @@ router.post("/", verifyToken, [
         const existingItemIdsToUpdate = items.map(i => i.item);
         if (existingItemIdsToUpdate.length > 0) {
             await Inventory.updateMany(
-                { _id: { $in: existingItemIdsToUpdate } },
+                { _id: { $in: existingItemIdsToUpdate }, user: userId }, // Filter by user when updating
                 { $set: { status: "on-order" } },
                 { session }
             );
@@ -114,6 +120,7 @@ router.post("/", verifyToken, [
         res.status(201).json({ success: true, message: "Purchase Order created successfully!", data: populatedPO });
     } catch (err) {
         await session.abortTransaction();
+        console.error("Error creating Purchase Order:", err);
         res.status(500).json({ success: false, message: err.message || "Server error creating Purchase Order." });
     } finally {
         session.endSession();
@@ -132,10 +139,11 @@ router.patch("/:id/status", verifyToken, [
     const session = await mongoose.startSession();
     try {
         await session.startTransaction();
+        const userId = req.user._id; // Get user ID
         const { status, receivedItems } = req.body;
-        const po = await PurchaseOrder.findById(req.params.id).session(session);
+        const po = await PurchaseOrder.findOne({ _id: req.params.id, user: userId }).session(session); // Filter by user
         
-        if (!po) throw new Error("Purchase Order not found.");
+        if (!po) throw new Error("Purchase Order not found or does not belong to user.");
         
         if (['Completed', 'Cancelled'].includes(po.status) && po.status !== status) {
             throw new Error(`Order is already ${po.status}. Cannot change its status.`);
@@ -150,7 +158,7 @@ router.patch("/:id/status", verifyToken, [
                     console.warn(`Skipping invalid item ID in received items for PO ${po._id}: ${receivedItem.item}`);
                     continue; 
                 }
-                const inventoryItem = await Inventory.findById(receivedItem.item).session(session);
+                const inventoryItem = await Inventory.findOne({ _id: receivedItem.item, user: userId }).session(session); // Filter by user
                 if (inventoryItem) {
                     const currentCostPrice = inventoryItem.costPrice || 0;
                     if (Number(receivedItem.sellingPrice) < currentCostPrice) {
@@ -172,14 +180,13 @@ router.patch("/:id/status", verifyToken, [
                     
                     await inventoryItem.save({ session });
                 } else {
-                    console.warn(`Inventory item with ID ${receivedItem.item} not found when receiving PO ${po._id}.`);
+                    console.warn(`Inventory item with ID ${receivedItem.item} not found or does not belong to user when receiving PO ${po._id}.`);
                 }
             }
             po.receivedDate = new Date();
 
-            // --- Notification for PO Completion ---
             const notification = new Notification({
-                user: req.user._id,
+                user: userId,
                 title: 'Purchase Order Completed',
                 message: `Purchase Order #${po.orderNumber} has been successfully completed.`,
                 type: 'po_completed',
@@ -196,15 +203,14 @@ router.patch("/:id/status", verifyToken, [
                     console.warn(`Skipping invalid item ID in PO items for cancellation of PO ${po._id}: ${poItem.item}`);
                     continue; 
                 }
-                const inventoryItem = await Inventory.findById(poItem.item).session(session);
+                const inventoryItem = await Inventory.findOne({ _id: poItem.item, user: userId }).session(session); // Filter by user
                 if (inventoryItem && inventoryItem.status === 'on-order') {
                     inventoryItem.status = inventoryItem.quantity > 0 ? 'in-stock' : 'out-of-stock';
                     await inventoryItem.save({ session });
                 }
             }
-            // --- Notification for PO Cancellation ---
             const notification = new Notification({
-                user: req.user._id,
+                user: userId,
                 title: 'Purchase Order Cancelled',
                 message: `Purchase Order #${po.orderNumber} has been cancelled.`,
                 type: 'warning',
@@ -224,6 +230,7 @@ router.patch("/:id/status", verifyToken, [
         if (err.message.includes("Selling price for")) {
              return res.status(400).json({ success: false, message: err.message });
         }
+        console.error("Error updating Purchase Order status:", err);
         res.status(500).json({ success: false, message: err.message || "Server error updating Purchase Order status." });
     } finally {
         session.endSession();
@@ -233,11 +240,12 @@ router.patch("/:id/status", verifyToken, [
 router.delete("/:id", verifyToken, async (req, res) => {
     const session = await mongoose.startSession();
     try {
+        const userId = req.user._id; // Get user ID
         const poId = req.params.id;
-        const poToDelete = await PurchaseOrder.findById(poId).session(session);
+        const poToDelete = await PurchaseOrder.findOne({ _id: poId, user: userId }).session(session); // Filter by user
 
         if (!poToDelete) {
-            throw new Error("Purchase Order not found.");
+            throw new Error("Purchase Order not found or does not belong to user.");
         }
 
         if (['Pending', 'Ordered', 'Shipped'].includes(poToDelete.status)) {
@@ -246,7 +254,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
                     console.warn(`Skipping invalid item ID in PO items for deletion of PO ${poToDelete._id}: ${poItem.item}`);
                     continue; 
                 }
-                const inventoryItem = await Inventory.findById(poItem.item).session(session);
+                const inventoryItem = await Inventory.findOne({ _id: poItem.item, user: userId }).session(session); // Filter by user
                 if (inventoryItem && inventoryItem.status === 'on-order') {
                     inventoryItem.status = inventoryItem.quantity > 0 ? 'in-stock' : 'out-of-stock';
                     await inventoryItem.save({ session });
@@ -254,12 +262,13 @@ router.delete("/:id", verifyToken, async (req, res) => {
             }
         }
 
-        await PurchaseOrder.findByIdAndDelete(poId).session(session);
+        await PurchaseOrder.findByIdAndDelete({ _id: poId, user: userId }).session(session); // Filter by user
         await session.commitTransaction();
         res.json({ success: true, message: "Purchase Order deleted successfully." });
 
     } catch (err) {
         await session.abortTransaction();
+        console.error("Error deleting Purchase Order:", err);
         res.status(500).json({ success: false, message: err.message || "Server error deleting Purchase Order." });
     } finally {
         session.endSession();
@@ -268,12 +277,13 @@ router.delete("/:id", verifyToken, async (req, res) => {
 
 router.get("/:id/pdf", verifyToken, async (req, res) => {
     try {
-        const po = await PurchaseOrder.findById(req.params.id)
+        const userId = req.user._id; // Get user ID
+        const po = await PurchaseOrder.findOne({ _id: req.params.id, user: userId }) // Filter by user
             .populate('supplier')
             .populate('items.item');
 
         if (!po) {
-            return res.status(404).json({ success: false, message: "Purchase Order not found." });
+            return res.status(404).json({ success: false, message: "Purchase Order not found or does not belong to user." });
         }
 
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
@@ -301,61 +311,6 @@ router.get("/:id/pdf", verifyToken, async (req, res) => {
         
         doc.font('Helvetica-Bold').text('Supplier:');
         doc.font('Helvetica').text(po.supplier.name);
-        doc.text(po.supplier.email || 'No email provided');
-        doc.moveDown(2);
-
-        const tableTop = doc.y;
-        const itemX = 50;
-        const quantityX = 300;
-        const unitPriceX = 380;
-        const totalX = 470;
-
-        doc.font('Helvetica-Bold');
-        doc.text('Item', itemX, tableTop);
-        doc.text('Quantity', quantityX, tableTop, { width: 80, align: 'center' });
-        doc.text('Unit Price', unitPriceX, tableTop, { width: 90, align: 'right' });
-        doc.text('Total', totalX, tableTop, { width: 90, align: 'right' });
-
-        const tableHeaderY = tableTop + 20;
-        doc.moveTo(itemX, tableHeaderY).lineTo(doc.page.width - itemX, tableHeaderY).stroke();
-        
-        let currentY = tableHeaderY + 10;
-        doc.font('Helvetica');
-
-        po.items.forEach(item => {
-            doc.text(item.item.name, itemX, currentY);
-            doc.text(item.quantity.toString(), quantityX, currentY, { width: 80, align: 'center' });
-            doc.text(`Rwf ${item.unitPrice.toLocaleString()}`, unitPriceX, currentY, { width: 90, align: 'right' });
-            doc.text(`Rwf ${(item.quantity * item.unitPrice).toLocaleString()}`, totalX, currentY, { width: 90, align: 'right' });
-            currentY += 20;
-        });
-
-        const tableFooterY = currentY;
-        doc.moveTo(itemX, tableFooterY).lineTo(doc.page.width - itemX, tableFooterY).stroke();
-        doc.y = tableFooterY + 10;
-        
-        const totalsXLabel = 380;
-        const totalsXValue = 470;
-        let totalsY = doc.y;
-
-        doc.font('Helvetica');
-        doc.text('Subtotal:', totalsXLabel, totalsY, { align: 'left' });
-        doc.text(formatCurrency(po.subtotal), totalsXValue, totalsY, { align: 'right' });
-        totalsY += 15;
-        doc.text('Tax:', totalsXLabel, totalsY, { align: 'left' });
-        doc.text(formatCurrency(po.taxAmount), totalsXValue, totalsY, { align: 'right' });
-        totalsY += 15;
-        doc.text('Shipping:', totalsXLabel, totalsY, { align: 'left' });
-        doc.text(formatCurrency(po.shippingCost), totalsXValue, totalsY, { align: 'right' });
-        doc.moveDown(1);
-        
-        totalsY = doc.y;
-        doc.font('Helvetica-Bold');
-        doc.text('Grand Total:', totalsXLabel, totalsY, { align: 'left' });
-        doc.text(formatCurrency(po.totalAmount), totalsXValue, totalsY, { align: 'right' });
-
-        doc.end();
-
     } catch (err) {
         console.error("PDF Generation Error:", err);
         res.status(500).json({ success: false, message: "Server error generating PDF." });

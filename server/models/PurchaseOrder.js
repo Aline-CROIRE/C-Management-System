@@ -20,10 +20,16 @@ const poItemSchema = new mongoose.Schema({
 
 
 const purchaseOrderSchema = new mongoose.Schema({
+    user: { // <-- IMPORTANT: Add user reference
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+        index: true,
+    },
     orderNumber: { 
         type: String, 
         required: true, 
-        unique: true, 
+        unique: true, // orderNumber should still be globally unique
         index: true 
     },
     
@@ -66,6 +72,7 @@ const purchaseOrderSchema = new mongoose.Schema({
 purchaseOrderSchema.statics.generateOrderNumber = async function() {
     try {
         // `this` refers to the PurchaseOrder model itself.
+        // Order numbers should likely be unique across all users, not per user.
         const lastPO = await this.findOne().sort({ orderNumber: -1 });
         
         let nextOrderNum = 1;
