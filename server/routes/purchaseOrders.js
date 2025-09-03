@@ -1,3 +1,4 @@
+// routes/poRoutes.js
 const express = require("express");
 const router = express.Router();
 const mongoose = require("mongoose");
@@ -20,7 +21,7 @@ router.get("/", verifyToken, async (req, res) => {
             .populate('supplier', 'name email phone')
             .populate({
                 path: 'items.item',
-                select: 'name sku price',
+                select: 'name sku price status quantity', // Also select status and quantity for context
                 model: 'Inventory'
             })
             .sort({ [sort]: sortOrder })
@@ -73,8 +74,8 @@ router.post("/", verifyToken, [
                     price: newItemData.unitPrice,
                     unit: 'pcs',
                     quantity: 0,
-                    status: 'on-order',
-                    location: '60d5ecb4b39b2a1b2c8d5e8a',
+                    status: 'on-order', // New items start as 'on-order'
+                    location: '60d5ecb4b39b2a1b2c8d5e8a', // Placeholder, update as needed
                     minStockLevel: 10,
                 });
                 const savedItem = await newInventoryItem.save({ session });
@@ -101,7 +102,7 @@ router.post("/", verifyToken, [
         if (existingItemIdsToUpdate.length > 0) {
             await Inventory.updateMany(
                 { _id: { $in: existingItemIdsToUpdate } },
-                { $set: { status: "on-order" } },
+                { $set: { status: "on-order" } }, // Mark existing items as 'on-order'
                 { session }
             );
         }
@@ -133,25 +134,42 @@ router.patch("/:id/status", verifyToken, [
         const po = await PurchaseOrder.findById(req.params.id).session(session);
         
         if (!po) throw new Error("Purchase Order not found.");
-        if (['Completed', 'Cancelled'].includes(po.status)) throw new Error(`Order is already ${po.status}.`);
         
+        // Prevent status changes if the PO is already Completed or Cancelled,
+        // unless a specific workflow for re-opening/re-completing is defined.
+        if (['Completed', 'Cancelled'].includes(po.status) && po.status !== status) {
+            throw new Error(`Order is already ${po.status}. Cannot change its status.`);
+        }
+
         if (status === 'Completed') {
             if (!receivedItems || receivedItems.length === 0) {
                 throw new Error("Received items data is required to complete an order.");
             }
             for (const receivedItem of receivedItems) {
+                if (!mongoose.Types.ObjectId.isValid(receivedItem.item)) {
+                    console.warn(`Skipping invalid item ID in received items for PO ${po._id}: ${receivedItem.item}`);
+                    continue; 
+                }
                 const inventoryItem = await Inventory.findById(receivedItem.item).session(session);
                 if (inventoryItem) {
                     inventoryItem.quantity += receivedItem.quantityReceived;
                     inventoryItem.price = receivedItem.sellingPrice;
+                    inventoryItem.status = 'in-stock'; // <-- THIS IS THE KEY ADDITION
                     await inventoryItem.save({ session });
+                } else {
+                    console.warn(`Inventory item with ID ${receivedItem.item} not found when receiving PO ${po._id}.`);
                 }
             }
             po.receivedDate = new Date();
         }
 
         if (status === 'Cancelled') {
+            // When an order is cancelled, revert 'on-order' items to 'in-stock' or 'out-of-stock'
             for (const poItem of po.items) {
+                 if (!mongoose.Types.ObjectId.isValid(poItem.item)) {
+                    console.warn(`Skipping invalid item ID in PO items for cancellation of PO ${po._id}: ${poItem.item}`);
+                    continue; 
+                }
                 const inventoryItem = await Inventory.findById(poItem.item).session(session);
                 if (inventoryItem && inventoryItem.status === 'on-order') {
                     inventoryItem.status = inventoryItem.quantity > 0 ? 'in-stock' : 'out-of-stock';
@@ -166,7 +184,7 @@ router.patch("/:id/status", verifyToken, [
         res.json({ success: true, message: `Order status updated to ${status}.`, data: updatedPO });
     } catch (err) {
         await session.abortTransaction();
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ success: false, message: err.message || "Server error updating Purchase Order status." });
     } finally {
         session.endSession();
     }
@@ -183,8 +201,13 @@ router.delete("/:id", verifyToken, async (req, res) => {
             throw new Error("Purchase Order not found.");
         }
 
+        // If a PO is deleted before completion, revert 'on-order' items status
         if (['Pending', 'Ordered', 'Shipped'].includes(poToDelete.status)) {
             for (const poItem of poToDelete.items) {
+                 if (!mongoose.Types.ObjectId.isValid(poItem.item)) {
+                    console.warn(`Skipping invalid item ID in PO items for deletion of PO ${poToDelete._id}: ${poItem.item}`);
+                    continue; 
+                }
                 const inventoryItem = await Inventory.findById(poItem.item).session(session);
                 if (inventoryItem && inventoryItem.status === 'on-order') {
                     inventoryItem.status = inventoryItem.quantity > 0 ? 'in-stock' : 'out-of-stock';

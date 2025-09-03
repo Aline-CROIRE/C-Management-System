@@ -1,3 +1,6 @@
+// hooks/usePurchaseOrders.js
+"use client";
+
 import { useState, useCallback, useEffect } from 'react';
 import { poAPI } from '../services/api';
 import toast from 'react-hot-toast';
@@ -36,6 +39,8 @@ export const usePurchaseOrders = (filters) => {
   }, [fetchPOs]);
 
   const updatePOStatus = useCallback(async (poId, status, receivedItemsData = null) => {
+    // This function correctly forwards the receivedItemsData to the backend.
+    // The actual inventory update logic will be handled by the backend API.
     await poAPI.updateStatus(poId, status, receivedItemsData);
     await fetchPOs();
   }, [fetchPOs]);
