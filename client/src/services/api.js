@@ -2,7 +2,7 @@ import axios from "axios";
 import { toast } from "react-toastify";
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "https://c-management-system.onrender.com",
+  baseURL: process.env.REACT_APP_API_URL || "https://c-management-system.onrender.com/api",
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
