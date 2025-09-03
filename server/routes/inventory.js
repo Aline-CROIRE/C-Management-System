@@ -10,7 +10,7 @@ const { Parser } = require('json2csv');
 const Inventory = require("../models/Inventory");
 const Category = require("../models/Category");
 const Location = require("../models/Location");
-const Notification = require("../models/Notification"); // Import Notification model
+const Notification = require("../models/Notification");
 const { verifyToken } = require('../middleware/auth');
 
 const storage = multer.diskStorage({
@@ -34,10 +34,12 @@ const upload = multer({ storage, fileFilter, limits: { fileSize: 1024 * 1024 * 5
 
 router.get("/stats", verifyToken, async (req, res) => {
   try {
-    const totalItems = await Inventory.countDocuments();
+    const userId = req.user._id; // Get user ID from token
+
+    const totalItems = await Inventory.countDocuments({ user: userId }); // Filter by user
     
     const totalValueAggregate = await Inventory.aggregate([
-        { $match: { quantity: { $gt: 0 } } },
+        { $match: { user: userId, quantity: { $gt: 0 } } }, // Filter by user
         { $group: { 
             _id: null, 
             totalRetailValue: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$quantity" }, 0] }, { $ifNull: [{ $toDouble: "$price" }, 0] }] } },
@@ -47,12 +49,12 @@ router.get("/stats", verifyToken, async (req, res) => {
     const totalRetailValue = totalValueAggregate[0]?.totalRetailValue || 0;
     const totalCostValue = totalValueAggregate[0]?.totalCostValue || 0;
 
-    const lowStockCount = await Inventory.countDocuments({ 
+    const lowStockCount = await Inventory.countDocuments({ user: userId, // Filter by user
         $expr: { $lte: [{ $toDouble: "$quantity" }, { $toDouble: "$minStockLevel" }] }, 
         quantity: { $gt: 0 } 
     });
-    const outOfStockCount = await Inventory.countDocuments({ quantity: { $lte: 0 } });
-    const onOrderCount = await Inventory.countDocuments({ status: 'on-order' });
+    const outOfStockCount = await Inventory.countDocuments({ user: userId, quantity: { $lte: 0 } }); // Filter by user
+    const onOrderCount = await Inventory.countDocuments({ user: userId, status: 'on-order' }); // Filter by user
     
     res.json({ 
         success: true, 
@@ -73,6 +75,7 @@ router.get("/stats", verifyToken, async (req, res) => {
 
 router.get("/categories", verifyToken, async (req, res) => {
   try {
+    // Categories are usually global, not user-specific. Keep as is.
     const values = await Category.find({}).sort({ name: 1 });
     res.json({ success: true, data: values });
   } catch (error) {
@@ -92,7 +95,7 @@ router.post("/categories", verifyToken, body("name", "Name is required").not().i
         if (existing) {
             return res.status(400).json({ success: false, message: "Category already exists." });
         }
-        const newCategory = new Category({ name });
+        const newCategory = new Category({ name }); // If categories were user-specific, add user: req.user._id here
         await newCategory.save();
         res.status(201).json({ success: true, data: newCategory, message: "Category created successfully!" });
     } catch (error) {
@@ -103,6 +106,7 @@ router.post("/categories", verifyToken, body("name", "Name is required").not().i
 
 router.get("/locations", verifyToken, async (req, res) => {
   try {
+    // Locations are usually global, not user-specific. Keep as is.
     const values = await Location.find({}).sort({ name: 1 });
     res.json({ success: true, data: values });
   } catch (error) {
@@ -122,7 +126,7 @@ router.post("/locations", verifyToken, body("name", "Name is required").not().is
         if (existing) {
             return res.status(400).json({ success: false, message: "Location already exists." });
         }
-        const newLocation = new Location({ name });
+        const newLocation = new Location({ name }); // If locations were user-specific, add user: req.user._id here
         await newLocation.save();
         res.status(201).json({ success: true, data: newLocation, message: "Location created successfully!" });
     } catch (error) {
@@ -133,7 +137,8 @@ router.post("/locations", verifyToken, body("name", "Name is required").not().is
 
 router.get("/units", verifyToken, async (req, res) => {
   try {
-    const values = await Inventory.distinct("unit");
+    // Units might be global or user-defined. If user-defined, filter by user here.
+    const values = await Inventory.distinct("unit", { user: req.user._id }); // Filter by user
     res.json({ success: true, data: values.filter(v => v && v.trim() !== "").sort() });
   } catch (error) {
     console.error("Error fetching units:", error);
@@ -148,13 +153,10 @@ router.post("/units", verifyToken, body("name", "Unit name is required").not().i
     }
     try {
         const { name } = req.body;
-        // Check if unit already exists implicitly in inventory distinct units
-        const existingUnits = await Inventory.distinct("unit");
+        const existingUnits = await Inventory.distinct("unit", { user: req.user._id }); // Check existing units for this user
         if (existingUnits.includes(name)) {
             return res.status(400).json({ success: false, message: `Unit "${name}" already exists.` });
         }
-        // Since units are distinct values on Inventory, we don't 'create' a separate Unit document.
-        // We just return success. The unit will become "real" when an inventory item uses it.
         res.status(201).json({ success: true, data: { name }, message: `Unit "${name}" added to selectable list.` });
     } catch (error) {
         console.error("Server error creating unit:", error);
@@ -164,7 +166,8 @@ router.post("/units", verifyToken, body("name", "Unit name is required").not().i
 
 router.get("/export/csv", verifyToken, async (req, res) => {
   try {
-    const inventoryItems = await Inventory.find().lean();
+    const userId = req.user._id; // Get user ID
+    const inventoryItems = await Inventory.find({ user: userId }).lean(); // Filter by user
     if (!inventoryItems || inventoryItems.length === 0) {
       return res.status(404).json({ success: false, message: "No inventory data to export." });
     }
@@ -182,8 +185,10 @@ router.get("/export/csv", verifyToken, async (req, res) => {
 
 router.get("/", verifyToken, async (req, res) => {
   try {
+    const userId = req.user._id; // Get user ID
     const { search, category, status, location, page = 1, limit = 10, sort = 'updatedAt', order = 'desc' } = req.query;
-    const query = {};
+    const query = { user: userId }; // Filter by user ID here!
+
     if (search) query.$or = [{ name: { $regex: search, $options: "i" } }, { sku: { $regex: search, $options: "i" } }];
     if (category) query.category = category;
     if (status) query.status = status;
@@ -221,10 +226,12 @@ router.get("/", verifyToken, async (req, res) => {
 
 router.get("/:id", verifyToken, async (req, res) => {
   try {
+    const userId = req.user._id; // Get user ID
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(404).json({ success: false, message: "Item not found (invalid ID format)." });
     }
-    const item = await Inventory.findById(req.params.id).populate('category location supplier', 'name');
+    // Filter by user ID when getting a single item
+    const item = await Inventory.findOne({ _id: req.params.id, user: userId }).populate('category location supplier', 'name');
     if (!item) return res.status(404).json({ success: false, message: "Item not found." });
     res.json({ success: true, data: item });
   } catch (error) {
@@ -251,10 +258,11 @@ router.post("/", verifyToken, upload.single('itemImage'), [
   }
   try {
     const { sku, quantity, minStockLevel, price, costPrice } = req.body;
+    const userId = req.user._id; // Get user ID
 
-    if (await Inventory.findOne({ sku: sku.toUpperCase() })) {
+    if (await Inventory.findOne({ sku: sku.toUpperCase(), user: userId })) { // Check SKU uniqueness per user
       if (req.file) fs.unlinkSync(req.file.path);
-      return res.status(400).json({ success: false, message: "An item with this SKU already exists." });
+      return res.status(400).json({ success: false, message: "An item with this SKU already exists for this user." });
     }
 
     let status = 'in-stock';
@@ -269,6 +277,7 @@ router.post("/", verifyToken, upload.single('itemImage'), [
     
     const newItem = new Inventory({
       ...req.body,
+      user: userId, // <-- IMPORTANT: Assign user ID
       sku: sku.toUpperCase(),
       quantity: numQuantity,
       price: Number(price),
@@ -305,17 +314,20 @@ router.put("/:id", verifyToken, upload.single('itemImage'), [
   }
   try {
     const { id } = req.params;
+    const userId = req.user._id; // Get user ID
     const { sku, quantity, minStockLevel, price, costPrice, ...rest } = req.body;
 
-    const itemToUpdate = await Inventory.findById(id);
+    // Find item, ensuring it belongs to the user
+    const itemToUpdate = await Inventory.findOne({ _id: id, user: userId });
     if (!itemToUpdate) {
       if (req.file) fs.unlinkSync(req.file.path);
-      return res.status(404).json({ success: false, message: "Inventory item not found." });
+      return res.status(404).json({ success: false, message: "Inventory item not found or does not belong to user." });
     }
 
-    if (sku && sku.toUpperCase() !== itemToUpdate.sku && await Inventory.findOne({ sku: sku.toUpperCase() })) {
+    // Check for duplicate SKU if SKU is being changed for this user
+    if (sku && sku.toUpperCase() !== itemToUpdate.sku && await Inventory.findOne({ sku: sku.toUpperCase(), user: userId })) {
         if (req.file) fs.unlinkSync(req.file.path);
-        return res.status(400).json({ success: false, message: "An item with this SKU already exists." });
+        return res.status(400).json({ success: false, message: "An item with this SKU already exists for this user." });
     }
 
     let status = itemToUpdate.status;
@@ -376,12 +388,14 @@ router.put("/:id", verifyToken, upload.single('itemImage'), [
 router.delete("/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user._id; // Get user ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(404).json({ success: false, message: "Item not found." });
     }
-    const itemToDelete = await Inventory.findById(id);
+    // Find item, ensuring it belongs to the user
+    const itemToDelete = await Inventory.findOne({ _id: id, user: userId });
     if (!itemToDelete) {
-      return res.status(404).json({ success: false, message: "Inventory item not found." });
+      return res.status(404).json({ success: false, message: "Inventory item not found or does not belong to user." });
     }
     if (itemToDelete.imageUrl) {
       const imagePath = path.join(__dirname, '..', itemToDelete.imageUrl);
@@ -389,7 +403,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
         if (err) console.error(`Could not delete image file at ${imagePath}:`, err.message);
       });
     }
-    await Inventory.findByIdAndDelete(id);
+    await Inventory.findByIdAndDelete(id); // Delete only if owned by user
     res.json({ success: true, message: "Item deleted successfully." });
   } catch (error) {
     console.error("DELETE /inventory Error:", error);

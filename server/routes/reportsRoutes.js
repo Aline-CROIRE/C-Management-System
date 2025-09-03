@@ -14,6 +14,7 @@ const { verifyToken } = require("../middleware/auth");
 
 router.post("/comprehensive", verifyToken, async (req, res) => {
     try {
+        const userId = req.user._id;
         const { startDate, endDate } = req.body;
 
         if (!startDate || !endDate || !moment(startDate).isValid() || !moment(endDate).isValid()) {
@@ -28,6 +29,7 @@ router.post("/comprehensive", verifyToken, async (req, res) => {
                 $gte: queryStartDate,
                 $lte: queryEndDate,
             },
+            user: userId,
         };
 
         const salesProfitAndCogs = await Sale.aggregate([
@@ -96,13 +98,16 @@ router.post("/comprehensive", verifyToken, async (req, res) => {
 
 
         const mostProfitableProducts = await Sale.aggregate([
-            { $match: dateRangeQuery },
+            { $match: dateRangeQuery }, 
             { $unwind: "$items" },
-            { $group: {
-                _id: "$items.item",
-                totalProfit: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$items.quantity" }, 0] }, { $subtract: [{ $ifNull: [{ $toDouble: "$items.price" }, 0] }, { $ifNull: [{ $toDouble: "$items.costPrice" }, 0] }] }] } }
+            { $lookup: { from: "inventories", localField: "items.item", foreignField: "_id", as: "product" }},
+            { $unwind: "$product" },
+            { $match: { "product.user": userId } },
+            { $group: { 
+                _id: "$items.item", 
+                totalProfit: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$items.quantity" }, 0] }, { $subtract: [{ $ifNull: [{ $toDouble: "$items.price" }, 0] }, { $ifNull: [{ $toDouble: "$items.costPrice" }, 0] }] }] } } 
             }},
-            { $sort: { totalProfit: -1 } },
+            { $sort: { totalProfit: -1 } }, 
             { $limit: 5 },
             { $lookup: { from: "inventories", localField: "_id", foreignField: "_id", as: "product" }},
             { $unwind: "$product" },
@@ -110,10 +115,13 @@ router.post("/comprehensive", verifyToken, async (req, res) => {
         ]);
 
         const topSellingProducts = await Sale.aggregate([
-            { $match: dateRangeQuery },
+            { $match: dateRangeQuery }, 
             { $unwind: "$items" },
+            { $lookup: { from: "inventories", localField: "items.item", foreignField: "_id", as: "product" }},
+            { $unwind: "$product" },
+            { $match: { "product.user": userId } },
             { $group: { _id: "$items.item", totalQuantitySold: { $sum: { $ifNull: [{ $toDouble: "$items.quantity" }, 0] } } } },
-            { $sort: { totalQuantitySold: -1 } },
+            { $sort: { totalQuantitySold: -1 } }, 
             { $limit: 5 },
             { $lookup: { from: "inventories", localField: "_id", foreignField: "_id", as: "product" }},
             { $unwind: "$product" },
@@ -123,29 +131,44 @@ router.post("/comprehensive", verifyToken, async (req, res) => {
         const salesByCategory = await Sale.aggregate([
             { $match: dateRangeQuery },
             { $unwind: "$items" },
-            { $lookup: { from: "inventories", localField: "items.item", foreignField: "_id", as: "inventoryItem" } },
+            {
+                $lookup: {
+                    from: "inventories",
+                    localField: "items.item",
+                    foreignField: "_id",
+                    as: "inventoryItem"
+                }
+            },
             { $unwind: "$inventoryItem" },
-            { $lookup: { from: "categories", localField: "inventoryItem.category", foreignField: "_id", as: "categoryDetails" } },
+            { $match: { "inventoryItem.user": userId } },
+            {
+                $lookup: {
+                    from: "categories",
+                    localField: "inventoryItem.category",
+                    foreignField: "_id",
+                    as: "categoryDetails"
+                }
+            },
             { $unwind: { path: "$categoryDetails", preserveNullAndEmptyArrays: true } },
-            { $group: {
-                _id: { $ifNull: ["$categoryDetails.name", "Uncategorized"] },
-                totalRevenue: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$items.quantity" }, 0] }, { $ifNull: [{ $toDouble: "$items.price" }, 0] }] } }
-            }},
+            {
+                $group: {
+                    _id: { $ifNull: ["$categoryDetails.name", "Uncategorized"] },
+                    totalRevenue: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$items.quantity" }, 0] }, { $ifNull: [{ $toDouble: "$items.price" }, 0] }] } }
+                }
+            },
             { $sort: { totalRevenue: -1 } },
             { $project: { _id: 0, name: "$_id", value: "$totalRevenue" } }
         ]);
 
-        // --- REVERTED: Dead Stock (Items not sold in 90+ days AND still in stock, top 5) ---
         const ninetyDaysAgo = moment().subtract(90, 'days').toDate();
-        const recentSaleItems = await Sale.distinct("items.item", { createdAt: { $gte: ninetyDaysAgo } });
-        const deadStock = await Inventory.find({ _id: { $nin: recentSaleItems }, quantity: { $gt: 0 } }) // Quantity greater than 0
+        const recentSaleItems = await Sale.distinct("items.item", { createdAt: { $gte: ninetyDaysAgo }, user: userId });
+        const deadStock = await Inventory.find({ user: userId, _id: { $nin: recentSaleItems }, quantity: { $gt: 0 } })
             .limit(5).select('name sku quantity').lean();
         
-        // --- NEW: Out of Stock Items (Items with quantity <= 0, top 5) ---
-        const outOfStockItems = await Inventory.find({ quantity: { $lte: 0 } })
+        const outOfStockItems = await Inventory.find({ user: userId, quantity: { $lte: 0 } })
             .limit(5).select('name sku quantity').lean();
 
-        const lowStockItems = await Inventory.find({
+        const lowStockItems = await Inventory.find({ user: userId,
                 $expr: { $lte: [{ $toDouble: "$quantity" }, { $toDouble: "$minStockLevel" }] },
                 quantity: { $gt: 0 },
                 status: { $ne: 'out-of-stock' }
@@ -155,7 +178,7 @@ router.post("/comprehensive", verifyToken, async (req, res) => {
             .select('name sku quantity minStockLevel').lean();
 
         const inventoryValuation = await Inventory.aggregate([
-            { $match: { quantity: { $gt: 0 } } },
+            { $match: { user: userId, quantity: { $gt: 0 } } },
             { $group: {
                 _id: null,
                 totalCostValue: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$quantity" }, 0] }, { $ifNull: [{ $toDouble: "$costPrice" }, 0] }] } },
@@ -179,23 +202,37 @@ router.post("/comprehensive", verifyToken, async (req, res) => {
         ]);
         const totalCompletedPOValue = totalCompletedPOValueResult[0]?.totalValue || 0;
 
+        // --- UPDATED: Top Suppliers aggregation ---
         const topSuppliers = await PurchaseOrder.aggregate([
             { $match: { ...dateRangeQuery, status: "Completed" } },
             { $group: { _id: "$supplier", totalPurchasedValue: { $sum: { $ifNull: [{ $toDouble: "$totalAmount" }, 0] } } } },
             { $sort: { totalPurchasedValue: -1 } },
             { $limit: 5 },
-            { $lookup: { from: "suppliers", localField: "_id", foreignField: "_id", as: "supplierDetails" } },
-            { $unwind: "$supplierDetails" },
+            { $lookup: { 
+                from: "suppliers", 
+                localField: "_id", 
+                foreignField: "_id", 
+                as: "supplierDetails",
+                pipeline: [{ $match: { user: userId } }] // Filter suppliers by user during lookup
+            } },
+            { $unwind: "$supplierDetails" }, // This will only unwind if supplierDetails is found for the user
             { $project: { _id: 0, name: "$supplierDetails.name", totalPurchasedValue: 1 } }
         ]);
 
+        // --- UPDATED: Top Customers aggregation ---
         const topCustomers = await Sale.aggregate([
             { $match: { ...dateRangeQuery, customer: { $ne: null } } },
             { $group: { _id: "$customer", totalSpent: { $sum: { $ifNull: [{ $toDouble: "$totalAmount" }, 0] } } } },
             { $sort: { totalSpent: -1 } },
             { $limit: 5 },
-            { $lookup: { from: "customers", localField: "_id", foreignField: "_id", as: "customerDetails" } },
-            { $unwind: "$customerDetails" },
+            { $lookup: { 
+                from: "customers", 
+                localField: "_id", 
+                foreignField: "_id", 
+                as: "customerDetails",
+                pipeline: [{ $match: { user: userId } }] // Filter customers by user during lookup
+            } },
+            { $unwind: "$customerDetails" }, // This will only unwind if customerDetails is found for the user
             { $project: { _id: 0, name: "$customerDetails.name", email: "$customerDetails.email", totalSpent: 1 } }
         ]);
 
@@ -227,7 +264,7 @@ router.post("/comprehensive", verifyToken, async (req, res) => {
                 topSellingProducts,
                 salesByCategory,
                 deadStock,
-                outOfStockItems, // Include new out-of-stock data
+                outOfStockItems,
                 lowStockItems,
                 inventoryValuation: inventoryValuation[0] || { totalCostValue: 0, totalRetailValue: 0, totalItems: 0, uniqueProducts: 0 },
                 poStatusOverview,
