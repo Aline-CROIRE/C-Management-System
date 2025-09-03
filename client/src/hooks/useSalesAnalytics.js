@@ -35,11 +35,18 @@ export const useSalesAnalytics = (initialFilters) => {
     }, [filters.startDate, filters.endDate]);
 
     useEffect(() => {
-        setFilters(prev => ({
-            startDate: initialFilters?.startDate ? new Date(initialFilters.startDate) : prev.startDate,
-            endDate: initialFilters?.endDate ? new Date(initialFilters.endDate) : prev.endDate,
-        }));
-    }, [initialFilters?.startDate, initialFilters?.endDate]);
+        if (initialFilters) {
+            const newStartDate = initialFilters.startDate ? new Date(initialFilters.startDate) : filters.startDate;
+            const newEndDate = initialFilters.endDate ? new Date(initialFilters.endDate) : filters.endDate;
+
+            if (newStartDate.getTime() !== filters.startDate.getTime() || newEndDate.getTime() !== filters.endDate.getTime()) {
+                setFilters({
+                    startDate: newStartDate,
+                    endDate: newEndDate,
+                });
+            }
+        }
+    }, [initialFilters?.startDate, initialFilters?.endDate, filters.startDate, filters.endDate]);
 
     useEffect(() => {
         fetchAnalytics();
