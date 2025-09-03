@@ -1,136 +1,256 @@
 const express = require("express")
-const { auth } = require("../middleware/auth")
+const { verifyToken } = require("../middleware/auth")
 const User = require("../models/User")
-const Analytics = require("../models/Analytics")
-const Activity = require("../models/Activity")
-
+const Inventory = require("../models/Inventory")
+const PurchaseOrder = require("../models/PurchaseOrder")
+const Receipt = require("../models/Receipt")
 const router = express.Router()
 
 // Get dashboard statistics
-router.get("/stats", auth, async (req, res) => {
+router.get("/stats", verifyToken, async (req, res) => {
   try {
-    const user = req.user
-    const userModules =
-      user.role === "Super Admin" ? ["IMS", "ISA", "Waste Management", "Construction Sites"] : user.modules
+    const userModules = req.user.modules || []
+    const stats = {}
 
-    // Get analytics for user's modules
-    const analytics = await Analytics.find({
-      module: { $in: userModules },
-      date: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, // Last 30 days
-    }).sort({ date: -1 })
+    // Base stats for all users
+    stats.overview = {
+      totalRevenue: 0,
+      monthlyGrowth: 0,
+      activeModules: userModules.length,
+      lastLogin: req.user.lastLogin,
+    }
 
-    // Calculate module-specific stats
-    const moduleStats = {}
-    userModules.forEach((module) => {
-      const moduleAnalytics = analytics.filter((a) => a.module === module)
-      moduleStats[module] = {
-        totalItems: moduleAnalytics.filter((a) => a.metricType === "items_count").reduce((sum, a) => sum + a.value, 0),
-        revenue: moduleAnalytics.filter((a) => a.metricType === "revenue").reduce((sum, a) => sum + a.value, 0),
-        efficiency:
-          moduleAnalytics.filter((a) => a.metricType === "efficiency").length > 0
-            ? moduleAnalytics.filter((a) => a.metricType === "efficiency").slice(-1)[0].value
-            : 0,
-        alerts: moduleAnalytics.filter((a) => a.metricType === "alerts").reduce((sum, a) => sum + a.value, 0),
+    // Calculate total revenue from receipts
+    const revenueData = await Receipt.aggregate([
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$total" },
+          count: { $sum: 1 },
+        },
+      },
+    ])
+
+    if (revenueData.length > 0) {
+      stats.overview.totalRevenue = revenueData[0].total
+      stats.overview.totalTransactions = revenueData[0].count
+    }
+
+    // Module-specific stats
+    if (userModules.includes("IMS")) {
+      const inventoryStats = await Inventory.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalItems: { $sum: "$quantity" },
+            totalValue: { $sum: { $multiply: ["$quantity", "$price"] } },
+            uniqueProducts: { $sum: 1 },
+            lowStockItems: {
+              $sum: {
+                $cond: [{ $lte: ["$quantity", "$minStock"] }, 1, 0],
+              },
+            },
+          },
+        },
+      ])
+
+      stats.inventory = inventoryStats[0] || {
+        totalItems: 0,
+        totalValue: 0,
+        uniqueProducts: 0,
+        lowStockItems: 0,
       }
+    }
+
+    if (userModules.includes("ISA")) {
+      // Mock agriculture stats - replace with real data
+      stats.agriculture = {
+        activeFields: 156,
+        totalArea: 2450,
+        avgYield: 94.2,
+        activeCrops: 12,
+      }
+    }
+
+    if (userModules.includes("Waste Management")) {
+      // Mock waste management stats - replace with real data
+      stats.waste = {
+        processedToday: 2.3,
+        monthlyRevenue: 89432,
+        efficiency: 87.5,
+        recyclingRate: 92.3,
+      }
+    }
+
+    if (userModules.includes("Construction Sites")) {
+      // Mock construction stats - replace with real data
+      stats.construction = {
+        activeSites: 23,
+        totalEquipment: 145,
+        avgProgress: 76.3,
+        onTimeProjects: 89.2,
+      }
+    }
+
+    // Admin-only stats
+    if (req.user.role === "admin") {
+      const userStats = await User.aggregate([
+        {
+          $group: {
+            _id: "$role",
+            count: { $sum: 1 },
+          },
+        },
+      ])
+
+      stats.users = {
+        total: await User.countDocuments(),
+        active: await User.countDocuments({ isActive: true }),
+        roleBreakdown: userStats,
+      }
+    }
+
+    res.json({
+      success: true,
+      data: stats,
+    })
+  } catch (error) {
+    console.error("Dashboard stats error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Error fetching dashboard statistics",
+      error: error.message,
+    })
+  }
+})
+
+// Get recent activity
+router.get("/recent-activity", verifyToken, async (req, res) => {
+  try {
+    const activities = []
+
+    // Recent receipts
+    const recentReceipts = await Receipt.find().sort({ createdAt: -1 }).limit(5).populate("customer", "name")
+
+    recentReceipts.forEach((receipt) => {
+      activities.push({
+        type: "sale",
+        title: "New Sale",
+        description: `Sale of $${receipt.total} to ${receipt.customer?.name || "Customer"}`,
+        timestamp: receipt.createdAt,
+        icon: "💰",
+        color: "#10b981",
+      })
     })
 
-    // Get chart data for last 6 months
-    const chartData = []
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date()
-      date.setMonth(date.getMonth() - i)
-      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1)
-      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+    // Recent purchase orders
+    const recentPOs = await PurchaseOrder.find().sort({ createdAt: -1 }).limit(3)
 
-      const monthAnalytics = await Analytics.find({
-        module: { $in: userModules },
-        date: { $gte: monthStart, $lte: monthEnd },
+    recentPOs.forEach((po) => {
+      activities.push({
+        type: "purchase",
+        title: "Purchase Order",
+        description: `PO #${po.orderNumber} - $${po.total}`,
+        timestamp: po.createdAt,
+        icon: "📦",
+        color: "#3b82f6",
       })
+    })
 
-      const monthRevenue = monthAnalytics.filter((a) => a.metricType === "revenue").reduce((sum, a) => sum + a.value, 0)
-      const monthEfficiency =
-        monthAnalytics.filter((a) => a.metricType === "efficiency").length > 0
-          ? monthAnalytics.filter((a) => a.metricType === "efficiency").slice(-1)[0]?.value || 0
-          : 0
+    // Recent low stock alerts
+    const lowStockItems = await Inventory.find({
+      $expr: { $lte: ["$quantity", "$minStock"] },
+    }).limit(3)
 
-      chartData.push({
-        name: date.toLocaleDateString("en-US", { month: "short" }),
-        revenue: monthRevenue,
-        efficiency: monthEfficiency,
+    lowStockItems.forEach((item) => {
+      activities.push({
+        type: "alert",
+        title: "Low Stock Alert",
+        description: `${item.name} is running low (${item.quantity} left)`,
+        timestamp: new Date(),
+        icon: "⚠️",
+        color: "#f59e0b",
+      })
+    })
+
+    // Sort activities by timestamp
+    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+
+    res.json({
+      success: true,
+      data: activities.slice(0, 10), // Return top 10 activities
+    })
+  } catch (error) {
+    console.error("Recent activity error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Error fetching recent activity",
+      error: error.message,
+    })
+  }
+})
+
+// Get notifications
+router.get("/notifications", verifyToken, async (req, res) => {
+  try {
+    const notifications = []
+
+    // Low stock notifications
+    if (req.user.modules?.includes("IMS")) {
+      const lowStockItems = await Inventory.find({
+        $expr: { $lte: ["$quantity", "$minStock"] },
+      }).limit(5)
+
+      lowStockItems.forEach((item) => {
+        notifications.push({
+          id: `low-stock-${item._id}`,
+          type: "warning",
+          title: "Low Stock Alert",
+          message: `${item.name} is running low (${item.quantity} remaining)`,
+          timestamp: new Date(),
+          read: false,
+          action: {
+            label: "Reorder",
+            url: `/inventory/${item._id}`,
+          },
+        })
+      })
+    }
+
+    // System notifications
+    notifications.push({
+      id: "welcome",
+      type: "info",
+      title: "Welcome to the System",
+      message: "Your account has been successfully set up.",
+      timestamp: req.user.createdAt,
+      read: false,
+    })
+
+    // Module-specific notifications
+    if (req.user.modules?.includes("ISA")) {
+      notifications.push({
+        id: "harvest-reminder",
+        type: "info",
+        title: "Harvest Season",
+        message: "Corn fields are ready for harvest in the next 2 weeks.",
+        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        read: false,
       })
     }
 
     res.json({
-      moduleStats,
-      chartData,
-      totalRevenue: Object.values(moduleStats).reduce((sum, module) => sum + module.revenue, 0),
-      totalItems: Object.values(moduleStats).reduce((sum, module) => sum + module.totalItems, 0),
-      averageEfficiency:
-        Object.values(moduleStats).reduce((sum, module) => sum + module.efficiency, 0) / userModules.length,
+      success: true,
+      data: notifications,
+      unreadCount: notifications.filter((n) => !n.read).length,
     })
   } catch (error) {
-    console.error("Dashboard stats error:", error)
-    res.status(500).json({ message: "Failed to fetch dashboard statistics" })
-  }
-})
-
-// Get recent activities
-router.get("/activities", auth, async (req, res) => {
-  try {
-    const user = req.user
-    const userModules =
-      user.role === "Super Admin" ? ["IMS", "ISA", "Waste Management", "Construction Sites", "System"] : user.modules
-
-    const activities = await Activity.find({
-      module: { $in: userModules },
+    console.error("Notifications error:", error)
+    res.status(500).json({
+      success: false,
+      message: "Error fetching notifications",
+      error: error.message,
     })
-      .populate("userId", "firstName lastName")
-      .sort({ createdAt: -1 })
-      .limit(20)
-
-    res.json(activities)
-  } catch (error) {
-    console.error("Activities fetch error:", error)
-    res.status(500).json({ message: "Failed to fetch activities" })
-  }
-})
-
-// Mark activity as read
-router.patch("/activities/:id/read", auth, async (req, res) => {
-  try {
-    await Activity.findByIdAndUpdate(req.params.id, { isRead: true })
-    res.json({ message: "Activity marked as read" })
-  } catch (error) {
-    res.status(500).json({ message: "Failed to update activity" })
-  }
-})
-
-// Get user management data (Admin/Super Admin only)
-router.get("/users", auth, async (req, res) => {
-  try {
-    const user = req.user
-
-    if (!["Super Admin", "Admin"].includes(user.role)) {
-      return res.status(403).json({ message: "Access denied" })
-    }
-
-    let query = {}
-    if (user.role === "Admin") {
-      // Admins can only see users they created or users with lower roles
-      query = {
-        $or: [{ createdBy: user._id }, { role: { $in: ["Manager", "User"] } }],
-      }
-    }
-
-    const users = await User.find(query)
-      .select("-password")
-      .populate("createdBy", "firstName lastName")
-      .sort({ createdAt: -1 })
-
-    res.json(users)
-  } catch (error) {
-    console.error("Users fetch error:", error)
-    res.status(500).json({ message: "Failed to fetch users" })
   }
 })
 
