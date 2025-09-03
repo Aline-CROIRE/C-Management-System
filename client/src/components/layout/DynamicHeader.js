@@ -7,6 +7,7 @@ import { FaBars, FaBell, FaUser, FaCog, FaSignOutAlt, FaSearch, FaMoon, FaSun, F
 import { useAuth } from "../../contexts/AuthContext"
 import { useTheme } from "../../contexts/ThemeContext"
 import { useNotifications } from "../../contexts/NotificationContext"
+import NotificationPanel from "../inventory/NotificationPanel"
 
 const HeaderContainer = styled.header`
   display: flex;
@@ -15,7 +16,11 @@ const HeaderContainer = styled.header`
   padding: ${(props) => props.theme.spacing?.lg || "1.5rem"} ${(props) => props.theme.spacing?.xl || "2rem"};
   background: ${(props) => props.theme.colors?.surface || "#ffffff"};
   border-bottom: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95);
 
   @media (max-width: ${(props) => props.theme.breakpoints?.md || "768px"}) {
     padding: ${(props) => props.theme.spacing?.md || "1rem"};
@@ -137,6 +142,7 @@ const RightSection = styled.div`
   display: flex;
   align-items: center;
   gap: ${(props) => props.theme.spacing?.md || "1rem"};
+  position: relative;
 `
 
 const ActionButton = styled.button`
@@ -267,32 +273,34 @@ const DropdownItem = styled.button`
   }
 `
 
-const UserInfo = styled.div`
+// Moved UserInfo, UserName, UserRole definitions to top-level for accessibility
+const UserInfoBlock = styled.div` /* Renamed to avoid conflict */
   padding: ${(props) => props.theme.spacing?.lg || "1.5rem"};
   border-bottom: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
   text-align: center;
 `
 
-const UserName = styled.div`
+const UserDisplayName = styled.div` /* Renamed to avoid conflict */
   font-weight: ${(props) => props.theme.typography?.fontWeight?.semibold || "600"};
   color: ${(props) => props.theme.colors?.text || "#2d3748"};
   margin-bottom: ${(props) => props.theme.spacing?.xs || "0.25rem"};
 `
 
-const UserRole = styled.div`
+const UserDisplayRole = styled.div` /* Renamed to avoid conflict */
   font-size: ${(props) => props.theme.typography?.fontSize?.sm || "0.875rem"};
   color: ${(props) => props.theme.colors?.textSecondary || "#718096"};
   text-transform: capitalize;
 `
 
+
 // Page title mapping
 const PAGE_TITLES = {
   "/dashboard": { title: "Dashboard", breadcrumb: ["Home", "Dashboard"] },
   "/inventory": { title: "Inventory Management", breadcrumb: ["Modules", "Inventory"] },
-  "/agriculture": { title: "Smart Agriculture", breadcrumb: ["Modules", "Agriculture"] },
-  "/waste": { title: "Waste Management", breadcrumb: ["Modules", "Waste"] },
-  "/construction": { title: "Construction Sites", breadcrumb: ["Modules", "Construction"] },
-  "/analytics": { title: "Analytics & Reports", breadcrumb: ["Analytics", "Dashboard"] },
+  "/purchase-orders": { title: "Purchase Orders", breadcrumb: ["Modules", "Purchase Orders"] },
+  "/sales": { title: "Sales Management", breadcrumb: ["Modules", "Sales"] },
+  "/suppliers": { title: "Supplier Management", breadcrumb: ["Modules", "Suppliers"] },
+  "/reports": { title: "Analytics & Reports", breadcrumb: ["Modules", "Reports"] },
   "/users": { title: "User Management", breadcrumb: ["Admin", "Users"] },
   "/profile": { title: "Profile Settings", breadcrumb: ["Account", "Profile"] },
   "/settings": { title: "System Settings", breadcrumb: ["Account", "Settings"] },
@@ -303,22 +311,35 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
   const location = useLocation()
   const { logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
-  const { notifications, unreadCount } = useNotifications()
+  const { unreadCount } = useNotifications()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const userMenuRef = useRef(null)
 
-  // Close user menu when clicking outside
+  const userMenuRef = useRef(null)
+  const notificationButtonRef = useRef(null);
+  const notificationPanelRef = useRef(null);
+
+
+  // Close user menu or notification panel when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Close user menu
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setShowUserMenu(false)
+      }
+      // Close notification panel
+      // Only close if click is outside the button AND outside the panel itself
+      if (notificationButtonRef.current && !notificationButtonRef.current.contains(event.target) &&
+          notificationPanelRef.current && !notificationPanelRef.current.contains(event.target)) {
+        setShowNotificationPanel(false);
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+
 
   // Get current page info
   const getCurrentPageInfo = () => {
@@ -331,7 +352,6 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
   const handleSearch = (e) => {
     e.preventDefault()
     if (searchQuery.trim()) {
-      // Implement global search functionality
       console.log("Searching for:", searchQuery)
     }
   }
@@ -383,9 +403,13 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
           {theme === "light" ? <FaMoon /> : <FaSun />}
         </ActionButton>
 
-        <ActionButton title="Notifications">
+        <ActionButton 
+            ref={notificationButtonRef}
+            onClick={() => setShowNotificationPanel(!showNotificationPanel)} 
+            title="Notifications"
+        >
           <FaBell />
-          {unreadCount > 0 && <NotificationBadge>{unreadCount}</NotificationBadge>}
+          {unreadCount > 0 && <NotificationBadge>{unreadCount > 9 ? '9+' : unreadCount}</NotificationBadge>}
         </ActionButton>
 
         <UserMenu ref={userMenuRef}>
@@ -396,19 +420,19 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
           </UserButton>
 
           <DropdownMenu $show={showUserMenu}>
-            <UserInfo>
-              <UserName>
+            <UserInfoBlock> {/* Use the renamed component */}
+              <UserDisplayName> {/* Use the renamed component */}
                 {user?.firstName} {user?.lastName}
-              </UserName>
-              <UserRole>{user?.role}</UserRole>
-            </UserInfo>
+              </UserDisplayName>
+              <UserDisplayRole>{user?.role}</UserDisplayRole> {/* Use the renamed component */}
+            </UserInfoBlock>
 
-            <DropdownItem onClick={() => navigate("/profile")}>
+            <DropdownItem onClick={() => { setShowUserMenu(false); navigate("/profile"); }}>
               <FaUser />
               Profile Settings
             </DropdownItem>
 
-            <DropdownItem onClick={() => navigate("/settings")}>
+            <DropdownItem onClick={() => { setShowUserMenu(false); navigate("/settings"); }}>
               <FaCog />
               System Settings
             </DropdownItem>
@@ -420,6 +444,15 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
           </DropdownMenu>
         </UserMenu>
       </RightSection>
+
+      {/* Render NotificationPanel, passing refs for correct outside click detection */}
+      {showNotificationPanel && (
+        <NotificationPanel 
+          onClose={() => setShowNotificationPanel(false)} 
+          notificationPanelRef={notificationPanelRef} // Pass ref to panel
+          anchorEl={notificationButtonRef.current} // Pass button element for positioning
+        />
+      )}
     </HeaderContainer>
   )
 }

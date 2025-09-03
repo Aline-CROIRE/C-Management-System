@@ -10,6 +10,7 @@ const { Parser } = require('json2csv');
 const Inventory = require("../models/Inventory");
 const Category = require("../models/Category");
 const Location = require("../models/Location");
+const Notification = require("../models/Notification"); // Import Notification model
 const { verifyToken } = require('../middleware/auth');
 
 const storage = multer.diskStorage({
@@ -35,9 +36,8 @@ router.get("/stats", verifyToken, async (req, res) => {
   try {
     const totalItems = await Inventory.countDocuments();
     
-    // Aggregate for total retail and cost value
     const totalValueAggregate = await Inventory.aggregate([
-        { $match: { quantity: { $gt: 0 } } }, // Only count items currently in stock
+        { $match: { quantity: { $gt: 0 } } },
         { $group: { 
             _id: null, 
             totalRetailValue: { $sum: { $multiply: [{ $ifNull: [{ $toDouble: "$quantity" }, 0] }, { $ifNull: [{ $toDouble: "$price" }, 0] }] } },
@@ -47,20 +47,19 @@ router.get("/stats", verifyToken, async (req, res) => {
     const totalRetailValue = totalValueAggregate[0]?.totalRetailValue || 0;
     const totalCostValue = totalValueAggregate[0]?.totalCostValue || 0;
 
-    // Corrected queries for status counts
     const lowStockCount = await Inventory.countDocuments({ 
         $expr: { $lte: [{ $toDouble: "$quantity" }, { $toDouble: "$minStockLevel" }] }, 
         quantity: { $gt: 0 } 
     });
     const outOfStockCount = await Inventory.countDocuments({ quantity: { $lte: 0 } });
-    const onOrderCount = await Inventory.countDocuments({ status: 'on-order' }); // Assuming 'on-order' status only has actual items awaiting arrival
+    const onOrderCount = await Inventory.countDocuments({ status: 'on-order' });
     
     res.json({ 
         success: true, 
         data: { 
             totalItems, 
-            totalValue: totalRetailValue, // Renamed to clarify it's retail
-            totalCostValue, // NEW
+            totalValue: totalRetailValue,
+            totalCostValue,
             lowStockCount, 
             outOfStockCount, 
             onOrderCount 
@@ -72,7 +71,6 @@ router.get("/stats", verifyToken, async (req, res) => {
   }
 });
 
-// --- Category Routes (Keep as is based on your provided snippet) ---
 router.get("/categories", verifyToken, async (req, res) => {
   try {
     const values = await Category.find({}).sort({ name: 1 });
@@ -103,7 +101,6 @@ router.post("/categories", verifyToken, body("name", "Name is required").not().i
     }
 });
 
-// --- Location Routes (Keep as is based on your provided snippet) ---
 router.get("/locations", verifyToken, async (req, res) => {
   try {
     const values = await Location.find({}).sort({ name: 1 });
@@ -134,8 +131,6 @@ router.post("/locations", verifyToken, body("name", "Name is required").not().is
     }
 });
 
-// --- NEW: Unit Routes (Added for `createUnit` functionality) ---
-// This assumes units are simple strings. If you have a Unit model, adjust accordingly.
 router.get("/units", verifyToken, async (req, res) => {
   try {
     const values = await Inventory.distinct("unit");
@@ -153,10 +148,13 @@ router.post("/units", verifyToken, body("name", "Unit name is required").not().i
     }
     try {
         const { name } = req.body;
-        // In this case, since units are distinct values on Inventory, we don't 'create' a separate Unit document.
-        // We just ensure the name is valid. If you had a dedicated Unit model, you would create it here.
-        // For now, we'll just return success as if it was 'created' for the frontend's purpose.
-        // The actual distinct unit is managed by `Inventory` entries.
+        // Check if unit already exists implicitly in inventory distinct units
+        const existingUnits = await Inventory.distinct("unit");
+        if (existingUnits.includes(name)) {
+            return res.status(400).json({ success: false, message: `Unit "${name}" already exists.` });
+        }
+        // Since units are distinct values on Inventory, we don't 'create' a separate Unit document.
+        // We just return success. The unit will become "real" when an inventory item uses it.
         res.status(201).json({ success: true, data: { name }, message: `Unit "${name}" added to selectable list.` });
     } catch (error) {
         console.error("Server error creating unit:", error);
@@ -170,7 +168,7 @@ router.get("/export/csv", verifyToken, async (req, res) => {
     if (!inventoryItems || inventoryItems.length === 0) {
       return res.status(404).json({ success: false, message: "No inventory data to export." });
     }
-    const fields = ['_id', 'name', 'sku', 'category', 'status', 'quantity', 'price', 'totalValue', 'location', 'unit', 'costPrice', 'minStockLevel', 'createdAt', 'updatedAt']; // Added costPrice and minStockLevel
+    const fields = ['_id', 'name', 'sku', 'category', 'status', 'quantity', 'price', 'totalValue', 'location', 'unit', 'costPrice', 'minStockLevel', 'createdAt', 'updatedAt'];
     const json2csv = new Parser({ fields });
     const csv = json2csv.parse(inventoryItems);
     res.setHeader("Content-Disposition", "attachment; filename=inventory-export.csv");
@@ -184,7 +182,7 @@ router.get("/export/csv", verifyToken, async (req, res) => {
 
 router.get("/", verifyToken, async (req, res) => {
   try {
-    const { search, category, status, location, page = 1, limit = 10, sort = 'updatedAt', order = 'desc' } = req.query; // Added sort and order
+    const { search, category, status, location, page = 1, limit = 10, sort = 'updatedAt', order = 'desc' } = req.query;
     const query = {};
     if (search) query.$or = [{ name: { $regex: search, $options: "i" } }, { sku: { $regex: search, $options: "i" } }];
     if (category) query.category = category;
@@ -197,7 +195,7 @@ router.get("/", verifyToken, async (req, res) => {
     const sortOrder = order === 'desc' ? -1 : 1;
     
     const items = await Inventory.find(query)
-      .sort({ [sort]: sortOrder }) // Apply sort
+      .sort({ [sort]: sortOrder })
       .skip(skip)
       .limit(limitNum)
       .populate('category', 'name')
@@ -260,20 +258,23 @@ router.post("/", verifyToken, upload.single('itemImage'), [
     }
 
     let status = 'in-stock';
-    if (Number(quantity) <= 0) {
+    const numQuantity = Number(quantity);
+    const numMinStockLevel = Number(minStockLevel);
+
+    if (numQuantity <= 0) {
         status = 'out-of-stock';
-    } else if (Number(quantity) <= Number(minStockLevel)) {
+    } else if (numQuantity <= numMinStockLevel) {
         status = 'low-stock';
     }
     
     const newItem = new Inventory({
       ...req.body,
       sku: sku.toUpperCase(),
-      quantity: Number(quantity),
+      quantity: numQuantity,
       price: Number(price),
       costPrice: Number(costPrice),
-      minStockLevel: Number(minStockLevel),
-      status: status, // Set initial status based on quantity and minStockLevel
+      minStockLevel: numMinStockLevel,
+      status: status,
       imageUrl: req.file ? `uploads/${req.file.filename}` : undefined,
     });
     const savedItem = await newItem.save();
@@ -288,7 +289,7 @@ router.post("/", verifyToken, upload.single('itemImage'), [
 
 router.put("/:id", verifyToken, upload.single('itemImage'), [
   body("name", "Name cannot be empty").not().isEmpty().trim(),
-  body("sku", "SKU is required").not().isEmpty().trim().toUpperCase(), // Add SKU validation to PUT
+  body("sku", "SKU is required").not().isEmpty().trim().toUpperCase(),
   body("category", "Category is required").isMongoId(),
   body("location", "Location is required").isMongoId(),
   body("supplier").optional().isMongoId(),
@@ -312,13 +313,12 @@ router.put("/:id", verifyToken, upload.single('itemImage'), [
       return res.status(404).json({ success: false, message: "Inventory item not found." });
     }
 
-    // Check for duplicate SKU if SKU is being changed
     if (sku && sku.toUpperCase() !== itemToUpdate.sku && await Inventory.findOne({ sku: sku.toUpperCase() })) {
         if (req.file) fs.unlinkSync(req.file.path);
         return res.status(400).json({ success: false, message: "An item with this SKU already exists." });
     }
 
-    let status = itemToUpdate.status; // Keep current status by default
+    let status = itemToUpdate.status;
     const updatedQuantity = Number(quantity);
     const updatedMinStockLevel = Number(minStockLevel);
 
@@ -327,7 +327,7 @@ router.put("/:id", verifyToken, upload.single('itemImage'), [
     } else if (updatedQuantity <= updatedMinStockLevel) {
         status = 'low-stock';
     } else {
-        status = 'in-stock'; // If above minStockLevel and quantity > 0
+        status = 'in-stock';
     }
 
     const updateData = { 
@@ -337,7 +337,7 @@ router.put("/:id", verifyToken, upload.single('itemImage'), [
         price: Number(price),
         costPrice: Number(costPrice),
         minStockLevel: updatedMinStockLevel,
-        status: status, // Update status based on new quantity/minStockLevel
+        status: status,
     };
 
     if (req.file) {
@@ -350,6 +350,21 @@ router.put("/:id", verifyToken, upload.single('itemImage'), [
 
     const updatedItem = await Inventory.findByIdAndUpdate(id, { $set: updateData }, { new: true, runValidators: true })
       .populate('category location supplier', 'name');
+    
+    // Check if status changed to trigger notification
+    if (itemToUpdate.status !== status && req.user && (status === 'low-stock' || status === 'out-of-stock')) {
+        const notification = new Notification({
+            user: req.user._id,
+            title: status === 'low-stock' ? 'Low Stock Alert' : 'Out of Stock Alert',
+            message: `${itemToUpdate.name} (SKU: ${itemToUpdate.sku}) is now ${status.replace('-', ' ')}. Quantity: ${updatedQuantity}.`,
+            type: status === 'low-stock' ? 'low_stock' : 'out_of_stock',
+            priority: status === 'low-stock' ? 'high' : 'critical',
+            link: `/inventory/${itemToUpdate._id}`,
+            relatedId: itemToUpdate._id,
+        });
+        await notification.save();
+    }
+
     res.json({ success: true, message: "Item updated successfully!", data: updatedItem });
   } catch (error) {
     if (req.file) fs.unlinkSync(req.file.path);

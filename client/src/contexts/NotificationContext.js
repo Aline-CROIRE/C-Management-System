@@ -2,10 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { toast } from "react-toastify"
-// Note: Ensure this path is correct for your project structure.
-// You previously provided a file at 'services/api.js'.
 import { notificationsAPI } from "../services/api"
-import { useAuth } from "./AuthContext"
+import { useAuth } from "./AuthContext" // Assuming AuthContext provides isAuthenticated and loading
 
 const NotificationContext = createContext()
 
@@ -18,92 +16,92 @@ export const useNotifications = () => {
 }
 
 export const NotificationProvider = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, loading: authLoading } = useAuth() // Renamed loading to authLoading to avoid conflict
 
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [loading, setLoading] = useState(true); // Added loading state for notifications itself
 
-  // This function is now much cleaner.
   const fetchNotifications = useCallback(async () => {
-    try {
-      // 1. No need for manual headers. The 'api.js' interceptor handles the token.
-      const response = await notificationsAPI.getAll()
+    if (authLoading || !isAuthenticated) { // Only fetch if authenticated and auth is not loading
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
 
-      // 2. Access 'success' and 'notifications' directly on the response.
-      // The 'api.js' interceptor has already unwrapped 'response.data'.
+    setLoading(true);
+    try {
+      const response = await notificationsAPI.getAll();
       if (response?.success) {
-        setNotifications(response.notifications)
-        setUnreadCount(response.notifications.filter((n) => !n.read).length)
+        setNotifications(response.notifications);
+        setUnreadCount(response.unreadCount); // Use the unreadCount from the API response
+      } else {
+        // API interceptor should handle toast for errors, but log here
+        console.error("Failed to fetch notifications from API:", response?.message);
       }
     } catch (error) {
-      // The interceptor will show a toast, but we can still log the error here.
-      console.error("Error fetching notifications:", error)
+      console.error("Error fetching notifications:", error);
+      // toast.error is usually handled by the axios interceptor
+    } finally {
+      setLoading(false);
     }
-  }, []) // The 'token' dependency is no longer needed here as it's handled in the interceptor.
+  }, [isAuthenticated, authLoading]);
 
   useEffect(() => {
-    if (loading) return // Don't fetch while auth is loading
-    if (!isAuthenticated) {
-      // Clear notifications if the user logs out.
-      setNotifications([])
-      setUnreadCount(0)
-      return
-    }
+    // Fetch immediately on mount if authenticated
+    fetchNotifications();
 
-    fetchNotifications()
-
-    const interval = setInterval(fetchNotifications, 30000) // 30-second polling
-    return () => clearInterval(interval)
-  }, [loading, isAuthenticated, fetchNotifications])
+    // Set up polling for new notifications
+    const interval = setInterval(fetchNotifications, 30000); // Poll every 30 seconds
+    
+    // Cleanup interval on unmount or if auth status changes
+    return () => clearInterval(interval);
+  }, [fetchNotifications]); // Re-run effect if fetchNotifications changes (i.e., auth status changes)
 
   const markAsRead = useCallback(async (notificationId) => {
     try {
-      // No manual headers needed.
-      await notificationsAPI.markAsRead(notificationId)
-
-      setNotifications((prev) =>
-        prev.map((n) => (n._id === notificationId ? { ...n, read: true } : n))
-      )
-      setUnreadCount((prev) => Math.max(0, prev - 1))
+      const response = await notificationsAPI.markAsRead(notificationId);
+      if (response.success) {
+        setNotifications((prev) =>
+          prev.map((n) => (n._id === notificationId ? { ...n, read: true } : n))
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
     } catch (error) {
-      console.error("Error marking notification as read:", error)
+      console.error("Error marking notification as read:", error);
     }
-  }, [])
+  }, []);
 
   const markAllAsRead = useCallback(async () => {
     try {
-      // No manual headers needed.
-      await notificationsAPI.markAllAsRead()
-
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
-      setUnreadCount(0)
+      const response = await notificationsAPI.markAllAsRead();
+      if (response.success) {
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+        setUnreadCount(0);
+      }
     } catch (error) {
-      console.error("Error marking all notifications as read:", error)
+      console.error("Error marking all notifications as read:", error);
     }
-  }, [])
+  }, []);
 
   const deleteNotification = useCallback(
     async (notificationId) => {
       try {
-        // No manual headers needed.
-        await notificationsAPI.delete(notificationId)
-        
-        // Find the notification before updating state
-        const notificationToDelete = notifications.find((n) => n._id === notificationId)
-        
-        setNotifications((prev) => prev.filter((n) => n._id !== notificationId))
-        
-        // Only decrement unread count if the deleted notification was unread
-        if (notificationToDelete && !notificationToDelete.read) {
-          setUnreadCount((prev) => Math.max(0, prev - 1))
+        const response = await notificationsAPI.delete(notificationId);
+        if (response.success) {
+            const notificationToDelete = notifications.find((n) => n._id === notificationId);
+            setNotifications((prev) => prev.filter((n) => n._id !== notificationId));
+            if (notificationToDelete && !notificationToDelete.read) {
+              setUnreadCount((prev) => Math.max(0, prev - 1));
+            }
         }
-
       } catch (error) {
-        console.error("Error deleting notification:", error)
+        console.error("Error deleting notification:", error);
       }
     },
     [notifications] // Dependency on 'notifications' is correct here.
-  )
+  );
 
   const showToast = useCallback((message, type = "info") => {
     switch (type) {
@@ -119,16 +117,17 @@ export const NotificationProvider = ({ children }) => {
       default:
         toast.info(message)
     }
-  }, [])
+  }, []);
 
   const value = {
     notifications,
     unreadCount,
+    loading, // Expose loading state
     markAsRead,
     markAllAsRead,
     deleteNotification,
     showToast,
-    fetchNotifications,
+    refetchNotifications: fetchNotifications, // Provide a refetch function
   }
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>
