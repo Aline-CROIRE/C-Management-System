@@ -92,7 +92,7 @@ app.use(errorHandler);
 // --- Database Connection & Server Start ---
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI || "mongodb+srv://KIMA:Aline%40123@cluster0.ufciukm.mongodb.net/ManagementSystemDB?retryWrites=true&w=majority");
     console.log("✅ MongoDB connected successfully.");
   } catch (err) {
     console.error("❌ MongoDB connection failed:", err.message);

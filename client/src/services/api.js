@@ -117,10 +117,12 @@ export const notificationsAPI = {
 
 export const salesAPI = {
   getAll: (params) => api.get("/sales", { params }),
+  getById: (id) => api.get(`/sales/${id}`),
   create: (saleData) => api.post("/sales", saleData),
   processReturn: (id, returnData) => api.post(`/sales/${id}/return`, returnData),
   delete: (id) => api.delete(`/sales/${id}`),
   generatePDF: (id) => api.get(`/sales/${id}/pdf`, { responseType: 'blob' }),
+  getAnalytics: (filters) => api.post("/sales/analytics", filters),
 };
 
 export const customerAPI = {
@@ -129,7 +131,8 @@ export const customerAPI = {
 };
 
 export const analyticsAPI = {
-  getSalesSummary: (filters) => api.post("/sales/analytics", filters),
+  getInventoryValuation: (filters) => api.post("/reports/inventory-valuation", filters),
+  getSalesSummary: (filters) => api.post("/reports/sales-summary", filters), // This now points to the same sales analytics endpoint
 };
 
 export const reportsAPI = {

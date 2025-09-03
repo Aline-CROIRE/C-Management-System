@@ -13,8 +13,12 @@ const { verifyToken } = require("../middleware/auth");
 
 router.get("/", verifyToken, async (req, res) => {
     try {
-        const { customerId, startDate, endDate, paymentMethod } = req.query;
+        const { customerId, startDate, endDate, paymentMethod, page = 1, limit = 10, sort = 'createdAt', order = 'desc' } = req.query;
         const query = {};
+        const limitNum = parseInt(limit);
+        const pageNum = parseInt(page);
+        const skip = (pageNum - 1) * limitNum;
+        const sortOrder = order === 'desc' ? -1 : 1;
 
         if (customerId) query.customer = customerId;
         if (startDate && endDate) {
@@ -25,9 +29,22 @@ router.get("/", verifyToken, async (req, res) => {
         const sales = await Sale.find(query)
             .populate('customer', 'name')
             .populate({ path: 'items.item', select: 'name sku' })
-            .sort({ createdAt: -1 });
+            .sort({ [sort]: sortOrder })
+            .skip(skip)
+            .limit(limitNum);
+
+        const total = await Sale.countDocuments(query);
             
-        res.json({ success: true, data: sales });
+        res.json({ 
+            success: true, 
+            data: sales,
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                totalPages: Math.ceil(total / limitNum),
+            }
+        });
     } catch (err) {
         console.error("Error fetching sales:", err);
         res.status(500).json({ success: false, message: "Server Error" });
@@ -56,7 +73,7 @@ router.post("/", verifyToken, [
             if (inventoryItem.quantity < saleItem.quantity) throw new Error(`Not enough stock for ${inventoryItem.name}.`);
             
             inventoryItem.quantity -= saleItem.quantity;
-            saleItem.costPrice = inventoryItem.costPrice || 0;
+            saleItem.costPrice = inventoryItem.costPrice || 0; 
             
             if (inventoryItem.quantity <= inventoryItem.minStockLevel && inventoryItem.status !== 'low-stock') {
                  const notification = new Notification({
@@ -106,33 +123,130 @@ router.post("/analytics", verifyToken, async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid or missing start/end dates." });
         }
 
+        const queryStartDate = moment(startDate).startOf('day').toDate();
+        const queryEndDate = moment(endDate).endOf('day').toDate();
+
         const dateQuery = {
             createdAt: {
-                $gte: moment(startDate).startOf('day').toDate(),
-                $lte: moment(endDate).endOf('day').toDate(),
+                $gte: queryStartDate,
+                $lte: queryEndDate,
             },
         };
 
         const salesOverTime = await Sale.aggregate([
             { $match: dateQuery },
-            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, totalRevenue: { $sum: "$totalAmount" } } },
+            { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, totalRevenue: { $sum: { $ifNull: ["$totalAmount", 0] } } } },
             { $sort: { _id: 1 } }
         ]);
 
         const mostProfitableProducts = await Sale.aggregate([
-            { $match: dateQuery }, { $unwind: "$items" },
-            { $group: { _id: "$items.item", totalProfit: { $sum: { $multiply: ["$items.quantity", { $subtract: ["$items.price", "$items.costPrice"] }] } } } },
-            { $sort: { totalProfit: -1 } }, { $limit: 5 },
+            { $match: dateQuery }, 
+            { $unwind: "$items" },
+            { $group: { 
+                _id: "$items.item", 
+                totalProfit: { $sum: { $multiply: [{ $ifNull: ["$items.quantity", 0] }, { $subtract: [{ $ifNull: ["$items.price", 0] }, { $ifNull: ["$items.costPrice", 0] }] }] } } 
+            }},
+            { $sort: { totalProfit: -1 } }, 
+            { $limit: 5 },
             { $lookup: { from: "inventories", localField: "_id", foreignField: "_id", as: "product" }},
             { $unwind: "$product" },
             { $project: { name: "$product.name", sku: "$product.sku", totalProfit: 1 } }
         ]);
+
+        const salesByPaymentMethod = await Sale.aggregate([
+            { $match: dateQuery },
+            { $group: { 
+                _id: { $ifNull: ["$paymentMethod", "Other/Unknown Payment"] }, 
+                totalAmount: { $sum: { $ifNull: ["$totalAmount", 0] } }, 
+                count: { $sum: 1 } 
+            }},
+            { $sort: { totalAmount: -1 } }
+        ]);
+
+        const topSellingProductsByQuantity = await Sale.aggregate([
+            { $match: dateQuery }, 
+            { $unwind: "$items" },
+            { $group: { _id: "$items.item", totalQuantitySold: { $sum: { $ifNull: ["$items.quantity", 0] } } } },
+            { $sort: { totalQuantitySold: -1 } }, 
+            { $limit: 5 },
+            { $lookup: { from: "inventories", localField: "_id", foreignField: "_id", as: "product" }},
+            { $unwind: "$product" },
+            { $project: { name: "$product.name", sku: "$product.sku", totalQuantitySold: 1 } }
+        ]);
+        
+        const salesByCategory = await Sale.aggregate([
+            { $match: dateQuery },
+            { $unwind: "$items" },
+            {
+                $lookup: {
+                    from: "inventories",
+                    localField: "items.item",
+                    foreignField: "_id",
+                    as: "inventoryItem"
+                }
+            },
+            { $unwind: "$inventoryItem" },
+            {
+                $lookup: {
+                    from: "categories",
+                    localField: "inventoryItem.category",
+                    foreignField: "_id",
+                    as: "categoryDetails"
+                }
+            },
+            { $unwind: { path: "$categoryDetails", preserveNullAndEmptyArrays: true } },
+            {
+                $group: {
+                    _id: { $ifNull: ["$categoryDetails.name", "Uncategorized"] },
+                    totalRevenue: { $sum: { $multiply: [{ $ifNull: ["$items.quantity", 0] }, { $ifNull: ["$items.price", 0] }] } }
+                }
+            },
+            { $sort: { totalRevenue: -1 } },
+            { $project: { _id: 0, name: "$_id", value: "$totalRevenue" } }
+        ]);
+
+
+        const overallStats = await Sale.aggregate([
+            { $match: dateQuery },
+            { $group: {
+                _id: null,
+                totalRevenue: { $sum: { $ifNull: ["$totalAmount", 0] } },
+                totalSalesCount: { $sum: 1 },
+            }},
+            { $project: {
+                _id: 0,
+                totalRevenue: 1,
+                totalSalesCount: 1,
+            }}
+        ]);
+        
+        const totalProfitCalculation = await Sale.aggregate([
+            { $match: dateQuery },
+            { $unwind: "$items" },
+            {
+                $group: {
+                    _id: null,
+                    totalProfit: { $sum: { $multiply: [{ $ifNull: ["$items.quantity", 0] }, { $subtract: [{ $ifNull: ["$items.price", 0] }, { $ifNull: ["$items.costPrice", 0] }] }] } }
+                }
+            },
+            { $project: { _id: 0, totalProfit: 1 } }
+        ]);
+        const calculatedTotalProfit = totalProfitCalculation[0]?.totalProfit || 0;
+
 
         res.json({
             success: true,
             data: {
                 salesOverTime,
                 mostProfitableProducts,
+                salesByPaymentMethod,
+                topSellingProductsByQuantity,
+                salesByCategory,
+                overallStats: {
+                    totalRevenue: overallStats[0]?.totalRevenue || 0,
+                    totalSalesCount: overallStats[0]?.totalSalesCount || 0,
+                    totalProfit: calculatedTotalProfit,
+                },
             }
         });
     } catch (err) {

@@ -1,7 +1,9 @@
+// components/Sales/Sales.js
 "use client";
 import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { FaPlus, FaEye, FaFileInvoiceDollar, FaChartLine, FaFilter, FaUndo } from 'react-icons/fa';
+import moment from 'moment'; // Import moment for default analytics filters
 
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -110,14 +112,21 @@ const Sales = () => {
     const [activeTab, setActiveTab] = useState('transactions');
     const [isCreating, setIsCreating] = useState(false);
     const [viewingSale, setViewingSale] = useState(null);
-    const [isFiltering, setIsFiltering] = useState(false);
-    const [filters, setFilters] = useState({});
+    const [isFiltering, setIsFiltering] = useState(false); // For transaction table filters
+    const [filters, setFilters] = useState({}); // Filters for the sales transactions table
     
+    // New state for analytics dashboard filters, initialized to the last 30 days
+    const [analyticsFilters, setAnalyticsFilters] = useState({
+        startDate: moment().subtract(30, 'days').toDate(),
+        endDate: moment().toDate(),
+    });
+
     const { sales, loading: salesLoading, error: salesError, createSale, processReturn } = useSales(filters);
     const { inventory, refetch: refetchInventory } = useInventory();
     const { customers, createCustomer } = useCustomers();
 
-    const stats = useMemo(() => {
+    // Stats for the transactions table, based on `filters`
+    const transactionStats = useMemo(() => {
         if (!sales) return { totalRevenue: 0, salesCount: 0 };
         return sales.reduce((acc, sale) => {
             acc.totalRevenue += sale.totalAmount;
@@ -148,11 +157,24 @@ const Sales = () => {
     
     const handleApplyFilters = (appliedFilters) => {
         setFilters(appliedFilters);
+        // Also update analytics filters if they are date-related and user is applying filters
+        if (appliedFilters.startDate || appliedFilters.endDate) {
+            setAnalyticsFilters(prev => ({
+                ...prev,
+                startDate: appliedFilters.startDate ? new Date(appliedFilters.startDate) : prev.startDate,
+                endDate: appliedFilters.endDate ? new Date(appliedFilters.endDate) : prev.endDate,
+            }));
+        }
         setIsFiltering(false);
     };
 
     const handleClearFilters = () => {
         setFilters({});
+        // Reset analytics filters to default too
+        setAnalyticsFilters({
+            startDate: moment().subtract(30, 'days').toDate(),
+            endDate: moment().toDate(),
+        });
         setIsFiltering(false);
     };
 
@@ -162,7 +184,12 @@ const Sales = () => {
 
     const renderContent = () => {
         if (activeTab === 'analytics') {
-            return <SalesAnalyticsDashboard />;
+            return (
+                <SalesAnalyticsDashboard 
+                    analyticsFilters={analyticsFilters} 
+                    setAnalyticsFilters={setAnalyticsFilters} 
+                />
+            );
         }
         
         if (salesLoading) {
@@ -198,19 +225,19 @@ const Sales = () => {
             
             {activeFilterCount > 0 && (
                  <FilterIndicator>
-                    <span>Showing filtered results</span>
+                    <span>Showing filtered results for transactions</span>
                     <Button variant="ghost" size="sm" onClick={handleClearFilters}><FaUndo style={{marginRight: '0.5rem'}}/>Clear Filters</Button>
                 </FilterIndicator>
             )}
 
             <StatsGrid>
                 <StatCard>
-                    <StatValue>Rwf {stats.totalRevenue.toLocaleString()}</StatValue>
-                    <StatLabel>{activeFilterCount > 0 ? 'Revenue in Filter' : 'Total Revenue'}</StatLabel>
+                    <StatValue>Rwf {transactionStats.totalRevenue.toLocaleString()}</StatValue>
+                    <StatLabel>Total Revenue (Transactions Table)</StatLabel> {/* Clarified label */}
                 </StatCard>
                 <StatCard>
-                    <StatValue>{stats.salesCount.toLocaleString()}</StatValue>
-                    <StatLabel>{activeFilterCount > 0 ? 'Sales in Filter' : 'Total Sales'}</StatLabel>
+                    <StatValue>{transactionStats.salesCount.toLocaleString()}</StatValue>
+                    <StatLabel>Total Sales Count (Transactions Table)</StatLabel> {/* Clarified label */}
                 </StatCard>
             </StatsGrid>
             
