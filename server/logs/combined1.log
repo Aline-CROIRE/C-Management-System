@@ -9148,3 +9148,15 @@
   service: 'comprehensive-management-system',
   timestamp: '2025-09-03 05:53:54'
 }
+{
+  message: '::1 - - [04/Sep/2025:08:59:53 +0000] "GET /uploads/1756293051858-kl.jpg HTTP/1.1" 200 179473 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-04 01:59:53'
+}
+{
+  message: '::1 - - [04/Sep/2025:09:04:04 +0000] "GET /uploads/1756293051858-kl.jpg HTTP/1.1" 304 - "-" "Mozilla/5.0 (iPad; CPU OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1 Edg/139.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-04 02:04:04'
+}
