@@ -44,7 +44,7 @@ app.use(
 );
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:3000",
+  origin: process.env.CLIENT_URL || "http://localhost:3000" || "https://c-management-system-73dy.vercel.app",
   credentials: true,
 }));
 // --- END FIX ---
