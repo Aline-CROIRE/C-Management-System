@@ -4,7 +4,7 @@ import styled, { keyframes } from "styled-components";
 import {
   FaBoxes, FaPlus, FaSearch, FaFilter, FaDownload, FaExclamationTriangle, FaFileCsv, FaFileCode,
   FaChartLine, FaTruck, FaUsers, FaDollarSign, FaSync, FaTimes, FaFileInvoiceDollar, FaUndo, FaBell,
-  FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie // Added more relevant icons
+  FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie
 } from "react-icons/fa";
 
 // Component Imports
@@ -30,14 +30,27 @@ import { useDebounce } from "../../hooks/useDebounce";
 import { inventoryAPI } from "../../services/api";
 
 const IMSContainer = styled.div`
-  padding: 1.5rem 2rem;
+  padding: 1.5rem 2rem; /* Desktop default */
   background: #f8f9fa;
   min-height: 100vh;
-  @media (max-width: 768px) { padding: 1rem; }
+  transition: padding 0.3s ease; /* Smooth padding changes */
+
+  @media (max-width: 1200px) { /* Larger tablets/small laptops */
+    padding: 1rem 1.5rem;
+  }
+  @media (max-width: 768px) { /* Tablets */
+    padding: 1rem;
+  }
+  @media (max-width: 480px) { /* Mobile phones */
+    padding: 0.5rem;
+  }
 `;
 
 const HeaderSection = styled.div`
   margin-bottom: 2rem;
+  @media (max-width: 768px) {
+    margin-bottom: 1.5rem;
+  }
 `;
 const HeaderContent = styled.div`
   display: flex;
@@ -45,25 +58,41 @@ const HeaderContent = styled.div`
   align-items: center;
   flex-wrap: wrap;
   gap: 1.5rem;
+  @media (max-width: 480px) {
+    gap: 1rem;
+  }
 `;
 const HeaderInfo = styled.div`
   flex: 1;
+  min-width: 150px; /* Ensure title has space even on small screens */
 `;
 const HeaderTitle = styled.h1`
   font-size: 2rem;
   font-weight: 700;
   margin: 0;
   color: #1a202c;
+  @media (max-width: 768px) {
+    font-size: 1.75rem;
+  }
+  @media (max-width: 480px) {
+    font-size: 1.5rem;
+  }
 `;
 const HeaderSubtitle = styled.p`
   font-size: 1rem;
   color: #718096;
   margin: 0.25rem 0 0 0;
+  @media (max-width: 480px) {
+    font-size: 0.85rem;
+  }
 `;
 const HeaderActions = styled.div`
   display: flex;
   gap: 1rem;
   align-items: center;
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 const NotificationBadge = styled.div`
   position: relative;
@@ -90,9 +119,17 @@ const NotificationBadge = styled.div`
 
 const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); /* More adaptive min-width */
   gap: 1.5rem;
   margin-top: 2rem;
+  @media (max-width: 768px) {
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr; /* Stack on very small screens */
+    gap: 0.75rem;
+  }
 `;
 const StatCard = styled(Card)`
   padding: 1.25rem;
@@ -112,12 +149,26 @@ const StatCard = styled(Card)`
     transform: translateY(-4px);
     box-shadow: 0 0 0 3px ${(props) => props.theme.colors.primary}30;
   }
+  @media (max-width: 480px) {
+    min-height: 90px; /* Shorter on mobile */
+    padding: 1rem;
+    flex-direction: row; /* Layout horizontally on mobile */
+    align-items: center;
+    justify-content: space-between;
+  }
 `;
 const StatHeader = styled.div`
   width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  @media (max-width: 480px) {
+    flex-direction: row-reverse; /* Put icon first on mobile */
+    align-items: center;
+    flex-grow: 1;
+    justify-content: flex-end; /* Align content to the left of icon */
+    gap: 1rem;
+  }
 `;
 const StatIcon = styled.div`
   width: 40px;
@@ -130,14 +181,28 @@ const StatIcon = styled.div`
   color: white;
   font-size: 18px;
   background: ${(props) => props.iconColor};
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
 `;
 const StatContent = styled.div`
   text-align: left;
+  @media (max-width: 480px) {
+    text-align: left;
+  }
 `;
 const StatValue = styled.div`
   font-size: 1.5rem;
   font-weight: 700;
   color: #1a202c;
+  @media (max-width: 768px) {
+    font-size: 1.3rem;
+  }
+  @media (max-width: 480px) {
+    font-size: 1.2rem;
+  }
 `;
 const StatLabel = styled.div`
   font-size: 0.75rem;
@@ -145,11 +210,17 @@ const StatLabel = styled.div`
   color: #718096;
   font-weight: 600;
   letter-spacing: 0.5px;
+  @media (max-width: 480px) {
+    font-size: 0.65rem;
+  }
 `;
 const StatFooter = styled.div`
   font-size: 0.8rem;
   color: #4a5568;
   margin-top: 0.5rem;
+  @media (max-width: 480px) {
+    display: none; /* Hide footer on very small screens */
+  }
 `;
 
 const ActionBar = styled.div`
@@ -160,12 +231,25 @@ const ActionBar = styled.div`
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
   gap: 1rem;
+  @media (max-width: 768px) {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  @media (max-width: 480px) {
+    flex-direction: column; /* Stack search and buttons */
+    align-items: stretch;
+  }
 `;
 const SearchContainer = styled.div`
   position: relative;
   flex: 1;
-  min-width: 250px;
+  min-width: 200px; /* Reduced min-width */
   max-width: 400px;
+  @media (max-width: 480px) {
+    min-width: unset;
+    max-width: unset;
+    width: 100%;
+  }
 `;
 const SearchIcon = styled.div`
   position: absolute;
@@ -178,11 +262,22 @@ const SearchIcon = styled.div`
 `;
 const SearchInput = styled(Input)`
   padding-left: 2.75rem;
+  @media (max-width: 480px) {
+    padding: 0.75rem 1rem; /* Adjust padding for mobile */
+    padding-left: 2.5rem;
+  }
 `;
 const ActionButtons = styled.div`
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+  @media (max-width: 480px) {
+    width: 100%;
+    justify-content: stretch; /* Stretch buttons to fill width */
+    button {
+      flex-grow: 1; /* Allow buttons to expand */
+    }
+  }
 `;
 const DropdownMenu = styled.div`
   position: absolute;
@@ -216,6 +311,13 @@ const TabContainer = styled.div`
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   overflow-x: auto;
   white-space: nowrap;
+  -webkit-overflow-scrolling: touch; /* Enable smooth scrolling on iOS */
+
+  @media (max-width: 480px) {
+    padding: 0.25rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
 `;
 const Tab = styled.button`
   flex: 1;
@@ -237,9 +339,18 @@ const Tab = styled.button`
     background: #e9ecef;
     color: #343a40;
   }
+  @media (max-width: 480px) {
+    min-width: 90px; /* Smaller tabs on mobile */
+    font-size: 0.8rem;
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+  }
 `;
 const ContentArea = styled.div`
   min-height: 600px;
+  @media (max-width: 768px) {
+    min-height: 400px;
+  }
 `;
 const spinAnimation = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
 const SpinningFaSync = styled(FaSync)`
@@ -256,6 +367,18 @@ const FilterIndicator = styled.div`
   border-radius: 0.75rem;
   margin-bottom: 1.5rem;
   font-weight: 600;
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    span {
+      font-size: 0.8rem;
+    }
+    button {
+      padding: 0.25rem 0.5rem;
+    }
+  }
 `;
 
 const IMS = () => {

@@ -34,20 +34,40 @@ const PORT = process.env.PORT || 5000;
 
 // --- GLOBAL MIDDLEWARE SETUP ---
 
-// --- 1. THE CRITICAL FIX: Configure Helmet and CORS together ---
 app.use(
   helmet({
-    // This allows images from any origin to be loaded.
-    // For production, you might want to restrict this further.
     crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
 
+// --- CORRECTED CORS CONFIGURATION ---
+// Define allowed origins as an array
+const allowedOrigins = [
+  "http://localhost:3000", // Always allow local development
+  "https://c-management-system-73dy.vercel.app", // Your deployed Vercel frontend URL
+];
+
+// If process.env.CLIENT_URL is set (e.g., on Render), add it to allowed origins
+if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) {
+  allowedOrigins.push(process.env.CLIENT_URL);
+}
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:3000",
-  credentials: true,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true); 
+    // Check if the requesting origin is in our allowed list
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      // If not allowed, reject with a CORS error
+      const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
+      return callback(new Error(msg), false);
+    }
+  },
+  credentials: true, // Allow sending cookies/auth headers
 }));
-// --- END FIX ---
+// --- END CORRECTED CORS CONFIGURATION ---
 
 
 app.use(express.json({ limit: "10mb" }));
@@ -60,10 +80,10 @@ const apiLimiter = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
+  message: { success: false, message: "Too many attempts from this IP, please try again after 15 minutes." },
 });
 app.use("/api", apiLimiter);
 
-// --- 2. Static File Serving (Must come AFTER Helmet/CORS) ---
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/health", (req, res) => res.status(200).json({ success: true, message: "API is healthy ✅" }));

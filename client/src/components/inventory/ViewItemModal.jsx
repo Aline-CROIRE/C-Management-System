@@ -1,10 +1,11 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
+import ReactDOM from 'react-dom';
 import styled from "styled-components";
 import { FaTimes, FaBoxes } from "react-icons/fa";
 import Button from "../common/Button";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -60,6 +61,7 @@ const ModalBody = styled.div`
   overflow-y: auto;
 `;
 
+// ItemImage styling adjusted as it will no longer display an actual image, only FaBoxes
 const ItemImage = styled.div`
   width: 150px;
   height: 150px;
@@ -71,11 +73,7 @@ const ItemImage = styled.div`
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+  /* img { Removed } */
   svg {
     font-size: 3rem;
     color: ${(props) => props.theme.colors.textSecondary};
@@ -133,19 +131,16 @@ const ViewItemModal = ({ item, onClose }) => {
         </ModalHeader>
         <ModalBody>
           <ItemImage>
-            {item.imageUrl ? (
-              <img src={`${API_BASE_URL}/${item.imageUrl.replace(/\\/g, '/')}`} alt={item.name} />
-            ) : (
-              <FaBoxes />
-            )}
+            {/* Removed image rendering logic, always show FaBoxes */}
+            <FaBoxes />
           </ItemImage>
           <DetailGrid>
             <DetailItem><DetailLabel>SKU</DetailLabel><DetailValue>{item.sku || 'N/A'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Category</DetailLabel><DetailValue>{item.category?.name || 'N/A'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Location</DetailLabel><DetailValue>{item.location?.name || 'N/A'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Quantity</DetailLabel><DetailValue>{`${item.quantity?.toLocaleString() || '0'} ${item.unit || ''}`}</DetailValue></DetailItem>
-            <DetailItem><DetailLabel>Unit Price</DetailLabel><DetailValue>${item.price?.toFixed(2) || '0.00'}</DetailValue></DetailItem>
-            <DetailItem><DetailLabel>Total Value</DetailLabel><DetailValue>${item.totalValue?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}</DetailValue></DetailItem>
+            <DetailItem><DetailLabel>Unit Price</DetailLabel><DetailValue>Rwf {item.price?.toFixed(2) || '0.00'}</DetailValue></DetailItem>
+            <DetailItem><DetailLabel>Total Value</DetailLabel><DetailValue>Rwf {item.totalValue?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Min Stock Level</DetailLabel><DetailValue>{item.minStockLevel?.toLocaleString() || 'Not set'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Supplier</DetailLabel><DetailValue>{item.supplier?.name || 'N/A'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Expiry Date</DetailLabel><DetailValue>{formatDate(item.expiryDate)}</DetailValue></DetailItem>
