@@ -10,7 +10,7 @@ import {
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://c-management-system.onrender.com";
 
 const TableWrapper = styled.div`
   background: ${(props) => props.theme.colors.surface};
