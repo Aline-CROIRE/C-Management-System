@@ -8,6 +8,14 @@ import Button from "../common/Button";
 import Input from "../common/Input";
 import Select from "../common/Select";
 
+// Dynamically get the API base URL for images (if displaying a preview of existing image)
+const getImageUrlBase = () => {
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  return apiUrl.replace(/\/api$/, ''); 
+};
+const API_BASE_URL_FOR_IMAGES = getImageUrlBase();
+
+
 const ModalOverlay = styled.div` position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; backdrop-filter: blur(4px); `;
 const ModalContent = styled.form` background: ${(props) => props.theme.colors.surface}; color: ${(props) => props.theme.colors.text}; border-radius: ${(props) => props.theme.borderRadius.xl}; width: 100%; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: ${(props) => props.theme.shadows.xl}; overflow: hidden; `;
 const ModalHeader = styled.div` padding: 1.5rem 2rem; border-bottom: 1px solid ${(props) => props.theme.colors.border}; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; `;
@@ -23,6 +31,21 @@ const TextArea = styled.textarea` padding: 0.75rem; border: 1px solid ${(props) 
 const ImageUploadContainer = styled.div` border: 2px dashed ${(props) => props.theme.colors.border}; border-radius: ${(props) => props.theme.borderRadius.lg}; padding: 2rem; text-align: center; cursor: pointer; position: relative; transition: all 0.2s ease-in-out; &:hover { border-color: ${(props) => props.theme.colors.primary}; } `;
 const HiddenInput = styled.input` position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; `;
 const ModalFooter = styled.div` padding: 1.5rem 2rem; display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid ${(props) => props.theme.colors.border}; `;
+
+const ImagePreview = styled.div`
+  width: 100px;
+  height: 100px;
+  border-radius: ${(props) => props.theme.borderRadius.md};
+  overflow: hidden;
+  margin: 0 auto 1rem;
+  border: 1px solid ${(props) => props.theme.colors.border};
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+`;
+
 
 const AddItemModal = ({
     onClose,
@@ -47,8 +70,10 @@ const AddItemModal = ({
 
     const [formData, setFormData] = useState({
         name: '', sku: '', category: '', location: '', unit: '', quantity: '',
-        price: '', minStockLevel: '', supplier: '', description: '', expiryDate: '', image: null,
+        price: '', costPrice: '', minStockLevel: '', supplier: '', description: '', expiryDate: '', image: null,
     });
+
+    const [imagePreviewUrl, setImagePreviewUrl] = useState(null); // State for image preview
 
     useEffect(() => {
         if (isEditMode && itemToEdit) {
@@ -60,12 +85,26 @@ const AddItemModal = ({
                 unit: itemToEdit.unit || '',
                 quantity: itemToEdit.quantity?.toString() ?? '0',
                 price: itemToEdit.price?.toString() ?? '0',
+                costPrice: itemToEdit.costPrice?.toString() ?? '0', // Ensure costPrice is loaded
                 minStockLevel: itemToEdit.minStockLevel?.toString() ?? '0',
                 supplier: itemToEdit.supplier?._id || '',
                 description: itemToEdit.description || '',
                 expiryDate: itemToEdit.expiryDate ? new Date(itemToEdit.expiryDate).toISOString().split('T')[0] : '',
-                image: null,
+                image: null, // Image input is cleared on edit for security/simplicity
             });
+            // Set initial image preview if existing image URL is present
+            if (itemToEdit.imageUrl) {
+                setImagePreviewUrl(`${API_BASE_URL_FOR_IMAGES}/${itemToEdit.imageUrl.replace(/\\/g, '/')}`);
+            } else {
+                setImagePreviewUrl(null);
+            }
+        } else {
+            // Reset form for add mode
+            setFormData({
+                name: '', sku: '', category: '', location: '', unit: '', quantity: '',
+                price: '', costPrice: '', minStockLevel: '', supplier: '', description: '', expiryDate: '', image: null,
+            });
+            setImagePreviewUrl(null);
         }
     }, [itemToEdit, isEditMode]);
 
@@ -74,52 +113,65 @@ const AddItemModal = ({
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    const handleImageUpload = (e) => setFormData((prev) => ({ ...prev, image: e.target.files?.[0] }));
+    const handleImageUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setFormData((prev) => ({ ...prev, image: file }));
+            setImagePreviewUrl(URL.createObjectURL(file)); // Create URL for preview
+        } else {
+            setFormData((prev) => ({ ...prev, image: null }));
+            setImagePreviewUrl(isEditMode && itemToEdit?.imageUrl ? `${API_BASE_URL_FOR_IMAGES}/${itemToEdit.imageUrl.replace(/\\/g, '/')}` : null);
+        }
+    };
+
     const generateSKU = () => setFormData((prev) => ({ ...prev, sku: `${(prev.name.substring(0, 3) || "NEW").toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}` }));
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        let finalData = { ...formData };
+        let finalData = { ...formData }; // Clone formData for processing
 
-        try {
-            if (formData.category === "_add_new_") {
-                if (!newCategoryName.trim()) return alert("Please enter a name for the new category.");
-                const newCat = await createCategory({ name: newCategoryName.trim() });
-                finalData.category = newCat.data._id;
-            }
-
-            if (formData.location === "_add_new_") {
-                if (!newLocationName.trim()) return alert("Please enter a name for the new location.");
-                const newLoc = await createLocation({ name: newLocationName.trim() });
-                finalData.location = newLoc.data._id;
-            }
-
-            if (formData.unit === "_add_new_") {
-                if (!newUnitName.trim()) return alert("Please enter a name for the new unit.");
-                await createUnit({ name: newUnitName.trim() });
-                finalData.unit = newUnitName.trim();
-            }
-
-            if (formData.supplier === "_add_new_") {
-                if (!newSupplierName.trim()) return alert("Please enter a name for the new supplier.");
-                const newSupplier = await createSupplier({ name: newSupplierName.trim() });
-                finalData.supplier = newSupplier.data._id;
-            }
-
-            const itemPayload = new FormData();
-            Object.keys(finalData).forEach(key => {
-                if (key === 'image' && finalData.image) {
-                    itemPayload.append('itemImage', finalData.image);
-                } else if (finalData[key] !== null && finalData[key] !== undefined) {
-                    itemPayload.append(key, finalData[key]);
-                }
-            });
-            
-            onSave({ itemData: itemPayload, itemId: itemToEdit?._id });
-
-        } catch (error) {
-            console.error("Failed to save item:", error);
+        // Handle new category creation
+        if (formData.category === "_add_new_") {
+            if (!newCategoryName.trim()) return alert("Please enter a name for the new category.");
+            const newCat = await createCategory(newCategoryName.trim()); // Pass string directly
+            if (!newCat) return; // If creation failed, stop submission
+            finalData.category = newCat.data._id;
         }
+
+        // Handle new location creation
+        if (formData.location === "_add_new_") {
+            if (!newLocationName.trim()) return alert("Please enter a name for the new location.");
+            const newLoc = await createLocation(newLocationName.trim()); // Pass string directly
+            if (!newLoc) return;
+            finalData.location = newLoc.data._id;
+        }
+
+        // Handle new unit creation
+        if (formData.unit === "_add_new_") {
+            if (!newUnitName.trim()) return alert("Please enter a name for the new unit.");
+            await createUnit(newUnitName.trim()); // Pass string directly
+            finalData.unit = newUnitName.trim();
+        }
+
+        // Handle new supplier creation
+        if (formData.supplier === "_add_new_") {
+            if (!newSupplierName.trim()) return alert("Please enter a name for the new supplier.");
+            const newSupplier = await createSupplier({ name: newSupplierName.trim() }); // Pass object
+            if (!newSupplier) return;
+            finalData.supplier = newSupplier.data._id;
+        }
+
+        const itemPayload = new FormData();
+        Object.keys(finalData).forEach(key => {
+            if (key === 'image' && finalData.image) {
+                itemPayload.append('itemImage', finalData.image);
+            } else if (finalData[key] !== null && finalData[key] !== undefined) {
+                itemPayload.append(key, finalData[key]);
+            }
+        });
+        
+        onSave(itemPayload); // Pass FormData directly to onSave
+
     };
 
     const modalJsx = (
@@ -140,6 +192,7 @@ const AddItemModal = ({
                         </FormGroup>
                         <FormGroup><Label htmlFor="quantity">Quantity *</Label><ThemedInput id="quantity" name="quantity" type="number" value={formData.quantity} onChange={handleInputChange} min="0" required /></FormGroup>
                         <FormGroup><Label htmlFor="price">Unit Price *</Label><ThemedInput id="price" name="price" type="number" step="0.01" value={formData.price} onChange={handleInputChange} min="0" required /></FormGroup>
+                        <FormGroup><Label htmlFor="costPrice">Cost Price *</Label><ThemedInput id="costPrice" name="costPrice" type="number" step="0.01" value={formData.costPrice} onChange={handleInputChange} min="0" required /></FormGroup> {/* Added costPrice input */}
                         <FormGroup>
                           <Label htmlFor="unit">Unit *</Label>
                           <ThemedSelect id="unit" name="unit" value={formData.unit} onChange={handleInputChange} required><option value="">Select...</option>{units.map((u) => <option key={u} value={u}>{u}</option>)}<option value="_add_new_">-- Add New Unit --</option></ThemedSelect>
@@ -159,7 +212,22 @@ const AddItemModal = ({
                         <FormGroup><Label htmlFor="expiryDate">Expiry Date</Label><ThemedInput id="expiryDate" name="expiryDate" type="date" value={formData.expiryDate} onChange={handleInputChange} /></FormGroup>
                     </FormGrid>
                     <FormGroup style={{ marginBottom: "1.5rem" }}><Label htmlFor="description">Notes / Description</Label><TextArea id="description" name="description" value={formData.description} onChange={handleInputChange} placeholder="Add any relevant details..." /></FormGroup>
-                    <FormGroup><Label>Product Image</Label><ImageUploadContainer><HiddenInput type="file" accept="image/*" onChange={handleImageUpload} id="image-upload" /><label htmlFor="image-upload" style={{ display: 'block', cursor: 'pointer' }}><FaImage size={48} style={{ marginBottom: "1rem", opacity: 0.5 }} /><div>{formData.image ? formData.image.name : "Click or drag to upload"}</div><div style={{ fontSize: "0.875rem", marginTop: "0.5rem", opacity: 0.7 }}>Supports JPG, PNG, GIF</div></label></ImageUploadContainer></FormGroup>
+                    <FormGroup>
+                      <Label>Product Image</Label>
+                      {imagePreviewUrl && (
+                          <ImagePreview>
+                              <img src={imagePreviewUrl} alt="Image Preview" />
+                          </ImagePreview>
+                      )}
+                      <ImageUploadContainer>
+                          <HiddenInput type="file" accept="image/*" onChange={handleImageUpload} id="image-upload" />
+                          <label htmlFor="image-upload" style={{ display: 'block', cursor: 'pointer' }}>
+                              <FaImage size={48} style={{ marginBottom: "1rem", opacity: 0.5 }} />
+                              <div>{formData.image ? formData.image.name : (isEditMode && itemToEdit?.imageUrl && !imagePreviewUrl ? "No new image selected" : "Click or drag to upload")}</div>
+                              <div style={{ fontSize: "0.875rem", marginTop: "0.5rem", opacity: 0.7 }}>Supports JPG, PNG, GIF</div>
+                          </label>
+                      </ImageUploadContainer>
+                    </FormGroup>
                 </ModalBody>
                 <ModalFooter>
                     <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
