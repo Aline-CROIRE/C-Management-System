@@ -10,14 +10,11 @@ import {
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
 
-// Dynamically get the API base URL for images
+
 const getImageUrlBase = () => {
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
-  // Remove the '/api' suffix to get the base domain for static files
   return apiUrl.replace(/\/api$/, ''); 
 };
-
-const API_BASE_URL_FOR_IMAGES = getImageUrlBase();
 
 
 const TableWrapper = styled.div`
@@ -113,6 +110,7 @@ const ProductInfo = styled.div`
   gap: 1rem;
 `;
 
+// ProductImage styling adjusted as it will no longer display an actual image, only FaBoxes
 const ProductImage = styled.div`
   width: 48px;
   height: 48px;
@@ -125,11 +123,7 @@ const ProductImage = styled.div`
   flex-shrink: 0;
   overflow: hidden;
   border: 1px solid ${(props) => props.theme.colors.border};
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
+  /* img { Removed } */
 `;
 
 const ProductName = styled.div`
@@ -281,8 +275,8 @@ const InventoryTable = ({
                 <TableCell>
                   <ProductInfo>
                     <ProductImage>
-                      {/* CORRECTED IMAGE URL */}
-                      {item.imageUrl ? <img src={`${API_BASE_URL_FOR_IMAGES}/${item.imageUrl.replace(/\\/g, '/')}`} alt={item.name} /> : <FaBoxes />}
+                      {/* Removed image rendering logic, always show FaBoxes */}
+                      <FaBoxes /> 
                     </ProductImage>
                     <div>
                       <ProductName>{item.name}</ProductName>
