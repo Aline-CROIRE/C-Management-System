@@ -1,10 +1,19 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
+import ReactDOM from 'react-dom';
 import styled from "styled-components";
 import { FaTimes, FaBoxes } from "react-icons/fa";
 import Button from "../common/Button";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+// Dynamically get the API base URL for images
+const getImageUrlBase = () => {
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  return apiUrl.replace(/\/api$/, ''); 
+};
+
+const API_BASE_URL_FOR_IMAGES = getImageUrlBase();
+
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -134,7 +143,8 @@ const ViewItemModal = ({ item, onClose }) => {
         <ModalBody>
           <ItemImage>
             {item.imageUrl ? (
-              <img src={`${API_BASE_URL}/${item.imageUrl.replace(/\\/g, '/')}`} alt={item.name} />
+              // CORRECTED IMAGE URL
+              <img src={`${API_BASE_URL_FOR_IMAGES}/${item.imageUrl.replace(/\\/g, '/')}`} alt={item.name} />
             ) : (
               <FaBoxes />
             )}
@@ -144,8 +154,8 @@ const ViewItemModal = ({ item, onClose }) => {
             <DetailItem><DetailLabel>Category</DetailLabel><DetailValue>{item.category?.name || 'N/A'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Location</DetailLabel><DetailValue>{item.location?.name || 'N/A'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Quantity</DetailLabel><DetailValue>{`${item.quantity?.toLocaleString() || '0'} ${item.unit || ''}`}</DetailValue></DetailItem>
-            <DetailItem><DetailLabel>Unit Price</DetailLabel><DetailValue>${item.price?.toFixed(2) || '0.00'}</DetailValue></DetailItem>
-            <DetailItem><DetailLabel>Total Value</DetailLabel><DetailValue>${item.totalValue?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}</DetailValue></DetailItem>
+            <DetailItem><DetailLabel>Unit Price</DetailLabel><DetailValue>Rwf {item.price?.toFixed(2) || '0.00'}</DetailValue></DetailItem> {/* Corrected currency */}
+            <DetailItem><DetailLabel>Total Value</DetailLabel><DetailValue>Rwf {item.totalValue?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}</DetailValue></DetailItem> {/* Corrected currency */}
             <DetailItem><DetailLabel>Min Stock Level</DetailLabel><DetailValue>{item.minStockLevel?.toLocaleString() || 'Not set'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Supplier</DetailLabel><DetailValue>{item.supplier?.name || 'N/A'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel>Expiry Date</DetailLabel><DetailValue>{formatDate(item.expiryDate)}</DetailValue></DetailItem>
