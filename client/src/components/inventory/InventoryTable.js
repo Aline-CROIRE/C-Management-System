@@ -10,7 +10,15 @@ import {
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://c-management-system.onrender.com";
+// Dynamically get the API base URL for images
+const getImageUrlBase = () => {
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  // Remove the '/api' suffix to get the base domain for static files
+  return apiUrl.replace(/\/api$/, ''); 
+};
+
+const API_BASE_URL_FOR_IMAGES = getImageUrlBase();
+
 
 const TableWrapper = styled.div`
   background: ${(props) => props.theme.colors.surface};
@@ -273,7 +281,8 @@ const InventoryTable = ({
                 <TableCell>
                   <ProductInfo>
                     <ProductImage>
-                      {item.imageUrl ? <img src={`${API_BASE_URL}/${item.imageUrl.replace(/\\/g, '/')}`} alt={item.name} /> : <FaBoxes />}
+                      {/* CORRECTED IMAGE URL */}
+                      {item.imageUrl ? <img src={`${API_BASE_URL_FOR_IMAGES}/${item.imageUrl.replace(/\\/g, '/')}`} alt={item.name} /> : <FaBoxes />}
                     </ProductImage>
                     <div>
                       <ProductName>{item.name}</ProductName>
@@ -314,5 +323,4 @@ const InventoryTable = ({
     </TableWrapper>
   );
 };
-
 export default InventoryTable;
