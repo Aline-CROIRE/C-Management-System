@@ -8,7 +8,6 @@ const rateLimit = require("express-rate-limit");
 const path = require("path");
 require("dotenv").config();
 
-// --- Route Imports ---
 const authRoutes = require("./routes/auth");
 const inventoryRoutes = require("./routes/inventory");
 const metadataRoutes = require("./routes/metadata");
@@ -21,9 +20,8 @@ const reportsRoutes = require('./routes/reportsRoutes');
 const salesRoutes = require("./routes/sales");
 const notificationRoutes = require("./routes/notifications");
 const customerRoutes = require('./routes/customers');
+const constructionRoutes = require('./routes/ConstructionRoutes'); 
 
-
-// --- Middleware Imports ---
 const { verifyToken } = require("./middleware/auth");
 const errorHandler = require("./middleware/errorHandler");
 const logger = require("./utils/logger");
@@ -31,44 +29,33 @@ const logger = require("./utils/logger");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-
-// --- GLOBAL MIDDLEWARE SETUP ---
-
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
 
-// --- CORRECTED CORS CONFIGURATION ---
-// Define allowed origins as an array
 const allowedOrigins = [
-  "http://localhost:3000", // Always allow local development
-  "https://c-management-system-73dy.vercel.app", // Your deployed Vercel frontend URL
+  "http://localhost:3000", 
+  "https://c-management-system-73dy.vercel.app", 
 ];
 
-// If process.env.CLIENT_URL is set (e.g., on Render), add it to allowed origins
 if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) {
   allowedOrigins.push(process.env.CLIENT_URL);
 }
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true); 
-    // Check if the requesting origin is in our allowed list
+    if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     } else {
-      // If not allowed, reject with a CORS error
       const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
       return callback(new Error(msg), false);
     }
   },
-  credentials: true, // Allow sending cookies/auth headers
+  credentials: true,
 }));
-// --- END CORRECTED CORS CONFIGURATION ---
-
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -88,7 +75,6 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/health", (req, res) => res.status(200).json({ success: true, message: "API is healthy ✅" }));
 
-// --- API Routes Mounting ---
 app.use("/api/auth", authRoutes);
 app.use("/api/inventory", verifyToken, inventoryRoutes);
 app.use("/api/purchase-orders", verifyToken, purchaseOrderRoutes);
@@ -101,7 +87,7 @@ app.use("/api/notifications", verifyToken, notificationRoutes);
 app.use("/api/metadata", verifyToken, metadataRoutes);
 app.use("/api/sales", verifyToken, salesRoutes);
 app.use("/api/customers", verifyToken, customerRoutes);
-
+app.use("/api/construction", verifyToken, constructionRoutes); // NEW: Mount construction routes
 
 app.use("/api/*", (req, res) => {
   res.status(404).json({ success: false, message: "API endpoint not found.", path: req.originalUrl });
@@ -109,10 +95,9 @@ app.use("/api/*", (req, res) => {
 
 app.use(errorHandler);
 
-// --- Database Connection & Server Start ---
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || "mongodb+srv://KIMA:Aline%40123@cluster0.ufciukm.mongodb.net/ManagementSystemDB?retryWrites=true&w=majority");
+    await mongoose.connect(process.env.MONGODB_URI || "mongodb+srv://KIMA:Aline%40123@cluster0.ufciukm.mongodb.net/ManagementSystemDB?retryWrites=true&w%3Dmajority");
     console.log("✅ MongoDB connected successfully.");
   } catch (err) {
     console.error("❌ MongoDB connection failed:", err.message);
