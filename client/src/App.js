@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
+// Use standard BrowserRouter and import Future from react-router-dom
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { ThemeProvider } from "styled-components"
 import { ToastContainer } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
@@ -44,12 +45,12 @@ import Maintenance from "./pages/Maintenance"
 import theme from "./styles/Theme"
 import { useTheme } from "./contexts/ThemeContext"
 
+
 // Main App Component
 function App() {
   const { currentTheme } = useTheme()
 
   useEffect(() => {
-    // Set up global error handling
     window.addEventListener("unhandledrejection", (event) => {
       console.error("Unhandled promise rejection:", event.reason)
     })
@@ -58,7 +59,6 @@ function App() {
       console.error("Global error:", event.error)
     })
 
-    // Cleanup
     return () => {
       window.removeEventListener("unhandledrejection", () => {})
       window.removeEventListener("error", () => {})
@@ -69,7 +69,8 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider theme={currentTheme || theme}>
         <GlobalStyles />
-        <Router>
+        {/* Use the standard BrowserRouter and pass the future flags directly */}
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <div className="App">
             <Routes>
               {/* Public Routes */}
@@ -197,7 +198,7 @@ function App() {
               theme={currentTheme?.name === "dark" ? "dark" : "light"}
             />
           </div>
-        </Router>
+        </BrowserRouter>
       </ThemeProvider>
     </ErrorBoundary>
   )
@@ -216,4 +217,4 @@ function AppWrapper() {
   )
 }
 
-export default AppWrapper
+export default AppWrapper;

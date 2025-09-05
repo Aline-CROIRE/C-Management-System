@@ -5,19 +5,13 @@
   "private": true,
   "dependencies": {
     "axios": "^1.3.0",
-<<<<<<< HEAD
-=======
     "date-fns": "^3.6.0",       
->>>>>>> 8137cb28efae787552549f4d3a36cd01c69834fa
     "framer-motion": "^8.5.0",
     "html5-qrcode": "^2.3.8",
     "js-file-download": "^0.4.12",
     "react": "^18.2.0",
     "react-date-range": "^2.0.1",
-<<<<<<< HEAD
-=======
     "react-datepicker": "^6.6.0",    
->>>>>>> 8137cb28efae787552549f4d3a36cd01c69834fa
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.43.0",
     "react-hot-toast": "^2.4.0",
@@ -54,5 +48,5 @@
   "devDependencies": {
     "react-scripts": "5.0.1"
   },
-  "proxy": "https://c-management-system.onrender.com"
+  "proxy": "http://localhost:5000"
 }
