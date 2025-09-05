@@ -87,7 +87,7 @@ app.use("/api/notifications", verifyToken, notificationRoutes);
 app.use("/api/metadata", verifyToken, metadataRoutes);
 app.use("/api/sales", verifyToken, salesRoutes);
 app.use("/api/customers", verifyToken, customerRoutes);
-app.use("/api/construction", verifyToken, constructionRoutes); // NEW: Mount construction routes
+app.use("/api/construction", verifyToken, constructionRoutes);
 
 app.use("/api/*", (req, res) => {
   res.status(404).json({ success: false, message: "API endpoint not found.", path: req.originalUrl });
