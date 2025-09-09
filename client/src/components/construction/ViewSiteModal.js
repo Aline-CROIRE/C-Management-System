@@ -1,11 +1,17 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react"; // Added useEffect and useState
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
-import { FaTimes, FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaDollarSign, FaUserTie, FaCode, FaChartPie, FaUsers, FaTools, FaCheckCircle, FaExclamationTriangle, FaClipboardList, FaInfoCircle } from "react-icons/fa";
+import { FaTimes, FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaDollarSign, FaUserTie, FaCode, FaChartPie, FaUsers, FaTools, FaCheckCircle, FaExclamationTriangle, FaClipboardList, FaInfoCircle, FaTasks, FaPlus } from "react-icons/fa"; // Added FaTasks, FaPlus
 import Button from "../common/Button";
 import moment from "moment";
+
+// Import new task components and hook
+import TaskTable from "./task-management/TaskTable";
+import AddEditTaskModal from "./task-management/AddEditTaskModal";
+import ViewTaskModal from "./task-management/ViewTaskModal"; // We'll create this next
+import { useConstructionManagement } from "../../hooks/useConstructionManagement"; // To access task CRUD and state
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -24,7 +30,7 @@ const ModalContent = styled.div`
   color: ${(props) => props.theme.colors.text};
   border-radius: ${(props) => props.theme.borderRadius.xl};
   width: 100%;
-  max-width: 700px;
+  max-width: 900px; /* Increased max-width for more content */
   max-height: 90vh;
   box-shadow: ${(props) => props.theme.shadows.xl};
   overflow: hidden;
@@ -148,6 +154,26 @@ const StatusBadge = styled.span`
   }}
 `;
 
+const SectionHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+`;
+
+const SectionTitle = styled.h3`
+  font-size: clamp(1rem, 3vw, 1.25rem);
+  font-weight: 600;
+  color: ${(props) => props.theme.colors.heading};
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+`;
+
+
 const ModalFooter = styled.div`
   padding: 1rem 1.5rem;
   border-top: 1px solid ${(props) => props.theme.colors.border};
@@ -166,6 +192,23 @@ const ModalFooter = styled.div`
 `;
 
 const ViewSiteModal = ({ site, onClose }) => {
+  // Use the hook to get tasks and CRUD operations
+  const { tasks, fetchTasks, createTask, updateTask, deleteTask, loading: tasksLoading, sites: allSites } = useConstructionManagement();
+  
+  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
+  const [isViewTaskModalOpen, setIsViewTaskModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+
+  // Filter tasks to only show those belonging to the current site
+  const siteTasks = tasks.filter(task => task.site?._id === site._id);
+
+  useEffect(() => {
+    if (site?._id) {
+      fetchTasks(site._id); // Fetch tasks specifically for this site
+    }
+  }, [site?._id, fetchTasks]);
+
   if (!site) return null;
 
   const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -178,6 +221,22 @@ const ViewSiteModal = ({ site, onClose }) => {
       default: return <FaInfoCircle />;
     }
   };
+
+  const handleEditTask = (task) => { setSelectedTask(task); setIsEditTaskModalOpen(true); };
+  const handleViewTask = (task) => { setSelectedTask(task); setIsViewTaskModalOpen(true); };
+  const handleDeleteTask = async (id) => { if (window.confirm("Are you sure you want to delete this task?")) await deleteTask(id); };
+
+  const handleCreateTask = async (taskData) => {
+      // Ensure the task is linked to the current site when creating from this modal
+      await createTask({ ...taskData, site: site._id });
+      fetchTasks(site._id); // Re-fetch tasks for the specific site
+  }
+
+  const handleUpdateTask = async (id, taskData) => {
+      await updateTask(id, taskData);
+      fetchTasks(site._id); // Re-fetch tasks for the specific site
+  }
+
 
   return (
     <ModalOverlay onClick={onClose}>
@@ -214,10 +273,57 @@ const ViewSiteModal = ({ site, onClose }) => {
                <DetailValue style={{ whiteSpace: 'pre-wrap' }}>{site.notes}</DetailValue>
              </DetailItem>
            )}
+
+            {/* NEW: Task Management Section */}
+            <SectionHeader style={{ marginTop: '2rem' }}>
+                <SectionTitle><FaTasks /> Tasks for This Site</SectionTitle>
+                <Button variant="primary" size="sm" onClick={() => setIsAddTaskModalOpen(true)}>
+                    <FaPlus /> Add Task
+                </Button>
+            </SectionHeader>
+            <TaskTable
+                tasks={siteTasks}
+                loading={tasksLoading}
+                pagination={{ page: 1, total: siteTasks.length, limit: siteTasks.length, totalPages: 1 }} // Simple pagination for modal context
+                onEdit={handleEditTask}
+                onDelete={handleDeleteTask}
+                onView={handleViewTask}
+                onPageChange={() => {}} // No actual pagination in this context for now
+                hideSiteColumn={true} // Hide site column as it's already implicitly for this site
+            />
+            {/* END NEW */}
+
         </ModalBody>
         <ModalFooter>
           <Button variant="secondary" onClick={onClose}>Close</Button>
         </ModalFooter>
+
+        {/* Task Modals */}
+        {isAddTaskModalOpen && (
+            <AddEditTaskModal 
+                onClose={() => setIsAddTaskModalOpen(false)} 
+                onSave={handleCreateTask} 
+                loading={tasksLoading} 
+                sites={allSites} // Pass all sites for dropdown
+                allTasks={tasks} // Pass all tasks for parent/dependency selection
+            />
+        )}
+        {isEditTaskModalOpen && selectedTask && (
+            <AddEditTaskModal 
+                onClose={() => setIsEditTaskModalOpen(false)} 
+                onSave={handleUpdateTask} 
+                loading={tasksLoading} 
+                taskToEdit={selectedTask} 
+                sites={allSites}
+                allTasks={tasks}
+            />
+        )}
+        {isViewTaskModalOpen && selectedTask && (
+            <ViewTaskModal 
+                onClose={() => setIsViewTaskModalOpen(false)} 
+                task={selectedTask} 
+            />
+        )}
       </ModalContent>
     </ModalOverlay>
   );

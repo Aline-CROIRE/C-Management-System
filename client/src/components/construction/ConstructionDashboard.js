@@ -1,4 +1,3 @@
-// client/src/components/construction/ConstructionDashboard.js
 "use client";
 
 import React, { useState } from "react";
@@ -6,37 +5,33 @@ import styled from "styled-components";
 import {
   FaTruck,
   FaWrench,
-  FaUsers,
   FaChartLine,
   FaPlus,
-  FaEdit,
-  FaEye,
   FaDownload,
   FaExclamationTriangle,
-  FaCheckCircle,
   FaClock,
   FaTools,
   FaBuilding,
   FaDollarSign,
-  FaCalendarAlt,
-  FaClipboardList,
-  FaUserTie,
-  FaFilter,
-  FaUndo,
   FaChartBar,
   FaTasks,
 } from "react-icons/fa";
+
 import Card from "../../components/common/Card";
 import Button from "../../components/common/Button";
 import LoadingSpinner from "../../components/common/LoadingSpinner";
-import { useConstructionManagement } from "../../hooks/useConstractionManagement";
-import moment from "moment";
+import { useConstructionManagement } from "../../hooks/useConstructionManagement";
 import SiteTable from "./SiteTable";
 import EquipmentTable from "./EquipmentTable";
 import AddSiteModal from "./AddSiteModal";
 import AddEquipmentModal from "./AddEquipmentModal";
 import ViewSiteModal from "./ViewSiteModal";
 import ViewEquipmentModal from "./ViewEquipmentModal";
+
+import TaskTable from "./task-management/TaskTable";
+import AddEditTaskModal from "./task-management/AddEditTaskModal";
+import ViewTaskModal from "./task-management/ViewTaskModal";
+
 
 const fluidText = (minPx, maxPx) => `clamp(${minPx / 16}rem, ${(minPx / 16)}rem + ${(maxPx - minPx) / (1920 - 320)}vw, ${maxPx / 16}rem)`;
 
@@ -121,7 +116,7 @@ const StatsGrid = styled.div`
 `;
 
 const StatCard = styled(Card)`
-  background: ${(props) => props.theme.colors?.surface || "#ffffff"};
+  background: ${(props) => props.theme?.colors?.surface || "#ffffff"};
   border: none;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
@@ -158,8 +153,8 @@ const StatIconWrapper = styled.div`
   width: 48px;
   height: 48px;
   border-radius: 0.75rem;
-  background: ${(props) => props.$background || props.theme.colors?.primary}20;
-  color: ${(props) => props.$color || props.theme.colors?.primary};
+  background: ${(props) => props.$background || props.theme?.colors?.primary}20;
+  color: ${(props) => props.$color || props.theme?.colors?.primary};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -174,9 +169,9 @@ const StatIconWrapper = styled.div`
 `;
 
 const StatValue = styled.div`
+  color: ${(props) => props.theme?.colors?.text || "#2d3748"};
   font-size: ${fluidText(24, 30)};
   font-weight: 700;
-  color: ${(props) => props.theme.colors?.text || "#2d3748"};
   margin-bottom: 0.25rem;
   @media (max-width: 480px) {
     font-size: ${fluidText(20, 24)};
@@ -184,8 +179,8 @@ const StatValue = styled.div`
 `;
 
 const StatLabel = styled.div`
+  color: ${(props) => props.theme?.colors?.textSecondary || "#718096"};
   font-size: ${fluidText(12, 14)};
-  color: ${(props) => props.theme.colors?.textSecondary || "#718096"};
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -200,7 +195,7 @@ const StatFooter = styled.div`
   gap: 0.5rem;
   font-size: ${fluidText(12, 14)};
   font-weight: 600;
-  color: ${(props) => props.$color || props.theme.colors?.primary};
+  color: ${(props) => props.$color || props.theme?.colors?.primary};
   margin-top: 1rem;
 
   @media (max-width: 480px) {
@@ -231,9 +226,9 @@ const SectionHeader = styled.div`
 `;
 
 const SectionTitle = styled.h2`
+  color: ${(props) => props.theme?.colors?.text || "#2d3748"};
   font-size: ${fluidText(20, 24)};
   font-weight: 600;
-  color: ${(props) => props.theme.colors?.text || "#2d3748"};
   margin: 0;
   display: flex;
   align-items: center;
@@ -262,11 +257,13 @@ const SectionActions = styled.div`
 
 const ConstructionDashboard = () => {
   const {
-    sites, equipment, stats, loading, error, refreshAllData,
+    sites, equipment, tasks, stats, loading, error, refreshAllData,
     createSite, updateSite, deleteSite,
     createEquipment, updateEquipment, deleteEquipment,
-    paginationSites, changePageSites, filtersSites, updateFiltersSites,
-    paginationEquipment, changePageEquipment, filtersEquipment, updateFiltersEquipment,
+    createTask, updateTask, deleteTask,
+    paginationSites, changePageSites,
+    paginationEquipment, changePageEquipment,
+    paginationTasks, changePageTasks,
   } = useConstructionManagement();
 
   const [isAddSiteModalOpen, setIsAddSiteModalOpen] = useState(false);
@@ -279,8 +276,12 @@ const ConstructionDashboard = () => {
   const [isViewEquipmentModalOpen, setIsViewEquipmentModalOpen] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState(null);
 
+  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
+  const [isViewTaskModalOpen, setIsViewTaskModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+
   const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  const formatPercentage = (value) => `${Number(value || 0).toFixed(0)}%`;
   const formatNumber = (num) => Number(num || 0).toLocaleString();
 
   const handleEditSite = (site) => { setSelectedSite(site); setIsEditSiteModalOpen(true); };
@@ -291,7 +292,13 @@ const ConstructionDashboard = () => {
   const handleViewEquipment = (eq) => { setSelectedEquipment(eq); setIsViewEquipmentModalOpen(true); };
   const handleDeleteEquipment = async (id) => { if (window.confirm("Are you sure you want to delete this equipment?")) await deleteEquipment(id); };
 
-  if (loading && (!sites.length && !equipment.length && !stats.totalSites)) {
+  const handleEditTask = (task) => { setSelectedTask(task); setIsEditTaskModalOpen(true); };
+  const handleViewTask = (task) => { setSelectedTask(task); setIsViewTaskModalOpen(true); };
+  const handleDeleteTask = async (id) => { if (window.confirm("Are you sure you want to delete this task?")) await deleteTask(id); };
+
+  // This loading check should ideally cover the initial state when data might not yet be fetched.
+  // The `stats.sites?.total === 0` is a good safeguard, but ensures it doesn't perpetually show spinner if 0 is a valid state.
+  if (loading && (!sites.length && !equipment.length && !tasks.length && stats.sites?.total === 0)) {
     return (
       <div style={{ display: 'grid', placeItems: 'center', minHeight: '80vh' }}>
         <LoadingSpinner /><p style={{ marginTop: '1rem', fontSize: '1rem', color: '#718096' }}>Loading construction data...</p>
@@ -304,7 +311,8 @@ const ConstructionDashboard = () => {
       <Card style={{ padding: '2rem', textAlign: 'center', background: '#ffebee', color: '#d32f2f' }}>
         <FaExclamationTriangle size={32} style={{ marginBottom: '1rem' }} />
         <h3>Error Loading Construction Data</h3>
-        <p>{error}</p>
+        {/* CORRECTED: Access the .message property of the error object */}
+        <p>{error.message || "An unexpected error occurred while fetching data."}</p>
         <Button variant="primary" onClick={refreshAllData} style={{ marginTop: '1rem' }}>Try Again</Button>
       </Card>
     );
@@ -325,7 +333,7 @@ const ConstructionDashboard = () => {
         <StatCard>
           <StatContentTop>
             <div>
-              <StatValue>{formatNumber(stats.activeSites)}</StatValue>
+              <StatValue>{formatNumber(stats.sites.active)}</StatValue>
               <StatLabel>Active Sites</StatLabel>
             </div>
             <StatIconWrapper $background="linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%)" $color="white">
@@ -333,14 +341,14 @@ const ConstructionDashboard = () => {
             </StatIconWrapper>
           </StatContentTop>
           <StatFooter $color="#4CAF50">
-            <FaChartLine /> {formatNumber(stats.totalSites)} Total Projects
+            <FaChartLine /> {formatNumber(stats.sites.total)} Total Projects
           </StatFooter>
         </StatCard>
 
         <StatCard>
           <StatContentTop>
             <div>
-              <StatValue>{formatNumber(stats.totalEquipment)}</StatValue>
+              <StatValue>{formatNumber(stats.equipment.total)}</StatValue>
               <StatLabel>Equipment Units</StatLabel>
             </div>
             <StatIconWrapper $background="linear-gradient(135deg, #2196F3 0%, #64B5F6 100%)" $color="white">
@@ -348,29 +356,29 @@ const ConstructionDashboard = () => {
             </StatIconWrapper>
           </StatContentTop>
           <StatFooter $color="#2196F3">
-            <FaChartLine /> {formatPercentage(stats.avgEquipmentUtilization)} utilization
+            <FaChartLine /> {formatNumber(stats.equipment.operational)} Operational
           </StatFooter>
         </StatCard>
 
         <StatCard>
           <StatContentTop>
             <div>
-              <StatValue>{formatNumber(stats.totalWorkers)}</StatValue>
-              <StatLabel>Total Workers</StatLabel>
+              <StatValue>{formatNumber(stats.tasks.total)}</StatValue>
+              <StatLabel>Total Tasks</StatLabel>
             </div>
             <StatIconWrapper $background="linear-gradient(135deg, #FFC107 0%, #FFD54F 100%)" $color="white">
-              <FaUsers />
+              <FaTasks />
             </StatIconWrapper>
           </StatContentTop>
           <StatFooter $color="#FFC107">
-            <FaChartBar /> Avg. Progress {formatPercentage(stats.averageProgress)}
+            <FaChartBar /> {formatNumber(stats.tasks.pending)} Pending
           </StatFooter>
         </StatCard>
 
         <StatCard>
           <StatContentTop>
             <div>
-              <StatValue>{formatNumber(stats.maintenanceDueEquipment)}</StatValue>
+              <StatValue>{formatNumber(stats.equipment.inMaintenance)}</StatValue>
               <StatLabel>Maintenance Due</StatLabel>
             </div>
             <StatIconWrapper $background="linear-gradient(135deg, #F44336 0%, #EF5350 100%)" $color="white">
@@ -385,7 +393,7 @@ const ConstructionDashboard = () => {
         <StatCard>
           <StatContentTop>
             <div>
-              <StatValue>{formatCurrency(stats.totalBudget)}</StatValue>
+              <StatValue>{formatCurrency(stats.sites.totalBudget)}</StatValue>
               <StatLabel>Total Budget</StatLabel>
             </div>
             <StatIconWrapper $background="linear-gradient(135deg, #673AB7 0%, #9575CD 100%)" $color="white">
@@ -393,14 +401,14 @@ const ConstructionDashboard = () => {
             </StatIconWrapper>
           </StatContentTop>
           <StatFooter $color="#673AB7">
-            <FaTasks /> {formatCurrency(stats.totalExpenditure)} spent
+            <FaTasks /> {formatCurrency(stats.sites.totalExpenditure)} spent
           </StatFooter>
         </StatCard>
 
         <StatCard>
           <StatContentTop>
             <div>
-              <StatValue>{formatNumber(stats.delayedSites)}</StatValue>
+              <StatValue>{formatNumber(stats.sites.delayed)}</StatValue>
               <StatLabel>Delayed Sites</StatLabel>
             </div>
             <StatIconWrapper $background="linear-gradient(135deg, #FF9800 0%, #FFB74D 100%)" $color="white">
@@ -457,6 +465,29 @@ const ConstructionDashboard = () => {
         />
       </SectionContainer>
 
+      <SectionContainer>
+        <SectionHeader>
+          <SectionTitle>
+            <FaTasks /> Project Tasks
+          </SectionTitle>
+          <SectionActions>
+            <Button variant="outline" size="sm"><FaDownload /> Export Tasks</Button>
+            <Button variant="primary" size="sm" onClick={() => setIsAddTaskModalOpen(true)}><FaPlus /> Add Task</Button>
+          </SectionActions>
+        </SectionHeader>
+
+        <TaskTable
+          tasks={tasks}
+          loading={loading}
+          pagination={paginationTasks}
+          onPageChange={changePageTasks}
+          onEdit={handleEditTask}
+          onDelete={handleDeleteTask}
+          onView={handleViewTask}
+        />
+      </SectionContainer>
+
+
       {/* Modals */}
       {isAddSiteModalOpen && <AddSiteModal onClose={() => setIsAddSiteModalOpen(false)} onSave={createSite} loading={loading} />}
       {isEditSiteModalOpen && selectedSite && <AddSiteModal onClose={() => setIsEditSiteModalOpen(false)} onSave={updateSite} loading={loading} siteToEdit={selectedSite} />}
@@ -465,6 +496,32 @@ const ConstructionDashboard = () => {
       {isAddEquipmentModalOpen && <AddEquipmentModal onClose={() => setIsAddEquipmentModalOpen(false)} onSave={createEquipment} loading={loading} sites={sites} />}
       {isEditEquipmentModalOpen && selectedEquipment && <AddEquipmentModal onClose={() => setIsEditEquipmentModalOpen(false)} onSave={updateEquipment} loading={loading} equipmentToEdit={selectedEquipment} sites={sites} />}
       {isViewEquipmentModalOpen && selectedEquipment && <ViewEquipmentModal onClose={() => setIsViewEquipmentModalOpen(false)} equipment={selectedEquipment} />}
+
+      {isAddTaskModalOpen && (
+          <AddEditTaskModal
+              onClose={() => setIsAddTaskModalOpen(false)}
+              onSave={createTask}
+              loading={loading}
+              sites={sites}
+              allTasks={tasks}
+          />
+      )}
+      {isEditTaskModalOpen && selectedTask && (
+          <AddEditTaskModal
+              onClose={() => setIsEditTaskModalOpen(false)}
+              onSave={updateTask}
+              loading={loading}
+              taskToEdit={selectedTask}
+              sites={sites}
+              allTasks={tasks}
+          />
+      )}
+      {isViewTaskModalOpen && selectedTask && (
+          <ViewTaskModal
+              onClose={() => setIsViewTaskModalOpen(false)}
+              task={selectedTask}
+          />
+      )}
     </>
   );
 };

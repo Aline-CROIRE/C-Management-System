@@ -1,17 +1,15 @@
 import axios from "axios";
-import { toast } from "react-toastify"; // Ensure toast is imported for interceptors
+import { toast } from "react-toastify"; // Note: your useConstructionManagement uses 'react-hot-toast' but api.js uses 'react-toastify'. Ensure consistency if needed.
 
 const api = axios.create({
-  // Use REACT_APP_API_URL which should be set to your deployed backend (e.g., https://your-backend.onrender.com/api)
   baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/api",
-  timeout: 30000, // 30 seconds timeout for requests
+  timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true, // Important for sending cookies/auth headers across domains
+  withCredentials: true,
 });
 
-// Request Interceptor: Attach JWT token to outgoing requests
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token") || sessionStorage.getItem("token");
@@ -21,39 +19,34 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
-    return Promise.reject(error); // Forward request errors
+    return Promise.reject(error);
   }
 );
 
-// Response Interceptor: Handle global errors and unauthorized responses
 api.interceptors.response.use(
   (response) => {
-    // If the responseType is 'blob' (e.g., for file downloads), return raw data
     if (response.config.responseType === 'blob') {
       return response.data;
     }
-    // For JSON responses, unwrap response.data directly
+    // This interceptor already unwraps the axios response,
+    // so 'response.data' here is the actual JSON object from your backend.
     return response.data;
   },
   (error) => {
     const errorMessage = error.response?.data?.message || error.message || "An unexpected error occurred.";
-    
-    // Handle 401 Unauthorized errors globally
     if (error.response?.status === 401 && window.location.pathname !== "/login") {
-        toast.error("Session expired. Please log in again.");
-        localStorage.clear(); // Clear local storage on session expiry
-        sessionStorage.clear(); // Clear session storage
-        window.location.href = "/login"; // Redirect to login page
+      toast.error("Session expired. Please log in again.");
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = "/login";
     } else {
-        // Show other errors using react-toastify
-        toast.error(errorMessage);
+      toast.error(errorMessage);
     }
-    // Reject the promise to propagate the error down to the calling code
+    // Crucially, reject with a new Error containing the message,
+    // so the catch blocks in useConstructionManagement can access err.message
     return Promise.reject(new Error(errorMessage));
   }
 );
-
-// --- API Module Exports ---
 
 export const authAPI = {
   login: (credentials) => api.post("/auth/login", credentials),
@@ -65,7 +58,7 @@ export const authAPI = {
 export const dashboardAPI = {
   getStats: () => api.get("/dashboard/stats"),
   getRecentActivity: () => api.get("/dashboard/recent-activity"),
-  getNotifications: () => api.get("/dashboard/notifications"), // Potentially redundant if notificationsAPI is used
+  getNotifications: () => api.get("/dashboard/notifications"),
 };
 
 export const usersAPI = {
@@ -82,7 +75,7 @@ export const inventoryAPI = {
   create: (itemData) => api.post("/inventory", itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   update: (id, itemData) => api.put(`/inventory/${id}`, itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => api.delete(`/inventory/${id}`),
-  getStats: (params) => api.get("/inventory/stats", { params }), // Expects stats data
+  getStats: (params) => api.get("/inventory/stats", { params }),
   exportInventory: (format, filters) => api.get(`/inventory/export/${format}`, { params: filters, responseType: 'blob' }),
   getDistinctUnits: () => api.get("/inventory/units"),
 };
@@ -116,9 +109,7 @@ export const poAPI = {
     }
     return api.patch(`/purchase-orders/${id}/status`, payload);
   },
-  generatePDF: (id) => api.get(`/purchase-orders/${id}/pdf`, {
-    responseType: 'blob',
-  }),
+  generatePDF: (id) => api.get(`/purchase-orders/${id}/pdf`, { responseType: 'blob' }),
 };
 
 export const notificationsAPI = {
@@ -150,19 +141,89 @@ export const reportsAPI = {
 };
 
 export const constructionAPI = {
-  getSites: (params) => api.get("/construction/sites", { params }),
-  getSiteById: (id) => api.get(`/construction/sites/${id}`),
-  createSite: (siteData) => api.post("/construction/sites", siteData),
-  updateSite: (id, siteData) => api.put(`/construction/sites/${id}`, siteData),
-  deleteSite: (id) => api.delete(`/construction/sites/${id}`),
+  getSites: async (params) => {
+    const fullResponse = await api.get('/construction/sites', { params });
+    console.log("Sites Full API Response:", fullResponse); // Log the full object for debugging
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+  getSiteById: async (id) => {
+    const fullResponse = await api.get(`/construction/sites/${id}`);
+    console.log("Site Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+  createSite: async (siteData) => {
+    const fullResponse = await api.post('/construction/sites', siteData);
+    console.log("Create Site Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+  updateSite: async (id, siteData) => {
+    const fullResponse = await api.put(`/construction/sites/${id}`, siteData);
+    console.log("Update Site Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+  deleteSite: async (id) => {
+    const fullResponse = await api.delete(`/construction/sites/${id}`);
+    console.log("Delete Site Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
 
-  getEquipment: (params) => api.get("/construction/equipment", { params }),
-  getEquipmentById: (id) => api.get(`/construction/equipment/${id}`),
-  createEquipment: (equipmentData) => api.post("/construction/equipment", equipmentData),
-  updateEquipment: (id, equipmentData) => api.put(`/construction/equipment/${id}`, equipmentData),
-  deleteEquipment: (id) => api.delete(`/construction/equipment/${id}`),
+  getEquipment: async (params) => {
+    const fullResponse = await api.get('/construction/equipment', { params });
+    console.log("Equipment Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+  getEquipmentById: async (id) => {
+    const fullResponse = await api.get(`/construction/equipment/${id}`);
+    console.log("Equipment by ID Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+  createEquipment: async (equipmentData) => {
+    const fullResponse = await api.post('/construction/equipment', equipmentData);
+    console.log("Create Equipment Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+  updateEquipment: async (id, equipmentData) => {
+    const fullResponse = await api.put(`/construction/equipment/${id}`, equipmentData);
+    console.log("Update Equipment Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+  deleteEquipment: async (id) => {
+    const fullResponse = await api.delete(`/construction/equipment/${id}`);
+    console.log("Delete Equipment Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
 
-  getStats: () => api.get("/construction/stats"),
+  getStats: async () => {
+    const fullResponse = await api.get('/construction/stats');
+    console.log("Stats Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+
+  getTasks: async (params) => {
+    const fullResponse = await api.get('/construction/tasks', { params });
+    console.log("Tasks Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+  getTaskById: async (id) => {
+    const fullResponse = await api.get(`/construction/tasks/${id}`);
+    console.log("Task by ID Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+  createTask: async (taskData) => {
+    const fullResponse = await api.post('/construction/tasks', taskData);
+    console.log("Create Task Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+  updateTask: async (id, taskData) => {
+    const fullResponse = await api.put(`/construction/tasks/${id}`, taskData);
+    console.log("Update Task Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
+  deleteTask: async (id) => {
+    const fullResponse = await api.delete(`/construction/tasks/${id}`);
+    console.log("Delete Task Full API Response:", fullResponse);
+    return fullResponse; // RETURN THE FULL OBJECT
+  },
 };
 
 export default api;

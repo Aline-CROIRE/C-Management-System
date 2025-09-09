@@ -1,71 +1,57 @@
 const mongoose = require('mongoose');
 
-const constructionSiteSchema = new mongoose.Schema({
-    user: { // For multi-tenancy
+const ConstructionSiteSchema = new mongoose.Schema({
+    user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true,
-        index: true,
     },
     name: {
         type: String,
-        required: [true, 'Site name is required.'],
+        required: true,
         trim: true,
-        maxlength: [100, 'Site name cannot exceed 100 characters.'],
     },
-    projectCode: { // Unique identifier for the project
+    projectCode: {
         type: String,
-        required: [true, 'Project code is required.'],
+        required: true,
         unique: true,
-        trim: true,
         uppercase: true,
-        maxlength: [20, 'Project code cannot exceed 20 characters.'],
+        trim: true,
     },
-    type: { // e.g., "Commercial", "Residential", "Industrial"
+    type: {
         type: String,
         enum: ['Commercial', 'Residential', 'Industrial', 'Infrastructure', 'Other'],
         default: 'Commercial',
     },
-    location: { // Physical address or coordinates
+    location: {
         type: String,
-        required: [true, 'Location is required.'],
+        required: true,
         trim: true,
-    },
-    status: { // e.g., "Planning", "Active", "On-Hold", "Delayed", "Completed"
-        type: String,
-        enum: ['Planning', 'Active', 'On-Hold', 'Delayed', 'Completed', 'Cancelled'],
-        default: 'Planning',
-        index: true,
-    },
-    progress: { // Percentage completion
-        type: Number,
-        default: 0,
-        min: [0, 'Progress cannot be negative.'],
-        max: [100, 'Progress cannot exceed 100%.'],
     },
     startDate: {
         type: Date,
-        required: [true, 'Start date is required.'],
+        required: true,
     },
-    endDate: { // Expected completion date
+    endDate: {
         type: Date,
-        required: [true, 'Expected end date is required.'],
+        required: true,
     },
-    actualEndDate: { // Actual completion date
+    actualEndDate: {
         type: Date,
     },
-    budget: { // Total allocated budget
+    budget: {
         type: Number,
-        required: [true, 'Budget is required.'],
-        min: [0, 'Budget cannot be negative.'],
+        required: true,
+        min: 0,
     },
-    expenditure: { // Total spent so far
+    expenditure: {
         type: Number,
         default: 0,
-        min: [0, 'Expenditure cannot be negative.'],
+        min: 0,
     },
-    manager: { // Who is managing this site (e.g., a User ID or string name)
-        type: String, // For simplicity, a string name for now
+    manager: {
+        type: String,
+        required: true,
         trim: true,
     },
     description: {
@@ -76,10 +62,44 @@ const constructionSiteSchema = new mongoose.Schema({
         type: String,
         trim: true,
     },
-    // Future fields could include: materials_needed: [], workers_assigned: [] etc.
-}, { timestamps: true });
+    status: {
+        type: String,
+        enum: ['Planning', 'Active', 'On-Hold', 'Delayed', 'Completed', 'Cancelled'],
+        default: 'Planning',
+    },
+    progress: {
+        type: Number,
+        min: 0,
+        max: 100,
+        default: 0,
+    },
+    workers: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
+    equipmentCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
+    tasks: [{ // Reference to Task model
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Task',
+    }],
+    createdAt: {
+        type: Date,
+        default: Date.now,
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now,
+    },
+});
 
-// Ensure projectCode is unique per user
-constructionSiteSchema.index({ user: 1, projectCode: 1 }, { unique: true });
+ConstructionSiteSchema.pre('save', function (next) {
+    this.updatedAt = Date.now();
+    next();
+});
 
-module.exports = mongoose.model('ConstructionSite', constructionSiteSchema);
+module.exports = mongoose.model('ConstructionSite', ConstructionSiteSchema);
