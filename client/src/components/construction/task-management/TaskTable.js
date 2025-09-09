@@ -3,12 +3,13 @@
 import React, { useState, useMemo } from "react";
 import styled from "styled-components";
 import {
-  FaTools, FaEdit, FaEye, FaTrash,
-  FaSort, FaSortUp, FaSortDown, FaTag,
-  FaChevronLeft, FaChevronRight, FaWrench, FaBuilding, FaCheckCircle, FaExclamationTriangle, FaClock, FaInfoCircle
+  FaClipboardList, FaEdit, FaEye, FaTrash,
+  FaSort, FaSortUp, FaSortDown, FaCalendarAlt, 
+  FaChevronLeft, FaChevronRight, FaInfoCircle, FaStar, FaUserPlus, FaSitemap, FaCheckCircle, FaExclamationTriangle, FaClock,
+  FaTimes
 } from "react-icons/fa";
-import Button from "../common/Button";
-import LoadingSpinner from "../common/LoadingSpinner";
+import Button from "../../common/Button";
+import LoadingSpinner from "../../common/LoadingSpinner";
 import moment from "moment";
 
 const TableWrapper = styled.div`
@@ -35,7 +36,7 @@ const TableContainer = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 1100px;
+  min-width: 1000px;
 `;
 
 const TableHeader = styled.thead`
@@ -108,17 +109,17 @@ const TableCell = styled.td`
   }
 `;
 
-const EquipmentInfo = styled.div`
+const TaskInfo = styled.div`
   display: flex;
   flex-direction: column;
 `;
 
-const EquipmentName = styled.div`
+const TaskName = styled.div`
   font-weight: 600;
   color: ${(props) => props.theme?.colors?.heading || "#1a202c"};
 `;
 
-const EquipmentTag = styled.div`
+const TaskSite = styled.div`
   font-size: 0.8rem;
   color: ${(props) => props.theme?.colors?.textSecondary || "#718096"};
   display: flex;
@@ -138,12 +139,23 @@ const StatusBadge = styled.span`
 
   ${({ status, theme }) => {
     switch (status) {
-      case "Operational": return `background: ${theme?.colors?.success || "#4CAF50"}20; color: ${theme?.colors?.success || "#4CAF50"};`;
-      case "In Maintenance": return `background: ${theme?.colors?.warning || "#FFC107"}20; color: ${theme?.colors?.warning || "#FFC107"};`;
-      case "Idle": return `background: ${theme?.colors?.info || "#2196F3"}20; color: ${theme?.colors?.info || "#2196F3"};`;
-      case "Broken": return `background: ${theme?.colors?.error || "#F44336"}20; color: ${theme?.colors?.error || "#F44336"};`;
-      case "In Transit": return `background: ${theme?.colors?.primary || "#1b4332"}20; color: ${theme?.colors?.primary || "#1b4332"};`;
-      case "Out of Service": return `background: ${theme?.colors?.textSecondary || "#9E9E9E"}20; color: ${theme?.colors?.textSecondary || "#9E9E9E"};`;
+      case "To Do": return `background: ${theme?.colors?.info || "#2196F3"}20; color: ${theme?.colors?.info || "#2196F3"};`;
+      case "In Progress": return `background: ${theme?.colors?.primary || "#1b4332"}20; color: ${theme?.colors?.primary || "#1b4332"};`;
+      case "Blocked": return `background: ${theme?.colors?.error || "#F44336"}20; color: ${theme?.colors?.error || "#F44336"};`;
+      case "Completed": return `background: ${theme?.colors?.success || "#4CAF50"}20; color: ${theme?.colors?.success || "#4CAF50"};`;
+      case "Cancelled": return `background: ${theme?.colors?.textSecondary || "#9E9E9E"}20; color: ${theme?.colors?.textSecondary || "#9E9E9E"};`;
+      default: return `background: ${theme?.colors?.textSecondary || "#9E9E9E"}20; color: ${theme?.colors?.textSecondary || "#9E9E9E"};`;
+    }
+  }}
+`;
+
+const PriorityBadge = styled(StatusBadge)`
+  ${({ priority, theme }) => {
+    switch (priority) {
+      case "Low": return `background: ${theme?.colors?.info || "#2196F3"}20; color: ${theme?.colors?.info || "#2196F3"};`;
+      case "Medium": return `background: ${theme?.colors?.primary || "#1b4332"}20; color: ${theme?.colors?.primary || "#1b4332"};`;
+      case "High": return `background: ${theme?.colors?.warning || "#FFC107"}20; color: ${theme?.colors?.warning || "#FFC107"};`;
+      case "Critical": return `background: ${theme?.colors?.error || "#F44336"}20; color: ${theme?.colors?.error || "#F44336"};`;
       default: return `background: ${theme?.colors?.textSecondary || "#9E9E9E"}20; color: ${theme?.colors?.textSecondary || "#9E9E9E"};`;
     }
   }}
@@ -175,29 +187,30 @@ const TableFooter = styled.div`
 
 const PaginationControls = styled.div` display: flex; gap: 0.5rem; `;
 
-const EquipmentTable = ({
-  equipment = [],
+const TaskTable = ({
+  tasks = [],
   loading = false,
-  pagination = { page: 1, total: 0, limit: 10 },
+  pagination = { page: 1, total: 0, limit: 10, totalPages: 1 },
   onEdit,
   onDelete,
   onView,
   onPageChange,
+  hideSiteColumn = false,
 }) => {
-  const [sortConfig, setSortConfig] = useState({ key: "name", direction: "asc" });
+  const [sortConfig, setSortConfig] = useState({ key: "dueDate", direction: "asc" });
 
-  const sortedEquipment = useMemo(() => {
-    let sortableItems = [...equipment];
+  const sortedTasks = useMemo(() => {
+    let sortableItems = [...tasks];
     if (sortConfig.key) {
       sortableItems.sort((a, b) => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
         
-        if (sortConfig.key === 'currentSite') {
+        if (sortConfig.key === 'site') {
             aValue = a[sortConfig.key]?.name || '';
             bValue = b[sortConfig.key]?.name || '';
         }
-        if (['purchaseDate', 'lastMaintenance', 'nextMaintenance'].includes(sortConfig.key)) {
+        if (['startDate', 'dueDate', 'actualCompletionDate'].includes(sortConfig.key)) {
             aValue = moment(aValue).valueOf();
             bValue = moment(bValue).valueOf();
         }
@@ -211,7 +224,7 @@ const EquipmentTable = ({
       });
     }
     return sortableItems;
-  }, [equipment, sortConfig]);
+  }, [tasks, sortConfig]);
 
   const handleSort = (key) => {
     setSortConfig(current => ({
@@ -227,32 +240,34 @@ const EquipmentTable = ({
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case "Operational": return <FaCheckCircle />;
-      case "In Maintenance": case "Broken": return <FaExclamationTriangle />;
-      case "Idle": case "In Transit": case "Out of Service": return <FaClock />;
+      case "To Do": return <FaInfoCircle />;
+      case "In Progress": return <FaClock />;
+      case "Blocked": return <FaExclamationTriangle />;
+      case "Completed": return <FaCheckCircle />;
+      case "Cancelled": return <FaTimes />;
       default: return <FaInfoCircle />;
     }
   };
-  
-  if (loading && equipment.length === 0) {
+
+  if (loading && tasks.length === 0) {
     return <div style={{ display: "grid", placeItems: "center", padding: "4rem" }}><LoadingSpinner /></div>;
   }
 
-  if (!loading && equipment.length === 0) {
+  if (!loading && tasks.length === 0) {
     return (
       <TableWrapper>
         <EmptyState>
-          <FaTools className="icon" />
-          <h3>No Equipment Found</h3>
-          <p>Click "Add Equipment" to start tracking your machinery.</p>
+          <FaClipboardList className="icon" />
+          <h3>No Tasks Found</h3>
+          <p>This site does not have any tasks yet. Click "Add Task" to get started.</p>
         </EmptyState>
       </TableWrapper>
     );
   }
   
-  const totalPages = Math.ceil(pagination.total / pagination.limit) || 1;
-  const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-
+  const totalPages = pagination.totalPages || 1;
+  const currentPage = pagination.page || 1;
+  const totalItems = pagination.total || 0;
 
   return (
     <TableWrapper>
@@ -260,34 +275,38 @@ const EquipmentTable = ({
         <Table>
           <TableHeader>
             <tr>
-              <TableHeaderCell $sortable $sorted={sortConfig.key === "name"} onClick={() => handleSort("name")}>Equipment Name {getSortIcon("name")}</TableHeaderCell>
-              <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "assetTag"} onClick={() => handleSort("assetTag")}>Asset Tag {getSortIcon("assetTag")}</TableHeaderCell>
-              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "type"} onClick={() => handleSort("type")}>Type {getSortIcon("type")}</TableHeaderCell>
+              <TableHeaderCell $sortable $sorted={sortConfig.key === "name"} onClick={() => handleSort("name")}>Task Name {getSortIcon("name")}</TableHeaderCell>
+              {!hideSiteColumn && (
+                <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "site"} onClick={() => handleSort("site")}>Site {getSortIcon("site")}</TableHeaderCell>
+              )}
+              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "assignedTo"} onClick={() => handleSort("assignedTo")}>Assigned To {getSortIcon("assignedTo")}</TableHeaderCell>
               <TableHeaderCell $sortable $sorted={sortConfig.key === "status"} onClick={() => handleSort("status")}>Status {getSortIcon("status")}</TableHeaderCell>
-              <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "currentSite"} onClick={() => handleSort("currentSite")}>Assigned Site {getSortIcon("currentSite")}</TableHeaderCell>
-              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "nextMaintenance"} onClick={() => handleSort("nextMaintenance")}>Next Maintenance {getSortIcon("nextMaintenance")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "priority"} onClick={() => handleSort("priority")}>Priority {getSortIcon("priority")}</TableHeaderCell>
+              <TableHeaderCell $sortable $sorted={sortConfig.key === "dueDate"} onClick={() => handleSort("dueDate")}>Due Date {getSortIcon("dueDate")}</TableHeaderCell>
               <TableHeaderCell>Actions</TableHeaderCell>
             </tr>
           </TableHeader>
           <TableBody>
-            {sortedEquipment.map((eq) => (
-              <TableRow key={eq._id}>
+            {sortedTasks.map((task) => (
+              <TableRow key={task._id}>
                 <TableCell>
-                  <EquipmentInfo>
-                    <EquipmentName>{eq.name}</EquipmentName>
-                    <EquipmentTag><FaTag /> {eq.assetTag}</EquipmentTag>
-                  </EquipmentInfo>
+                  <TaskInfo>
+                    <TaskName>{task.name}</TaskName>
+                    <TaskSite>{task.parentTask?.name ? `Sub-task of: ${task.parentTask.name}` : ''}</TaskSite>
+                  </TaskInfo>
                 </TableCell>
-                <TableCell className="hide-on-mobile">{eq.assetTag}</TableCell>
-                <TableCell className="hide-on-tablet">{eq.type}</TableCell>
-                <TableCell><StatusBadge status={eq.status}>{getStatusIcon(eq.status)} {eq.status}</StatusBadge></TableCell>
-                <TableCell className="hide-on-mobile">{eq.currentSite?.name || 'None'}</TableCell>
-                <TableCell className="hide-on-tablet">{moment(eq.nextMaintenance).format('MMM Do, YYYY')}</TableCell>
+                {!hideSiteColumn && (
+                  <TableCell className="hide-on-mobile">{task.site?.name || 'N/A'}</TableCell>
+                )}
+                <TableCell className="hide-on-tablet">{task.assignedTo || 'Unassigned'}</TableCell>
+                <TableCell><StatusBadge status={task.status}>{getStatusIcon(task.status)} {task.status}</StatusBadge></TableCell>
+                <TableCell className="hide-on-mobile"><PriorityBadge priority={task.priority}><FaStar /> {task.priority}</PriorityBadge></TableCell>
+                <TableCell>{moment(task.dueDate).format('MMM Do, YYYY')}</TableCell>
                 <TableCell>
                   <ActionButtonGroup>
-                    <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(eq)}><FaEye /></Button>
-                    <Button size="sm" variant="ghost" iconOnly title="Edit Equipment" onClick={() => onEdit(eq)}><FaEdit /></Button>
-                    <Button size="sm" variant="ghost" iconOnly title="Delete Equipment" onClick={() => onDelete(eq._id)}><FaTrash style={{color: '#c53030'}}/></Button>
+                    <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(task)}><FaEye /></Button>
+                    <Button size="sm" variant="ghost" iconOnly title="Edit Task" onClick={() => onEdit(task)}><FaEdit /></Button>
+                    <Button size="sm" variant="ghost" iconOnly title="Delete Task" onClick={() => onDelete(task._id)}><FaTrash style={{color: '#c53030'}}/></Button>
                   </ActionButtonGroup>
                 </TableCell>
               </TableRow>
@@ -296,14 +315,14 @@ const EquipmentTable = ({
         </Table>
       </TableContainer>
       <TableFooter>
-        <span>Page {pagination.page} of {totalPages} ({pagination.total.toLocaleString()} items)</span>
+        <span>Page {currentPage} of {totalPages} ({totalItems.toLocaleString()} tasks)</span>
         <PaginationControls>
-          <Button size="sm" variant="secondary" onClick={() => onPageChange(pagination.page - 1)} disabled={pagination.page <= 1}><FaChevronLeft /> Prev</Button>
-          <Button size="sm" variant="secondary" onClick={() => onPageChange(pagination.page + 1)} disabled={pagination.page >= totalPages}>Next <FaChevronRight /></Button>
+          <Button size="sm" variant="secondary" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage <= 1}><FaChevronLeft /> Prev</Button>
+          <Button size="sm" variant="secondary" onClick={() => onPageChange(currentPage + 1)} disabled={currentPage >= totalPages}>Next <FaChevronRight /></Button>
         </PaginationControls>
       </TableFooter>
     </TableWrapper>
   );
 };
 
-export default EquipmentTable;
+export default TaskTable;

@@ -1,46 +1,55 @@
 const mongoose = require('mongoose');
 
-const equipmentSchema = new mongoose.Schema({
-    user: { // For multi-tenancy
+const EquipmentSchema = new mongoose.Schema({
+    user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true,
-        index: true,
     },
     name: {
         type: String,
-        required: [true, 'Equipment name is required.'],
+        required: true,
         trim: true,
-        maxlength: [100, 'Equipment name cannot exceed 100 characters.'],
     },
-    assetTag: { // Unique identifier for the equipment
+    assetTag: {
         type: String,
-        required: [true, 'Asset tag is required.'],
+        required: true,
         unique: true,
-        trim: true,
         uppercase: true,
-        maxlength: [50, 'Asset tag cannot exceed 50 characters.'],
+        trim: true,
     },
-    type: { // e.g., "Heavy Machinery", "Hand Tool", "Vehicle", "Safety Gear"
+    type: {
         type: String,
         enum: ['Heavy Machinery', 'Hand Tool', 'Vehicle', 'Safety Gear', 'Lifting Equipment', 'Other'],
-        default: 'Heavy Machinery',
+        required: true,
     },
-    currentSite: { // The site where this equipment is currently assigned
+    currentSite: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ConstructionSite',
-        // Not required, as equipment might be in storage or transit
+        default: null, // Can be unassigned
     },
-    status: { // e.g., "Operational", "In Maintenance", "Idle", "Broken", "In Transit"
+    status: {
         type: String,
         enum: ['Operational', 'In Maintenance', 'Idle', 'Broken', 'In Transit', 'Out of Service'],
         default: 'Operational',
-        index: true,
     },
-    condition: { // e.g., "Excellent", "Good", "Fair", "Poor"
+    condition: {
         type: String,
         enum: ['Excellent', 'Good', 'Fair', 'Poor'],
         default: 'Good',
+    },
+    purchaseDate: {
+        type: Date,
+        required: true,
+    },
+    purchaseCost: {
+        type: Number,
+        required: true,
+        min: 0,
+    },
+    currentValue: { // Depreciated value
+        type: Number,
+        min: 0,
     },
     lastMaintenance: {
         type: Date,
@@ -48,25 +57,34 @@ const equipmentSchema = new mongoose.Schema({
     nextMaintenance: {
         type: Date,
     },
-    purchaseDate: {
-        type: Date,
-    },
-    purchaseCost: {
+    utilization: { // Percentage
         type: Number,
-        min: [0, 'Purchase cost cannot be negative.'],
-    },
-    currentValue: { // Depreciated value
-        type: Number,
-        min: [0, 'Current value cannot be negative.'],
+        min: 0,
+        max: 100,
+        default: 0,
     },
     notes: {
         type: String,
         trim: true,
     },
-    // Future fields could include: maintenance_history: [], service_provider: []
-}, { timestamps: true });
+    // Future fields:
+    // assignedTasks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Task' }],
+    // scheduledAvailability: [{ startDate: Date, endDate: Date, site: ObjectId }],
+    // fuelConsumptionLogs: [{ date: Date, quantity: Number }],
+    // gpsCoordinates: { lat: Number, lng: Number, timestamp: Date },
+    createdAt: {
+        type: Date,
+        default: Date.now,
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now,
+    },
+});
 
-// Ensure assetTag is unique per user
-equipmentSchema.index({ user: 1, assetTag: 1 }, { unique: true });
+EquipmentSchema.pre('save', function (next) {
+    this.updatedAt = Date.now();
+    next();
+});
 
-module.exports = mongoose.model('Equipment', equipmentSchema);
+module.exports = mongoose.model('Equipment', EquipmentSchema);

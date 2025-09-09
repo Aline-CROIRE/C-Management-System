@@ -12,11 +12,11 @@ import LoadingSpinner from "../common/LoadingSpinner";
 import moment from "moment";
 
 const TableWrapper = styled.div`
-  background: ${(props) => props.theme.colors.surface};
-  border-radius: ${(props) => props.theme.borderRadius.xl};
-  box-shadow: ${(props) => props.theme.shadows.lg};
+  background: ${(props) => props.theme?.colors?.surface || "#ffffff"};
+  border-radius: ${(props) => props.theme?.borderRadius?.xl || "1rem"};
+  box-shadow: ${(props) => props.theme?.shadows?.lg || "0 4px 6px rgba(0, 0, 0, 0.1)"};
   overflow: hidden;
-  border: 1px solid ${(props) => props.theme.colors.border};
+  border: 1px solid ${(props) => props.theme?.colors?.border || "#e2e8f0"};
 `;
 
 const TableContainer = styled.div`
@@ -27,7 +27,7 @@ const TableContainer = styled.div`
     height: 8px;
   }
   &::-webkit-scrollbar-thumb {
-    background-color: ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme?.colors?.border || "#cbd5e0"};
     border-radius: 10px;
   }
 `;
@@ -39,7 +39,7 @@ const Table = styled.table`
 `;
 
 const TableHeader = styled.thead`
-  background: ${(props) => props.theme.colors.surfaceLight};
+  background: ${(props) => props.theme?.colors?.surfaceLight || "#f7fafc"};
 `;
 
 const TableHeaderCell = styled.th`
@@ -47,10 +47,10 @@ const TableHeaderCell = styled.th`
   text-align: left;
   font-size: clamp(0.7rem, 1.5vw, 0.75rem);
   font-weight: 600;
-  color: ${(props) => props.theme.colors.textSecondary};
+  color: ${(props) => props.theme?.colors?.textSecondary || "#718096"};
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border-bottom: 2px solid ${(props) => props.theme.colors.border};
+  border-bottom: 2px solid ${(props) => props.theme?.colors?.border || "#e2e8f0"};
   cursor: ${(props) => (props.$sortable ? "pointer" : "default")};
   user-select: none;
   white-space: nowrap;
@@ -80,9 +80,9 @@ const TableHeaderCell = styled.th`
 const TableBody = styled.tbody``;
 
 const TableRow = styled.tr`
-  border-bottom: 1px solid ${(props) => props.theme.colors.border};
+  border-bottom: 1px solid ${(props) => props.theme?.colors?.border || "#e2e8f0"};
   &:hover {
-    background: ${(props) => props.theme.colors.surfaceLight};
+    background: ${(props) => props.theme?.colors?.surfaceLight || "#edf2f7"};
   }
   &:last-child {
     border-bottom: none;
@@ -92,7 +92,7 @@ const TableRow = styled.tr`
 const TableCell = styled.td`
   padding: 1rem 1.5rem;
   font-size: clamp(0.8rem, 2vw, 0.9rem);
-  color: ${(props) => props.theme.colors.text};
+  color: ${(props) => props.theme?.colors?.text || "#2d3748"};
   vertical-align: middle;
   white-space: nowrap;
   
@@ -115,12 +115,12 @@ const SiteInfo = styled.div`
 
 const SiteName = styled.div`
   font-weight: 600;
-  color: ${(props) => props.theme.colors.heading};
+  color: ${(props) => props.theme?.colors?.heading || "#1a202c"};
 `;
 
 const SiteCode = styled.div`
   font-size: 0.8rem;
-  color: ${(props) => props.theme.colors.textSecondary};
+  color: ${(props) => props.theme?.colors?.textSecondary || "#718096"};
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -138,13 +138,13 @@ const StatusBadge = styled.span`
 
   ${({ status, theme }) => {
     switch (status) {
-      case "Planning": return `background: ${theme.colors?.info || "#2196F3"}20; color: ${theme.colors?.info || "#2196F3"};`;
-      case "Active": return `background: ${theme.colors?.success || "#4CAF50"}20; color: ${theme.colors?.success || "#4CAF50"};`;
-      case "On-Hold": return `background: ${theme.colors?.warning || "#FFC107"}20; color: ${theme.colors?.warning || "#FFC107"};`;
-      case "Delayed": return `background: ${theme.colors?.error || "#F44336"}20; color: ${theme.colors?.error || "#F44336"};`;
-      case "Completed": return `background: ${theme.colors?.primary || "#1b4332"}20; color: ${theme.colors?.primary || "#1b4332"};`;
-      case "Cancelled": return `background: ${theme.colors?.textSecondary || "#9E9E9E"}20; color: ${theme.colors?.textSecondary || "#9E9E9E"};`;
-      default: return `background: ${theme.colors?.textSecondary || "#9E9E9E"}20; color: ${theme.colors?.textSecondary || "#9E9E9E"};`;
+      case "Planning": return `background: ${theme?.colors?.info || "#2196F3"}20; color: ${theme?.colors?.info || "#2196F3"};`;
+      case "Active": return `background: ${theme?.colors?.success || "#4CAF50"}20; color: ${theme?.colors?.success || "#4CAF50"};`;
+      case "On-Hold": return `background: ${theme?.colors?.warning || "#FFC107"}20; color: ${theme?.colors?.warning || "#FFC107"};`;
+      case "Delayed": return `background: ${theme?.colors?.error || "#F44336"}20; color: ${theme?.colors?.error || "#F44336"};`;
+      case "Completed": return `background: ${theme?.colors?.primary || "#1b4332"}20; color: ${theme?.colors?.primary || "#1b4332"};`;
+      case "Cancelled": return `background: ${theme?.colors?.textSecondary || "#9E9E9E"}20; color: ${theme?.colors?.textSecondary || "#9E9E9E"};`;
+      default: return `background: ${theme?.colors?.textSecondary || "#9E9E9E"}20; color: ${theme?.colors?.textSecondary || "#9E9E9E"};`;
     }
   }}
 `;
@@ -154,9 +154,9 @@ const ActionButtonGroup = styled.div` display: flex; align-items: center; gap: 0
 const EmptyState = styled.div`
   text-align: center;
   padding: 4rem 2rem;
-  color: ${(props) => props.theme.colors.textSecondary};
+  color: ${(props) => props.theme?.colors?.textSecondary || "#718096"};
   .icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
-  h3 { color: ${(props) => props.theme.colors.text}; margin-bottom: 0.5rem; }
+  h3 { color: ${(props) => props.theme?.colors?.text || "#2d3748"}; margin-bottom: 0.5rem; }
 `;
 
 const TableFooter = styled.div`
@@ -165,7 +165,7 @@ const TableFooter = styled.div`
   align-items: center;
   padding: 1rem 1.5rem;
   font-size: clamp(0.8rem, 2vw, 0.875rem);
-  color: ${(props) => props.theme.colors.textSecondary};
+  color: ${(props) => props.theme?.colors?.textSecondary || "#718096"};
 
   @media (max-width: 768px) {
     flex-direction: column;
