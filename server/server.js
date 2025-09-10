@@ -21,7 +21,8 @@ const reportsRoutes = require('./routes/reportsRoutes');
 const salesRoutes = require("./routes/sales");
 const notificationRoutes = require("./routes/notifications");
 const customerRoutes = require('./routes/customers');
-const constructionRoutes = require('./routes/construction'); // CORRECTED: Assumes 'construction.js' file name
+const constructionRoutes = require('./routes/construction');
+const workerRoutes = require('./routes/workers');
 
 // Import middleware and utilities
 const { verifyToken } = require("./middleware/auth");
@@ -99,10 +100,8 @@ app.use("/api/notifications", verifyToken, notificationRoutes);
 app.use("/api/metadata", verifyToken, metadataRoutes);
 app.use("/api/sales", verifyToken, salesRoutes);
 app.use("/api/customers", verifyToken, customerRoutes);
-app.use('/api/construction', verifyToken, constructionRoutes); // Applying verifyToken directly here.
-                                                            // Alternatively, you can keep verifyToken inside each construction route handler as you had it.
-                                                            // Both approaches work, this one is more explicit for the entire construction module.
-
+app.use('/api/construction', verifyToken, constructionRoutes); 
+app.use('/api/workers', workerRoutes); 
 // Catch-all for undefined API routes
 app.use("/api/*", (req, res) => {
   res.status(404).json({ success: false, message: "API endpoint not found.", path: req.originalUrl });

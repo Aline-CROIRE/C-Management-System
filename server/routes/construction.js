@@ -7,6 +7,7 @@ const moment = require("moment");
 const ConstructionSite = require("../models/ConstructionSite");
 const Equipment = require("../models/Equipment");
 const Task = require("../models/Task");
+const Worker = require("../models/Worker");
 const { verifyToken } = require("../middleware/auth");
 
 const sendValidationErrors = (req, res) => {
@@ -16,8 +17,6 @@ const sendValidationErrors = (req, res) => {
     }
     return null;
 };
-
-// --- Construction Site Routes ---
 
 router.get("/sites", verifyToken, async (req, res) => {
     try {
@@ -64,7 +63,7 @@ router.get("/sites/:id", verifyToken, async (req, res) => {
         const { id } = req.params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(404).json({ success: false, message: "Construction site not found (invalid ID format)." });
+            return res.status(404).json({ success: false, message: "Construction site not found (Invalid ID format)." });
         }
 
         const site = await ConstructionSite.findOne({ _id: id, user: userId });
@@ -84,7 +83,7 @@ router.post("/sites", verifyToken, [
     body('location', 'Location is required').not().isEmpty().trim(),
     body('startDate', 'Valid start date is required').isISO8601().toDate(),
     body('endDate', 'Valid end date is required').isISO8601().toDate(),
-    body('budget', 'Budget must be a non-negative number').isFloat({ min: 0 }).withMessage('Budget must be a non-negative number.'),
+    body('budget', 'Budget must be a non-negative number').isFloat({ min: 0 }),
     body('manager', 'Manager name is required').not().isEmpty().trim(),
     body('description', 'Description must be a string').optional().isString().trim(),
     body('notes', 'Notes must be a string').optional().isString().trim(),
@@ -135,13 +134,11 @@ router.put("/sites/:id", verifyToken, [
     body('location', 'Location is required').not().isEmpty().trim(),
     body('startDate', 'Valid start date is required').isISO8601().toDate(),
     body('endDate', 'Valid end date is required').isISO8601().toDate(),
-    body('budget', 'Budget must be a non-negative number').isFloat({ min: 0 }).withMessage('Budget must be a non-negative number.'),
+    body('budget', 'Budget must be a non-negative number').isFloat({ min: 0 }),
     body('manager', 'Manager name is required').not().isEmpty().trim(),
     body('status', 'Invalid site status').optional().isIn(['Planning', 'Active', 'On-Hold', 'Delayed', 'Completed', 'Cancelled']),
-    body('progress', 'Progress must be between 0 and 100').optional().isFloat({ min: 0, max: 100 }).withMessage('Progress must be between 0 and 100.'),
-    body('expenditure', 'Expenditure must be a non-negative number').optional().isFloat({ min: 0 }).withMessage('Expenditure must be a non-negative number.'),
-    body('workers', 'Workers must be a non-negative integer').optional().isInt({ min: 0 }).withMessage('Workers count must be a non-negative integer.'),
-    body('equipmentCount', 'Equipment count must be a non-negative integer').optional().isInt({ min: 0 }).withMessage('Equipment count must be a non-negative integer.'),
+    body('progress', 'Progress must be between 0 and 100').optional().isFloat({ min: 0, max: 100 }),
+    body('expenditure', 'Expenditure must be a non-negative number').optional().isFloat({ min: 0 }),
     body('description', 'Description must be a string').optional().isString().trim(),
     body('notes', 'Notes must be a string').optional().isString().trim(),
 ], async (req, res) => {
@@ -154,7 +151,7 @@ router.put("/sites/:id", verifyToken, [
         const { projectCode, startDate, endDate, status, ...restOfUpdateData } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(404).json({ success: false, message: "Construction site not found (invalid ID format)." });
+            return res.status(404).json({ success: false, message: "Construction site not found (Invalid ID format)." });
         }
 
         if (moment(endDate).isBefore(moment(startDate))) {
@@ -205,7 +202,7 @@ router.delete("/sites/:id", verifyToken, async (req, res) => {
         const { id } = req.params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(404).json({ success: false, message: "Construction site not found (invalid ID format)." });
+            return res.status(404).json({ success: false, message: "Construction site not found (Invalid ID format)." });
         }
 
         const deletedSite = await ConstructionSite.findOneAndDelete({ _id: id, user: userId });
@@ -213,8 +210,8 @@ router.delete("/sites/:id", verifyToken, async (req, res) => {
             return res.status(404).json({ success: false, message: "Construction site not found or does not belong to user." });
         }
 
-        // Delete all associated tasks
         await Task.deleteMany({ site: id, user: userId });
+        await Equipment.updateMany({ currentSite: id, user: userId }, { $set: { currentSite: null } });
 
         res.json({ success: true, message: "Construction site deleted successfully!" });
     } catch (err) {
@@ -222,8 +219,6 @@ router.delete("/sites/:id", verifyToken, async (req, res) => {
         res.status(500).json({ success: false, message: err.message || "Server Error deleting site." });
     }
 });
-
-// --- Equipment Routes ---
 
 router.get("/equipment", verifyToken, async (req, res) => {
     try {
@@ -272,7 +267,7 @@ router.get("/equipment/:id", verifyToken, async (req, res) => {
         const { id } = req.params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(404).json({ success: false, message: "Equipment not found (invalid ID format)." });
+            return res.status(404).json({ success: false, message: "Equipment not found (Invalid ID format)." });
         }
 
         const equipmentItem = await Equipment.findOne({ _id: id, user: userId }).populate('currentSite', 'name projectCode');
@@ -290,13 +285,13 @@ router.post("/equipment", verifyToken, [
     body('name', 'Equipment name is required').not().isEmpty().trim(),
     body('assetTag', 'Asset tag is required').not().isEmpty().trim(),
     body('type', 'Equipment type is required').not().isEmpty().trim().isIn(['Heavy Machinery', 'Hand Tool', 'Vehicle', 'Safety Gear', 'Lifting Equipment', 'Other']),
-    body('currentSite', 'Current site must be a valid ID').optional().isMongoId().withMessage('Invalid current site ID.'),
+    body('currentSite', 'Current site must be a valid ID').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Invalid current site ID.'),
     body('purchaseDate', 'Valid purchase date is required').isISO8601().toDate(),
-    body('purchaseCost', 'Purchase cost must be a non-negative number').isFloat({ min: 0 }).withMessage('Purchase cost must be a non-negative number.'),
+    body('purchaseCost', 'Purchase cost must be a non-negative number').isFloat({ min: 0 }),
     body('condition', 'Invalid equipment condition').optional().isIn(['Excellent', 'Good', 'Fair', 'Poor']),
-    body('lastMaintenance', 'Valid last maintenance date is required').optional().isISO8601().toDate(),
-    body('nextMaintenance', 'Valid next maintenance date is required').optional().isISO8601().toDate(),
-    body('utilization', 'Utilization must be between 0 and 100').optional().isFloat({ min: 0, max: 100 }).withMessage('Utilization must be between 0 and 100.'),
+    body('lastMaintenance', 'Valid last maintenance date is required').optional({ nullable: true, checkFalsy: true }).isISO8601().toDate(),
+    body('nextMaintenance', 'Valid next maintenance date is required').optional({ nullable: true, checkFalsy: true }).isISO8601().toDate(),
+    body('utilization', 'Utilization must be between 0 and 100').optional().isFloat({ min: 0, max: 100 }),
     body('notes', 'Notes must be a string').optional().isString().trim(),
 ], async (req, res) => {
     const validationErrors = sendValidationErrors(req, res);
@@ -324,7 +319,7 @@ router.post("/equipment", verifyToken, [
 
         const newEquipment = new Equipment({
             user: userId,
-            name, assetTag: uppercaseAssetTag, type, currentSite, purchaseDate, purchaseCost, condition, lastMaintenance, nextMaintenance, utilization, notes,
+            name, assetTag: uppercaseAssetTag, type, currentSite: currentSite || null, purchaseDate, purchaseCost, condition, lastMaintenance, nextMaintenance, utilization, notes,
             status: 'Operational',
             currentValue: purchaseCost,
         });
@@ -345,15 +340,15 @@ router.put("/equipment/:id", verifyToken, [
     body('name', 'Equipment name is required').not().isEmpty().trim(),
     body('assetTag', 'Asset tag is required').not().isEmpty().trim(),
     body('type', 'Equipment type is required').not().isEmpty().trim().isIn(['Heavy Machinery', 'Hand Tool', 'Vehicle', 'Safety Gear', 'Lifting Equipment', 'Other']),
-    body('currentSite', 'Current site must be a valid ID').optional().isMongoId().withMessage('Invalid current site ID.'),
+    body('currentSite', 'Current site must be a valid ID').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Invalid current site ID.'),
     body('status', 'Invalid equipment status').optional().isIn(['Operational', 'In Maintenance', 'Idle', 'Broken', 'In Transit', 'Out of Service']),
     body('condition', 'Invalid equipment condition').optional().isIn(['Excellent', 'Good', 'Fair', 'Poor']),
-    body('lastMaintenance', 'Valid last maintenance date is required').optional().isISO8601().toDate(),
-    body('nextMaintenance', 'Valid next maintenance date is required').optional().isISO8601().toDate(),
+    body('lastMaintenance', 'Valid last maintenance date is required').optional({ nullable: true, checkFalsy: true }).isISO8601().toDate(),
+    body('nextMaintenance', 'Valid next maintenance date is required').optional({ nullable: true, checkFalsy: true }).isISO8601().toDate(),
     body('purchaseDate', 'Valid purchase date is required').optional().isISO8601().toDate(),
-    body('purchaseCost', 'Purchase cost must be a non-negative number').optional().isFloat({ min: 0 }).withMessage('Purchase cost must be a non-negative number.'),
-    body('currentValue', 'Current value must be a non-negative number').optional().isFloat({ min: 0 }).withMessage('Current value must be a non-negative number.'),
-    body('utilization', 'Utilization must be between 0 and 100').optional().isFloat({ min: 0, max: 100 }).withMessage('Utilization must be between 0 and 100.'),
+    body('purchaseCost', 'Purchase cost must be a non-negative number').optional().isFloat({ min: 0 }),
+    body('currentValue', 'Current value must be a non-negative number').optional().isFloat({ min: 0 }),
+    body('utilization', 'Utilization must be between 0 and 100').optional().isFloat({ min: 0, max: 100 }),
     body('notes', 'Notes must be a string').optional().isString().trim(),
 ], async (req, res) => {
     const validationErrors = sendValidationErrors(req, res);
@@ -365,7 +360,7 @@ router.put("/equipment/:id", verifyToken, [
         const { assetTag, currentSite, _prevCurrentSite, ...restOfUpdateData } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(404).json({ success: false, message: "Equipment not found (invalid ID format)." });
+            return res.status(404).json({ success: false, message: "Equipment not found (Invalid ID format)." });
         }
 
         const uppercaseAssetTag = assetTag.toUpperCase();
@@ -379,7 +374,8 @@ router.put("/equipment/:id", verifyToken, [
             return res.status(400).json({ success: false, message: "Another equipment with this asset tag already exists for this user." });
         }
 
-        const updateData = { assetTag: uppercaseAssetTag, currentSite, ...restOfUpdateData };
+        const newCurrentSiteId = (currentSite && mongoose.Types.ObjectId.isValid(currentSite)) ? currentSite : null;
+        const updateData = { assetTag: uppercaseAssetTag, currentSite: newCurrentSiteId, ...restOfUpdateData };
         
         const updatedEquipment = await Equipment.findOneAndUpdate(
             { _id: id, user: userId },
@@ -392,37 +388,23 @@ router.put("/equipment/:id", verifyToken, [
         }
 
         const prevSiteId = String(_prevCurrentSite);
-        const newSiteId = String(currentSite);
+        const oldSiteIdValid = prevSiteId && prevSiteId !== 'undefined' && prevSiteId !== 'null' && mongoose.Types.ObjectId.isValid(prevSiteId);
 
-        if (prevSiteId && prevSiteId !== 'undefined' && prevSiteId !== 'null' && prevSiteId !== newSiteId) {
-            const prevSite = await ConstructionSite.findOne({ _id: prevSiteId, user: userId });
+        if (oldSiteIdValid && String(oldSiteIdValid) !== String(newCurrentSiteId)) {
+            const prevSite = await ConstructionSite.findOne({ _id: oldSiteIdValid, user: userId });
             if (prevSite) {
                 prevSite.equipmentCount = Math.max(0, (prevSite.equipmentCount || 0) - 1);
                 await prevSite.save();
             }
+        }
 
-            if (newSiteId && mongoose.Types.ObjectId.isValid(newSiteId)) {
-                const newSite = await ConstructionSite.findOne({ _id: newSiteId, user: userId });
-                if (newSite) {
-                    newSite.equipmentCount = (newSite.equipmentCount || 0) + 1;
-                    await newSite.save();
-                } else {
-                    return res.status(400).json({ success: false, message: "Provided new current site does not exist or does not belong to the user." });
-                }
-            }
-        } else if ((!prevSiteId || prevSiteId === 'undefined' || prevSiteId === 'null') && newSiteId && mongoose.Types.ObjectId.isValid(newSiteId)) {
-            const newSite = await ConstructionSite.findOne({ _id: newSiteId, user: userId });
+        if (newCurrentSiteId && String(oldSiteIdValid) !== String(newCurrentSiteId)) {
+            const newSite = await ConstructionSite.findOne({ _id: newCurrentSiteId, user: userId });
             if (newSite) {
                 newSite.equipmentCount = (newSite.equipmentCount || 0) + 1;
                 await newSite.save();
             } else {
-                return res.status(400).json({ success: false, message: "Provided current site does not exist or does not belong to the user." });
-            }
-        } else if (prevSiteId && prevSiteId !== 'undefined' && prevSiteId !== 'null' && (!newSiteId || newSiteId === 'undefined' || newSiteId === 'null')) {
-            const prevSite = await ConstructionSite.findOne({ _id: prevSiteId, user: userId });
-            if (prevSite) {
-                prevSite.equipmentCount = Math.max(0, (prevSite.equipmentCount || 0) - 1);
-                await prevSite.save();
+                return res.status(400).json({ success: false, message: "Provided new current site does not exist or does not belong to the user." });
             }
         }
 
@@ -443,7 +425,7 @@ router.delete("/equipment/:id", verifyToken, async (req, res) => {
         const { id } = req.params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(404).json({ success: false, message: "Equipment not found (invalid ID format)." });
+            return res.status(404).json({ success: false, message: "Equipment not found (Invalid ID format)." });
         }
 
         const deletedEquipment = await Equipment.findOneAndDelete({ _id: id, user: userId });
@@ -470,12 +452,10 @@ router.delete("/equipment/:id", verifyToken, async (req, res) => {
     }
 });
 
-// --- Construction Statistics Route ---
 router.get("/stats", verifyToken, async (req, res) => {
     try {
         const userId = req.user._id;
 
-        // General Site Stats
         const totalSites = await ConstructionSite.countDocuments({ user: userId });
         const activeSites = await ConstructionSite.countDocuments({ user: userId, status: 'Active' });
         const completedSites = await ConstructionSite.countDocuments({ user: userId, status: 'Completed' });
@@ -483,7 +463,6 @@ router.get("/stats", verifyToken, async (req, res) => {
         const onHoldSites = await ConstructionSite.countDocuments({ user: userId, status: 'On-Hold' });
         const delayedSites = await ConstructionSite.countDocuments({ user: userId, status: 'Delayed' });
 
-        // Financial Stats (Site Expenditure vs. Budget)
         const totalBudgetResult = await ConstructionSite.aggregate([
             { $match: { user: userId } },
             { $group: { _id: null, totalBudget: { $sum: "$budget" } } }
@@ -497,13 +476,11 @@ router.get("/stats", verifyToken, async (req, res) => {
         const totalExpenditure = totalExpenditureResult.length > 0 ? totalExpenditureResult[0].totalExpenditure : 0;
         const remainingBudget = totalBudget - totalExpenditure;
 
-        // General Equipment Stats
         const totalEquipment = await Equipment.countDocuments({ user: userId });
         const operationalEquipment = await Equipment.countDocuments({ user: userId, status: 'Operational' });
         const inMaintenanceEquipment = await Equipment.countDocuments({ user: userId, status: 'In Maintenance' });
         const outOfServiceEquipment = await Equipment.countDocuments({ user: userId, status: 'Out of Service' });
 
-        // Equipment Value Stats
         const totalPurchaseCostResult = await Equipment.aggregate([
             { $match: { user: userId } },
             { $group: { _id: null, totalPurchaseCost: { $sum: "$purchaseCost" } } }
@@ -517,11 +494,14 @@ router.get("/stats", verifyToken, async (req, res) => {
         const totalCurrentValue = totalCurrentValueResult.length > 0 ? totalCurrentValueResult[0].totalCurrentValue : 0;
         const depreciation = totalPurchaseCost - totalCurrentValue;
 
-        // NEW: Task Stats
         const totalTasks = await Task.countDocuments({ user: userId });
         const pendingTasks = await Task.countDocuments({ user: userId, status: { $in: ['To Do', 'In Progress', 'Blocked'] } });
         const completedTasks = await Task.countDocuments({ user: userId, status: 'Completed' });
-        const delayedTasks = await Task.countDocuments({ user: userId, dueDate: { $lt: new Date() }, status: { $in: ['To Do', 'In Progress', 'Blocked'] } });
+        const delayedTasks = await Task.countDocuments({
+            user: userId,
+            dueDate: { $lt: new Date() },
+            status: { $nin: ['Completed', 'Cancelled'] }
+        });
 
         res.json({
             success: true,
@@ -560,8 +540,6 @@ router.get("/stats", verifyToken, async (req, res) => {
     }
 });
 
-// --- NEW TASK ROUTES ---
-
 router.get("/tasks", verifyToken, async (req, res) => {
     try {
         const userId = req.user._id;
@@ -574,7 +552,7 @@ router.get("/tasks", verifyToken, async (req, res) => {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
                 { description: { $regex: search, $options: 'i' } },
-                { assignedTo: { $regex: search, $options: 'i' } },
+                { notes: { $regex: search, $options: 'i' } },
             ];
         }
 
@@ -586,6 +564,8 @@ router.get("/tasks", verifyToken, async (req, res) => {
         const tasks = await Task.find(query)
             .populate('site', 'name projectCode')
             .populate('parentTask', 'name')
+            .populate('dependencies', 'name startDate')
+            .populate('assignedTo', 'fullName role')
             .sort({ [sort]: sortOrder })
             .skip(skip)
             .limit(limitNum);
@@ -609,17 +589,20 @@ router.get("/tasks/:id", verifyToken, async (req, res) => {
         const { id } = req.params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(404).json({ success: false, message: "Task not found (invalid ID format)." });
+            return res.status(404).json({ success: false, message: "Task not found (Invalid ID format)." });
         }
 
         const task = await Task.findOne({ _id: id, user: userId })
             .populate('site', 'name projectCode')
-            .populate('parentTask', 'name');
+            .populate('parentTask', 'name')
+            .populate('dependencies', 'name startDate')
+            .populate('assignedTo', 'fullName role');
         if (!task) {
             return res.status(404).json({ success: false, message: "Task not found or does not belong to user." });
         }
         res.json({ success: true, data: task });
-    } catch (err) {
+    }
+    catch (err) {
         console.error("Error fetching task by ID:", err);
         res.status(500).json({ success: false, message: "Server Error fetching task." });
     }
@@ -632,9 +615,25 @@ router.post("/tasks", verifyToken, [
     body('dueDate', 'Valid due date is required').isISO8601().toDate(),
     body('status', 'Invalid task status').optional().isIn(['To Do', 'In Progress', 'Blocked', 'Completed', 'Cancelled']),
     body('priority', 'Invalid task priority').optional().isIn(['Low', 'Medium', 'High', 'Critical']),
-    body('assignedTo', 'Assigned To must be a string').optional().isString().trim(),
-    body('progress', 'Progress must be between 0 and 100').optional().isFloat({ min: 0, max: 100 }).withMessage('Progress must be between 0 and 100.'),
-    body('parentTask', 'Parent task must be a valid ID').optional().isMongoId().withMessage('Invalid parent task ID.'),
+    body('assignedTo', 'Assigned To must be an array of valid Worker IDs')
+        .optional({ nullable: true, checkFalsy: true })
+        .isArray().withMessage('Assigned To must be an array.')
+        .custom(async (value, { req }) => {
+            if (value && value.length > 0) {
+                if (!value.every(mongoose.Types.ObjectId.isValid)) {
+                    throw new Error('Each assigned worker must be a valid Worker ID.');
+                }
+                const existingWorkers = await Worker.find({ _id: { $in: value }, user: req.user._id });
+                if (existingWorkers.length !== value.length) {
+                    throw new Error('One or more assigned worker IDs are invalid or do not belong to you.');
+                }
+            }
+            return true;
+        }),
+    body('progress', 'Progress must be between 0 and 100').optional().isFloat({ min: 0, max: 100 }),
+    body('parentTask', 'Parent task must be a valid ID if provided')
+        .optional({ nullable: true, checkFalsy: true })
+        .isMongoId().withMessage('Invalid parent task ID.'),
     body('dependencies', 'Dependencies must be an array of valid IDs').optional().isArray().custom(value => {
         if (!value.every(mongoose.Types.ObjectId.isValid)) throw new Error('Each dependency must be a valid MongoDB ID');
         return true;
@@ -651,20 +650,25 @@ router.post("/tasks", verifyToken, [
             return res.status(400).json({ success: false, message: "Due date cannot be before start date." });
         }
 
+        if (dependencies && parentTask && dependencies.includes(parentTask)) {
+             return res.status(400).json({ success: false, message: "A task cannot be a dependency of its parent." });
+        }
+
         const site = await ConstructionSite.findOne({ _id: siteId, user: userId });
         if (!site) {
             return res.status(404).json({ success: false, message: "Construction site not found or does not belong to user." });
         }
-
+        
         const newTask = new Task({
             user: userId,
             site: siteId,
             name, description, startDate, dueDate, status: status || 'To Do', priority: priority || 'Medium',
-            assignedTo, progress: progress || 0, parentTask, dependencies, notes,
+            assignedTo: assignedTo || [],
+            progress: progress || 0, parentTask: parentTask || null, dependencies, notes,
         });
 
         await newTask.save();
-        site.tasks.push(newTask._id); // Add task reference to the site
+        site.tasks.push(newTask._id);
         await site.save();
 
         res.status(201).json({ success: true, message: "Task created successfully!", data: newTask });
@@ -685,9 +689,25 @@ router.put("/tasks/:id", verifyToken, [
     body('dueDate', 'Valid due date is required').isISO8601().toDate(),
     body('status', 'Invalid task status').optional().isIn(['To Do', 'In Progress', 'Blocked', 'Completed', 'Cancelled']),
     body('priority', 'Invalid task priority').optional().isIn(['Low', 'Medium', 'High', 'Critical']),
-    body('assignedTo', 'Assigned To must be a string').optional().isString().trim(),
-    body('progress', 'Progress must be between 0 and 100').optional().isFloat({ min: 0, max: 100 }).withMessage('Progress must be between 0 and 100.'),
-    body('parentTask', 'Parent task must be a valid ID').optional().isMongoId().withMessage('Invalid parent task ID.'),
+    body('assignedTo', 'Assigned To must be an array of valid Worker IDs')
+        .optional({ nullable: true, checkFalsy: true })
+        .isArray().withMessage('Assigned To must be an array.')
+        .custom(async (value, { req }) => {
+            if (value && value.length > 0) {
+                if (!value.every(mongoose.Types.ObjectId.isValid)) {
+                    throw new Error('Each assigned worker must be a valid Worker ID.');
+                }
+                const existingWorkers = await Worker.find({ _id: { $in: value }, user: req.user._id });
+                if (existingWorkers.length !== value.length) {
+                    throw new Error('One or more assigned worker IDs are invalid or do not belong to you.');
+                }
+            }
+            return true;
+        }),
+    body('progress', 'Progress must be between 0 and 100').optional().isFloat({ min: 0, max: 100 }),
+    body('parentTask', 'Parent task must be a valid ID if provided')
+        .optional({ nullable: true, checkFalsy: true })
+        .isMongoId().withMessage('Invalid parent task ID.'),
     body('dependencies', 'Dependencies must be an array of valid IDs').optional().isArray().custom(value => {
         if (!value.every(mongoose.Types.ObjectId.isValid)) throw new Error('Each dependency must be a valid MongoDB ID');
         return true;
@@ -697,76 +717,88 @@ router.put("/tasks/:id", verifyToken, [
     if (validationErrors) return;
 
     try {
-    const userId = req.user._id;
-    const { id } = req.params;
-    const { site: newSiteId, startDate, dueDate, status, parentTask, dependencies, ...restOfUpdateData } = req.body;
+        const userId = req.user._id;
+        const { id } = req.params;
+        const { site: newSiteId, startDate, dueDate, status, parentTask, assignedTo, dependencies, ...restOfUpdateData } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(404).json({ success: false, message: "Task not found (invalid ID format)." });
-    }
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(404).json({ success: false, message: "Task not found (Invalid ID format)." });
+        }
 
-    const currentTask = await Task.findOne({ _id: id, user: userId });
-    if (!currentTask) {
-        return res.status(404).json({ success: false, message: "Task not found or does not belong to user." });
-    }
+        const currentTask = await Task.findOne({ _id: id, user: userId });
+        if (!currentTask) {
+            return res.status(404).json({ success: false, message: "Task not found or does not belong to user." });
+        }
 
-    if (moment(dueDate).isBefore(moment(startDate))) {
-        return res.status(400).json({ success: false, message: "Due date cannot be before start date." });
-    }
+        if (moment(dueDate).isBefore(moment(startDate))) {
+            return res.status(400).json({ success: false, message: "Due date cannot be before start date." });
+        }
 
-    // Handle site change logic (if a task is moved from one site to another)
-    const oldSiteId = currentTask.site.toString();
-    if (newSiteId && newSiteId !== oldSiteId) {
-        // Remove task from old site's tasks array
-        await ConstructionSite.updateOne(
-            { _id: oldSiteId, user: userId },
-            { $pull: { tasks: currentTask._id } }
+        if (dependencies && dependencies.includes(id)) {
+            return res.status(400).json({ success: false, message: "A task cannot depend on itself." });
+        }
+        if (dependencies && parentTask && dependencies.includes(parentTask)) {
+             return res.status(400).json({ success: false, message: "A task cannot be a dependency of its parent." });
+        }
+        if (parentTask === id) {
+            return res.status(400).json({ success: false, message: "A task cannot be its own parent." });
+        }
+        
+        const oldSiteId = currentTask.site ? currentTask.site.toString() : null;
+        if (newSiteId && newSiteId !== oldSiteId) {
+            if (oldSiteId && mongoose.Types.ObjectId.isValid(oldSiteId)) {
+                 await ConstructionSite.updateOne(
+                     { _id: oldSiteId, user: userId },
+                     { $pull: { tasks: currentTask._id } }
+                 );
+            }
+
+            const newSite = await ConstructionSite.findOne({ _id: newSiteId, user: userId });
+            if (!newSite) {
+                return res.status(404).json({ success: false, message: "New construction site not found or does not belong to user." });
+            }
+            await ConstructionSite.updateOne(
+                { _id: newSiteId, user: userId },
+                { $addToSet: { tasks: currentTask._id } }
+            );
+        }
+
+        const updateData = {
+            ...restOfUpdateData,
+            site: newSiteId,
+            startDate,
+            dueDate,
+            status,
+            parentTask: parentTask || null,
+            assignedTo: assignedTo || [],
+            dependencies: dependencies || [],
+        };
+
+        if (status === 'Completed' && !currentTask.actualCompletionDate) {
+            updateData.actualCompletionDate = new Date();
+        } else if (status !== 'Completed' && currentTask.actualCompletionDate) {
+            updateData.actualCompletionDate = null;
+        }
+
+        const updatedTask = await Task.findOneAndUpdate(
+            { _id: id, user: userId },
+            { $set: updateData },
+            { new: true, runValidators: true }
         );
 
-        // Add task to new site's tasks array
-        await ConstructionSite.updateOne(
-            { _id: newSiteId, user: userId },
-            { $addToSet: { tasks: currentTask._id } }
-        );
+        if (!updatedTask) {
+            return res.status(404).json({ success: false, message: "Task not found or does not belong to user." });
+        }
+
+        res.json({ success: true, message: "Task updated successfully!", data: updatedTask });
+    } catch (err) {
+        console.error("Error updating task:", err);
+        if (err.name === 'ValidationError') {
+            const errors = Object.keys(err.errors).map(key => err.errors[key].message);
+            return res.status(400).json({ success: false, message: `Validation failed: ${errors.join(', ')}` });
+        }
+        res.status(500).json({ success: false, message: err.message || "Server Error updating task." });
     }
-
-    const updateData = {
-        ...restOfUpdateData,
-        site: newSiteId,
-        startDate,
-        dueDate,
-        status,
-        parentTask: parentTask || null,
-        dependencies: dependencies || [],
-    };
-
-    // Set actualCompletionDate if status becomes 'Completed' and not already set
-    if (status === 'Completed' && !currentTask.actualCompletionDate) {
-        updateData.actualCompletionDate = new Date();
-    } else if (status !== 'Completed' && currentTask.actualCompletionDate) {
-        // Clear actualCompletionDate if status reverts from 'Completed'
-        updateData.actualCompletionDate = null;
-    }
-
-    const updatedTask = await Task.findOneAndUpdate(
-        { _id: id, user: userId },
-        { $set: updateData },
-        { new: true, runValidators: true }
-    );
-
-    if (!updatedTask) {
-        return res.status(404).json({ success: false, message: "Task not found or does not belong to user." });
-    }
-
-    res.json({ success: true, message: "Task updated successfully!", data: updatedTask });
-} catch (err) {
-    console.error("Error updating task:", err);
-    if (err.name === 'ValidationError') {
-        const errors = Object.keys(err.errors).map(key => err.errors[key].message);
-        return res.status(400).json({ success: false, message: `Validation failed: ${errors.join(', ')}` });
-    }
-    res.status(500).json({ success: false, message: err.message || "Server Error updating task." });
-}
 });
 
 router.delete("/tasks/:id", verifyToken, async (req, res) => {
@@ -775,7 +807,7 @@ router.delete("/tasks/:id", verifyToken, async (req, res) => {
         const { id } = req.params;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
-            return res.status(404).json({ success: false, message: "Task not found (invalid ID format)." });
+            return res.status(404).json({ success: false, message: "Task not found (Invalid ID format)." });
         }
 
         const deletedTask = await Task.findOneAndDelete({ _id: id, user: userId });
@@ -783,16 +815,21 @@ router.delete("/tasks/:id", verifyToken, async (req, res) => {
             return res.status(404).json({ success: false, message: "Task not found or does not belong to user." });
         }
 
-        // Remove task reference from the associated construction site
-        await ConstructionSite.updateOne(
-            { _id: deletedTask.site, user: userId },
-            { $pull: { tasks: deletedTask._id } }
-        );
-
-        // If this was a parent task, clear its reference from any children
+        if (deletedTask.site && mongoose.Types.ObjectId.isValid(deletedTask.site)) {
+            await ConstructionSite.updateOne(
+                { _id: deletedTask.site, user: userId },
+                { $pull: { tasks: deletedTask._id } }
+            );
+        }
+       
         await Task.updateMany(
             { parentTask: deletedTask._id, user: userId },
             { $set: { parentTask: null } }
+        );
+
+        await Task.updateMany(
+            { dependencies: deletedTask._id, user: userId },
+            { $pull: { dependencies: deletedTask._id } }
         );
 
         res.json({ success: true, message: "Task deleted successfully!" });
@@ -805,5 +842,235 @@ router.delete("/tasks/:id", verifyToken, async (req, res) => {
         res.status(500).json({ success: false, message: err.message || "Server Error deleting task." });
     }
 });
+
+router.get("/workers", verifyToken, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { search, role, isActive, page = 1, limit = 10, sort = 'fullName', order = 'asc' } = req.query;
+
+        const query = { user: userId };
+        if (search) {
+            query.$or = [
+                { fullName: { $regex: search, $options: 'i' } },
+                { role: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+                { skills: { $elemMatch: { $regex: search, $options: 'i' } } },
+            ];
+        }
+        if (role) query.role = role;
+        if (isActive !== undefined) query.isActive = isActive === 'true';
+
+        const limitNum = parseInt(limit);
+        const pageNum = parseInt(page);
+        const skip = (pageNum - 1) * limitNum;
+        const sortOrder = order === 'desc' ? -1 : 1;
+
+        const workers = await Worker.find(query)
+            .sort({ [sort]: sortOrder })
+            .skip(skip)
+            .limit(limitNum);
+
+        const total = await Worker.countDocuments(query);
+
+        res.json({
+            success: true,
+            data: workers,
+            pagination: { page: pageNum, limit: limitNum, total, totalPages: Math.ceil(total / limitNum) },
+        });
+    } catch (err) {
+        console.error("Error fetching workers:", err);
+        res.status(500).json({ success: false, message: "Server Error fetching workers." });
+    }
+});
+
+router.get("/workers/:id", verifyToken, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(404).json({ success: false, message: "Worker not found (Invalid ID format)." });
+        }
+
+        const worker = await Worker.findOne({ _id: id, user: userId });
+        if (!worker) {
+            return res.status(404).json({ success: false, message: "Worker not found or does not belong to user." });
+        }
+        res.json({ success: true, data: worker });
+    } catch (err) {
+        console.error("Error fetching worker by ID:", err);
+        res.status(500).json({ success: false, message: "Server Error fetching worker." });
+    }
+});
+
+router.post("/workers", verifyToken, [
+    body('fullName', 'Full name is required').not().isEmpty().trim(),
+    body('role', 'Invalid worker role').optional().isIn(['General Labor', 'Skilled Labor', 'Supervisor', 'Electrician', 'Plumber', 'Heavy Equipment Operator', 'Other']),
+    body('email', 'Invalid email format').optional({ checkFalsy: true }).isEmail().normalizeEmail(),
+    body('contactNumber', 'Contact number must be a string').optional().isString().trim(),
+    body('skills', 'Skills must be an array of strings').optional().isArray().custom(value => {
+        if (!value.every(s => typeof s === 'string')) throw new Error('Each skill must be a string');
+        return true;
+    }),
+    body('isActive', 'isActive must be a boolean').optional().isBoolean(),
+    body('notes', 'Notes must be a string').optional().isString().trim(),
+], async (req, res) => {
+    const validationErrors = sendValidationErrors(req, res);
+    if (validationErrors) return;
+
+    try {
+        const userId = req.user._id;
+        const { fullName, role, contactNumber, email, skills, isActive, notes } = req.body;
+
+        const newWorker = new Worker({
+            user: userId,
+            fullName, role: role || 'General Labor', contactNumber, email, skills: skills || [], isActive: isActive ?? true, notes,
+        });
+
+        await newWorker.save();
+        res.status(201).json({ success: true, message: "Worker created successfully!", data: newWorker });
+    } catch (err) {
+        console.error("Error creating worker:", err);
+        if (err.name === 'ValidationError') {
+            const errors = Object.keys(err.errors).map(key => err.errors[key].message);
+            return res.status(400).json({ success: false, message: `Validation failed: ${errors.join(', ')}` });
+        }
+        res.status(500).json({ success: false, message: err.message || "Server Error creating worker." });
+    }
+});
+
+router.put("/workers/:id", verifyToken, [
+    body('fullName', 'Full name is required').not().isEmpty().trim(),
+    body('role', 'Invalid worker role').optional().isIn(['General Labor', 'Skilled Labor', 'Supervisor', 'Electrician', 'Plumber', 'Heavy Equipment Operator', 'Other']),
+    body('email', 'Invalid email format').optional({ checkFalsy: true }).isEmail().normalizeEmail(),
+    body('contactNumber', 'Contact number must be a string').optional().isString().trim(),
+    body('skills', 'Skills must be an array of strings').optional().isArray().custom(value => {
+        if (!value.every(s => typeof s === 'string')) throw new Error('Each skill must be a string');
+        return true;
+    }),
+    body('isActive', 'isActive must be a boolean').optional().isBoolean(),
+    body('notes', 'Notes must be a string').optional().isString().trim(),
+], async (req, res) => {
+    const validationErrors = sendValidationErrors(req, res);
+    if (validationErrors) return;
+
+    try {
+        const userId = req.user._id;
+        const { id } = req.params;
+        const updateData = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(404).json({ success: false, message: "Worker not found (Invalid ID format)." });
+        }
+
+        const updatedWorker = await Worker.findOneAndUpdate(
+            { _id: id, user: userId },
+            { $set: updateData },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedWorker) {
+            return res.status(404).json({ success: false, message: "Worker not found or does not belong to user." });
+        }
+        res.json({ success: true, message: "Worker updated successfully!", data: updatedWorker });
+    } catch (err) {
+        console.error("Error updating worker:", err);
+        if (err.name === 'ValidationError') {
+            const errors = Object.keys(err.errors).map(key => err.errors[key].message);
+            return res.status(400).json({ success: false, message: `Validation failed: ${errors.join(', ')}` });
+        }
+        res.status(500).json({ success: false, message: err.message || "Server Error updating worker." });
+    }
+});
+
+router.delete("/workers/:id", verifyToken, async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(404).json({ success: false, message: "Worker not found (Invalid ID format)." });
+        }
+
+        const deletedWorker = await Worker.findOneAndDelete({ _id: id, user: userId });
+        if (!deletedWorker) {
+            return res.status(404).json({ success: false, message: "Worker not found or does not belong to user." });
+        }
+
+        await Task.updateMany(
+            { assignedTo: deletedWorker._id, user: userId },
+            { $pull: { assignedTo: deletedWorker._id } }
+        );
+
+        res.json({ success: true, message: "Worker deleted successfully!" });
+    } catch (err) {
+        console.error("Error deleting worker:", err);
+        if (err.name === 'ValidationError') {
+            const errors = Object.keys(err.errors).map(key => err.errors[key].message);
+            return res.status(400).json({ success: false, message: `Validation failed: ${errors.join(', ')}` });
+        }
+        res.status(500).json({ success: false, message: err.message || "Server Error deleting worker." });
+    }
+});
+
+
+router.get("/sites/:siteId/milestones", verifyToken, async (req, res) => { 
+    try {
+        const userId = req.user._id;
+        const { siteId } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(siteId)) {
+            return res.status(404).json({ success: false, message: "Site not found (Invalid ID format)." });
+        }
+
+        const site = await ConstructionSite.findOne({ _id: siteId, user: userId });
+        if (!site) {
+            return res.status(404).json({ success: false, message: "Construction site not found or does not belong to user." });
+        }
+        
+        // Assuming milestones are stored within the site model or a separate Milestone model linked to site
+        // For this example, let's assume a dedicated Milestone model which is not provided.
+        // If milestones were an array on ConstructionSite:
+        // res.json({ success: true, data: site.milestones });
+        // If there's a separate Milestone model:
+        // const milestones = await Milestone.find({ site: siteId, user: userId });
+        res.status(501).json({ success: false, message: "Milestone management not yet implemented." });
+    } catch (err) {
+        console.error("Error fetching milestones:", err);
+        res.status(500).json({ success: false, message: "Server Error fetching milestones." });
+    }
+});
+router.post("/sites/:siteId/milestones", verifyToken, async (req, res) => { 
+    res.status(501).json({ success: false, message: "Milestone creation not yet implemented." });
+});
+
+router.get("/sites/:siteId/change-orders", verifyToken, async (req, res) => { 
+    res.status(501).json({ success: false, message: "Change order management not yet implemented." });
+});
+router.post("/sites/:siteId/change-orders", verifyToken, async (req, res) => { 
+    res.status(501).json({ success: false, message: "Change order creation not yet implemented." });
+});
+
+router.get("/sites/:siteId/inventory", verifyToken, async (req, res) => { 
+    res.status(501).json({ success: false, message: "Site material inventory not yet implemented." });
+});
+router.patch("/sites/:siteId/inventory/:materialId", verifyToken, async (req, res) => { 
+    res.status(501).json({ success: false, message: "Site material inventory update not yet implemented." });
+});
+
+router.get("/sites/:siteId/budget-analytics", verifyToken, async (req, res) => { 
+    res.status(501).json({ success: false, message: "Budget analytics not yet implemented." });
+});
+router.get("/sites/:siteId/reports/:reportType", verifyToken, async (req, res) => { 
+    res.status(501).json({ success: false, message: "Report generation not yet implemented." });
+});
+
+router.post("/sites/:siteId/workers/:workerId", verifyToken, async (req, res) => { 
+    res.status(501).json({ success: false, message: "Worker assignment to site not yet implemented." });
+});
+router.get("/sites/:siteId/workers", verifyToken, async (req, res) => { 
+    res.status(501).json({ success: false, message: "Fetching worker assignments for site not yet implemented." });
+});
+
 
 module.exports = router;

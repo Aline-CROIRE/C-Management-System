@@ -1,230 +1,214 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { constructionAPI } from "../services/api";
-import toast from "react-hot-toast";
+import { useState, useEffect, useCallback } from 'react';
+import { constructionAPI } from '../services/api';
+import { toast } from 'react-hot-toast';
 
-export const useConstructionManagement = (initialFilters = {}) => {
-  const [sites, setSites] = useState([]);
-  const [equipment, setEquipment] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [stats, setStats] = useState({
-    sites: {
-      total: 0,
-      active: 0,
-      delayed: 0,
-      completed: 0,
-      planning: 0,
-      onHold: 0,
-      totalBudget: 0,
-      totalExpenditure: 0,
-      remainingBudget: 0,
-    },
-    equipment: {
-      total: 0,
-      operational: 0,
-      inMaintenance: 0,
-      outOfService: 0,
-      totalPurchaseCost: 0,
-      totalCurrentValue: 0,
-      depreciation: 0,
-    },
-    tasks: {
-      total: 0,
-      pending: 0,
-      completed: 0,
-      delayed: 0,
-    },
-    totalWorkers: 0,
-    averageProgress: 0,
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [paginationSites, setPaginationSites] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
-  const [paginationEquipment, setPaginationEquipment] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
-  const [paginationTasks, setPaginationTasks] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
-  const [filtersSites, setFiltersSites] = useState(initialFilters.sites || {});
-  const [filtersEquipment, setFiltersEquipment] = useState(initialFilters.equipment || {});
-  const [filtersTasks, setFiltersTasks] = useState(initialFilters.tasks || {});
+export const useConstructionManagement = () => {
+    const [sites, setSites] = useState([]);
+    const [equipment, setEquipment] = useState([]);
+    const [tasks, setTasks] = useState([]);
+    const [workers, setWorkers] = useState([]);
+    const [stats, setStats] = useState({});
 
-  const fetchSites = useCallback(async () => {
-    try {
-      const response = await constructionAPI.getSites({ ...filtersSites, page: paginationSites.page, limit: paginationSites.limit });
-      if (response.success) {
-        setSites(response.data);
-        setPaginationSites(response.pagination);
-      } else {
-        const errorMessage = response.message || "Failed to fetch construction sites.";
-        console.error("Error fetching sites:", { response });
-        setError(new Error(errorMessage));
-        toast.error(errorMessage);
-      }
-    } catch (err) {
-      console.error("Error fetching sites:", err);
-      setError(err);
-    }
-  }, [filtersSites, paginationSites.page, paginationSites.limit]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-  const fetchEquipment = useCallback(async () => {
-    try {
-      const response = await constructionAPI.getEquipment({ ...filtersEquipment, page: paginationEquipment.page, limit: paginationEquipment.limit });
-      if (response.success) {
-        setEquipment(response.data);
-        setPaginationEquipment(response.pagination);
-      } else {
-        const errorMessage = response.message || "Failed to fetch construction equipment.";
-        console.error("Error fetching equipment:", { response });
-        setError(new Error(errorMessage));
-        toast.error(errorMessage);
-      }
-    } catch (err) {
-      console.error("Error fetching equipment:", err);
-      setError(err);
-    }
-  }, [filtersEquipment, paginationEquipment.page, paginationEquipment.limit]);
+    const [paginationSites, setPaginationSites] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
+    const [paginationEquipment, setPaginationEquipment] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
+    const [paginationTasks, setPaginationTasks] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
+    const [paginationWorkers, setPaginationWorkers] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
 
-  const fetchTasks = useCallback(async (siteId = null) => {
-    try {
-      const params = { ...filtersTasks, page: paginationTasks.page, limit: paginationTasks.limit };
-      if (siteId) {
-        params.siteId = siteId;
-      }
-      const response = await constructionAPI.getTasks(params);
-      if (response.success) {
-        setTasks(response.data);
-        setPaginationTasks(response.pagination);
-      } else {
-        const errorMessage = response.message || "Failed to fetch tasks.";
-        console.error("Error fetching tasks:", { response });
-        setError(new Error(errorMessage));
-        toast.error(errorMessage);
-      }
-    } catch (err) {
-      console.error("Error fetching tasks:", err);
-      setError(err);
-    }
-  }, [filtersTasks, paginationTasks.page, paginationTasks.limit]);
+    const performCrudAction = useCallback(async (actionFn, successMsg, entityId = null, payload = null) => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await (entityId ? actionFn(entityId, payload) : actionFn(payload));
+            toast.success(successMsg);
+            refreshAllData();
+            return response.data;
+        } catch (err) {
+            setError(err.message || "An unexpected error occurred.");
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchStats = useCallback(async () => {
-    try {
-      const response = await constructionAPI.getStats();
-      if (response.success) {
-        setStats(prevStats => ({
-          ...prevStats,
-          sites: { ...prevStats.sites, ...response.data.sites },
-          equipment: { ...prevStats.equipment, ...response.data.equipment },
-          tasks: { ...prevStats.tasks, ...response.data.tasks },
-        }));
-      } else {
-        const errorMessage = response.message || "Failed to fetch construction stats.";
-        console.error("Error fetching construction stats:", { response });
-        setError(new Error(errorMessage));
-        toast.error(errorMessage);
-      }
-    } catch (err) {
-      console.error("Error fetching construction stats:", err);
-      setError(err);
-    }
-  }, []);
+    const fetchSites = useCallback(async (page = 1, limit = 10) => {
+        setLoading(true);
+        try {
+            const response = await constructionAPI.getSites({ page, limit });
+            setSites(Array.isArray(response?.data) ? response.data : []);
+            setPaginationSites(response?.pagination || { page: 1, limit: 10, total: 0, totalPages: 1 });
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-  const refreshAllData = useCallback(async () => {
-    setLoading(true);
-    setError(null); // Clear any previous errors at the start of a full refresh
-    try {
-      await Promise.all([
-        fetchStats(),
-        fetchSites(),
-        fetchEquipment(),
-        fetchTasks(),
-      ]);
-    } catch (e) {
-      // Individual fetch functions (and axios interceptor) already handle specific errors.
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchStats, fetchSites, fetchEquipment, fetchTasks]);
+    const fetchEquipment = useCallback(async (page = 1, limit = 10) => {
+        setLoading(true);
+        try {
+            const response = await constructionAPI.getEquipment({ page, limit });
+            setEquipment(Array.isArray(response?.data) ? response.data : []);
+            setPaginationEquipment(response?.pagination || { page: 1, limit: 10, total: 0, totalPages: 1 });
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-  useEffect(() => {
-    refreshAllData();
-  }, [refreshAllData]);
+    const fetchTasks = useCallback(async (page = 1, limit = 10) => {
+        setLoading(true);
+        try {
+            const response = await constructionAPI.getTasks({ page, limit });
+            setTasks(Array.isArray(response?.data) ? response.data : []);
+            setPaginationTasks(response?.pagination || { page: 1, limit: 10, total: 0, totalPages: 1 });
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-  const performCrudAction = useCallback(async (apiCall, successMessage) => {
-    setLoading(true);
-    try {
-      const response = await apiCall();
-      if (response.success) {
-        toast.success(successMessage);
-        await refreshAllData(); // Ensure UI is updated after successful CRUD
-        return response.data;
-      } else {
-        const errorMessage = response.message || "Operation failed.";
-        toast.error(errorMessage);
-        return null;
-      }
-    } catch (err) {
-      console.error("CRUD operation error:", err);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [refreshAllData]);
+    const fetchWorkers = useCallback(async (page = 1, limit = 10) => {
+        setLoading(true);
+        try {
+            const response = await constructionAPI.getWorkers({ page, limit });
+            setWorkers(Array.isArray(response?.data) ? response.data : []);
+            setPaginationWorkers(response?.pagination || { page: 1, limit: 10, total: 0, totalPages: 1 });
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-  const createSite = useCallback((siteData) => performCrudAction(() => constructionAPI.createSite(siteData), "Site added successfully!"), [performCrudAction]);
-  const updateSite = useCallback((id, siteData) => performCrudAction(() => constructionAPI.updateSite(id, siteData), "Site updated successfully!"), [performCrudAction]);
-  const deleteSite = useCallback((id) => performCrudAction(() => constructionAPI.deleteSite(id), "Site deleted successfully!"), [performCrudAction]);
+    const fetchStats = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await constructionAPI.getStats();
+            setStats(response?.data || {});
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-  const createEquipment = useCallback((equipmentData) => performCrudAction(() => constructionAPI.createEquipment(equipmentData), "Equipment added successfully!"), [performCrudAction]);
-  const updateEquipment = useCallback((id, equipmentData) => performCrudAction(() => constructionAPI.updateEquipment(id, equipmentData), "Equipment updated successfully!"), [performCrudAction]);
-  const deleteEquipment = useCallback((id) => performCrudAction(() => constructionAPI.deleteEquipment(id), "Equipment deleted successfully!"), [performCrudAction]);
+    const createSite = (siteData) => performCrudAction(constructionAPI.createSite, 'Site created successfully!', null, siteData);
+    const updateSite = (id, siteData) => performCrudAction(constructionAPI.updateSite, 'Site updated successfully!', id, siteData);
+    const deleteSite = (id) => performCrudAction(constructionAPI.deleteSite, 'Site deleted successfully!', id);
 
-  const createTask = useCallback((taskData) => performCrudAction(() => constructionAPI.createTask(taskData), "Task added successfully!"), [performCrudAction]);
-  const updateTask = useCallback((id, taskData) => performCrudAction(() => constructionAPI.updateTask(id, taskData), "Task updated successfully!"), [performCrudAction]);
-  const deleteTask = useCallback((id) => performCrudAction(() => constructionAPI.deleteTask(id), "Task deleted successfully!"), [performCrudAction]);
+    const createEquipment = (equipmentData) => performCrudAction(constructionAPI.createEquipment, 'Equipment added successfully!', null, equipmentData);
+    const updateEquipment = (id, equipmentData) => performCrudAction(constructionAPI.updateEquipment, 'Equipment updated successfully!', id, equipmentData);
+    const deleteEquipment = (id) => performCrudAction(constructionAPI.deleteEquipment, 'Equipment deleted successfully!', id);
 
-  const changePageSites = useCallback((page) => {
-    if (page > 0 && page <= paginationSites.totalPages) {
-      setPaginationSites(prev => ({ ...prev, page }));
-    }
-  }, [paginationSites.totalPages]);
+    const createTask = (taskData) => performCrudAction(constructionAPI.createTask, 'Task created successfully!', null, taskData);
+    const updateTask = (id, taskData) => performCrudAction(constructionAPI.updateTask, 'Task updated successfully!', id, taskData);
+    const deleteTask = (id) => performCrudAction(constructionAPI.deleteTask, 'Task deleted successfully!', id);
 
-  const changePageEquipment = useCallback((page) => {
-    if (page > 0 && page <= paginationEquipment.totalPages) {
-      setPaginationEquipment(prev => ({ ...prev, page }));
-    }
-  }, [paginationEquipment.totalPages]);
+    const createWorker = (workerData) => performCrudAction(constructionAPI.createWorker, 'Worker added successfully!', null, workerData);
+    const updateWorker = (id, workerData) => performCrudAction(constructionAPI.updateWorker, 'Worker updated successfully!', id, workerData);
+    const deleteWorker = (id) => performCrudAction(constructionAPI.deleteWorker, 'Worker deleted successfully!', id);
 
-  const changePageTasks = useCallback((page) => {
-    if (page > 0 && page <= paginationTasks.totalPages) {
-      setPaginationTasks(prev => ({ ...prev, page }));
-    }
-  }, [paginationTasks.totalPages]);
+    const refreshAllData = useCallback(() => {
+        fetchSites();
+        fetchEquipment();
+        fetchTasks();
+        fetchWorkers();
+        fetchStats();
+    }, [fetchSites, fetchEquipment, fetchTasks, fetchWorkers, fetchStats]);
 
-  return {
-    sites,
-    equipment,
-    tasks,
-    stats,
-    loading,
-    error,
-    paginationSites,
-    paginationEquipment,
-    paginationTasks,
-    setFiltersSites,
-    setFiltersEquipment,
-    setFiltersTasks,
-    changePageSites,
-    changePageEquipment,
-    changePageTasks,
-    refreshAllData,
-    createSite,
-    updateSite,
-    deleteSite,
-    createEquipment,
-    updateEquipment,
-    deleteEquipment,
-    createTask,
-    updateTask,
-    deleteTask,
-    fetchTasks,
-  };
+    useEffect(() => {
+        refreshAllData();
+    }, [refreshAllData]);
+
+    const changePageSites = (newPage) => fetchSites(newPage, paginationSites.limit);
+    const changePageEquipment = (newPage) => fetchEquipment(newPage, paginationEquipment.limit);
+    const changePageTasks = (newPage) => fetchTasks(newPage, paginationTasks.limit);
+    const changePageWorkers = (newPage) => fetchWorkers(newPage, paginationWorkers.limit);
+
+    const [currentSite, setCurrentSite] = useState(null);
+    const [milestones, setMilestones] = useState([]);
+    const [changeOrders, setChangeOrders] = useState([]);
+    const [materialInventory, setMaterialInventory] = useState([]);
+    const [workerAssignments, setWorkerAssignments] = useState([]);
+    const [budgetAnalytics, setBudgetAnalytics] = useState(null);
+
+    const fetchSiteData = useCallback(async (siteId) => {
+        setLoading(true);
+        try {
+            const [
+                siteResponse,
+                milestonesResponse,
+                changeOrdersResponse,
+                inventoryResponse,
+                workersResponse,
+                budgetResponse
+            ] = await Promise.all([
+                constructionAPI.getSiteById(siteId),
+                constructionAPI.getMilestones(siteId),
+                constructionAPI.getChangeOrders(siteId),
+                constructionAPI.getMaterialInventory(siteId),
+                constructionAPI.getWorkerAssignments(siteId),
+                constructionAPI.getBudgetAnalytics(siteId)
+            ]);
+
+            setCurrentSite(siteResponse?.data || null);
+            setMilestones(Array.isArray(milestonesResponse?.data) ? milestonesResponse.data : []);
+            setChangeOrders(Array.isArray(changeOrdersResponse?.data) ? changeOrdersResponse.data : []);
+            setMaterialInventory(Array.isArray(inventoryResponse?.data) ? inventoryResponse.data : []);
+            setWorkerAssignments(Array.isArray(workersResponse?.data) ? workersResponse.data : []);
+            setBudgetAnalytics(budgetResponse?.data || null);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const createMilestone = (siteId, milestoneData) => performCrudAction((id, payload) => constructionAPI.createMilestone(id, payload), 'Milestone created successfully', siteId, milestoneData);
+    const createChangeOrder = (siteId, changeOrderData) => performCrudAction((id, payload) => constructionAPI.createChangeOrder(id, payload), 'Change order created successfully', siteId, changeOrderData);
+    const updateMaterialInventory = (siteId, materialId, quantity) => performCrudAction((sId, mId, qty) => constructionAPI.updateMaterialInventory(sId, mId, qty), 'Inventory updated successfully', siteId, { materialId, quantity });
+    const assignWorkerToSite = (siteId, workerId, assignmentData) => performCrudAction((sId, wId, data) => constructionAPI.assignWorker(sId, wId, data), 'Worker assigned successfully', siteId, { workerId, assignmentData });
+
+    const generateReport = async (siteId, reportType) => {
+        setLoading(true);
+        try {
+            const response = await constructionAPI.generateFinancialReport(siteId, reportType);
+            const blob = new Blob([response], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${reportType}-report.pdf`;
+            link.click();
+            window.URL.revokeObjectURL(url);
+            toast.success('Report generated successfully.');
+        } catch (err) {
+            setError(err.message);
+            toast.error(err.message || "Failed to generate report.");
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return {
+        sites, equipment, tasks, workers, stats,
+        loading, error, refreshAllData,
+        createSite, updateSite, deleteSite,
+        createEquipment, updateEquipment, deleteEquipment,
+        createTask, updateTask, deleteTask,
+        createWorker, updateWorker, deleteWorker,
+        paginationSites, changePageSites,
+        paginationEquipment, changePageEquipment,
+        paginationTasks, changePageTasks,
+        paginationWorkers, changePageWorkers,
+        currentSite, milestones, changeOrders, materialInventory, workerAssignments, budgetAnalytics,
+        fetchSiteData, createMilestone, createChangeOrder, updateMaterialInventory, assignWorkerToSite, generateReport,
+    };
 };

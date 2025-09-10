@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -20,13 +21,13 @@ const ModalOverlay = styled.div`
 `;
 
 const ModalContent = styled.div`
-  background: ${(props) => props.theme.colors.surface};
-  color: ${(props) => props.theme.colors.text};
-  border-radius: ${(props) => props.theme.borderRadius.xl};
+  background: ${(props) => props.theme?.colors?.surface || '#ffffff'};
+  color: ${(props) => props.theme?.colors?.text || '#2d3748'};
+  border-radius: ${(props) => props.theme?.borderRadius?.xl || '1rem'};
   width: 100%;
   max-width: 700px;
   max-height: 90vh;
-  box-shadow: ${(props) => props.theme.shadows.xl};
+  box-shadow: ${(props) => props.theme?.shadows?.xl || '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'};
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -44,7 +45,7 @@ const ModalContent = styled.div`
 
 const ModalHeader = styled.div`
   padding: 1.5rem 2rem;
-  border-bottom: 1px solid ${(props) => props.theme.colors.border};
+  border-bottom: 1px solid ${(props) => props.theme?.colors?.border || '#e2e8f0'};
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -58,7 +59,7 @@ const ModalHeader = styled.div`
 const ModalTitle = styled.h2`
   font-size: clamp(1.25rem, 4vw, 1.5rem);
   font-weight: 700;
-  color: ${(props) => props.theme.colors.heading};
+  color: ${(props) => props.theme?.colors?.heading || '#1a202c'};
   margin: 0;
 `;
 
@@ -66,15 +67,15 @@ const CloseButton = styled.button`
   background: none;
   border: none;
   font-size: clamp(1.2rem, 3vw, 1.5rem);
-  color: ${(props) => props.theme.colors.textSecondary};
+  color: ${(props) => props.theme?.colors?.textSecondary || '#718096'};
   cursor: pointer;
   padding: 0.5rem;
   line-height: 1;
-  border-radius: ${(props) => props.theme.borderRadius.md};
+  border-radius: ${(props) => props.theme?.borderRadius?.md || '0.375rem'};
   transition: all 0.2s ease-in-out;
   &:hover {
-    background: ${(props) => props.theme.colors.surfaceLight};
-    color: ${(props) => props.theme.colors.text};
+    background: ${(props) => props.theme?.colors?.surfaceLight || '#f7fafc'};
+    color: ${(props) => props.theme?.colors?.text || '#2d3748'};
   }
 `;
 
@@ -110,7 +111,7 @@ const DetailItem = styled.div`
 const DetailLabel = styled.span`
   font-size: clamp(0.75rem, 2vw, 0.8rem);
   font-weight: 600;
-  color: ${(props) => props.theme.colors.textSecondary};
+  color: ${(props) => props.theme?.colors?.textSecondary || '#718096'};
   text-transform: uppercase;
   margin-bottom: 0.25rem;
   display: flex;
@@ -122,7 +123,7 @@ const DetailValue = styled.span`
   font-size: clamp(0.9rem, 2.5vw, 1rem);
   font-weight: 500;
   word-break: break-word;
-  color: ${(props) => props.theme.colors.text};
+  color: ${(props) => props.theme?.colors?.text || '#2d3748'};
 `;
 
 const StatusBadge = styled.span`
@@ -137,12 +138,12 @@ const StatusBadge = styled.span`
 
   ${({ status, theme }) => {
     switch (status) {
-      case "To Do": return `background: ${theme.colors?.info || "#2196F3"}20; color: ${theme.colors?.info || "#2196F3"};`;
-      case "In Progress": return `background: ${theme.colors?.primary || "#1b4332"}20; color: ${theme.colors?.primary || "#1b4332"};`;
-      case "Blocked": return `background: ${theme.colors?.error || "#F44336"}20; color: ${theme.colors?.error || "#F44336"};`;
-      case "Completed": return `background: ${theme.colors?.success || "#4CAF50"}20; color: ${theme.colors?.success || "#4CAF50"};`;
-      case "Cancelled": return `background: ${theme.colors?.textSecondary || "#9E9E9E"}20; color: ${theme.colors?.textSecondary || "#9E9E9E"};`;
-      default: return `background: ${theme.colors?.textSecondary || "#9E9E9E"}20; color: ${theme.colors?.textSecondary || "#9E9E9E"};`;
+      case "To Do": return `background: ${theme?.colors?.info || "#2196F3"}20; color: ${theme?.colors?.info || "#2196F3"};`;
+      case "In Progress": return `background: ${theme?.colors?.primary || "#1b4332"}20; color: ${theme?.colors?.primary || "#1b4332"};`;
+      case "Blocked": return `background: ${theme?.colors?.error || "#F44336"}20; color: ${theme?.colors?.error || "#F44336"};`;
+      case "Completed": return `background: ${theme?.colors?.success || "#4CAF50"}20; color: ${theme?.colors?.success || "#4CAF50"};`;
+      case "Cancelled": return `background: ${theme?.colors?.textSecondary || "#9E9E9E"}20; color: ${theme?.colors?.textSecondary || "#9E9E9E"};`;
+      default: return `background: ${theme?.colors?.textSecondary || "#9E9E9E"}20; color: ${theme?.colors?.textSecondary || "#9E9E9E"};`;
     }
   }}
 `;
@@ -150,11 +151,11 @@ const StatusBadge = styled.span`
 const PriorityBadge = styled(StatusBadge)`
   ${({ priority, theme }) => {
     switch (priority) {
-      case "Low": return `background: ${theme.colors?.info || "#2196F3"}20; color: ${theme.colors?.info || "#2196F3"};`;
-      case "Medium": return `background: ${theme.colors?.primary || "#1b4332"}20; color: ${theme.colors?.primary || "#1b4332"};`;
-      case "High": return `background: ${theme.colors?.warning || "#FFC107"}20; color: ${theme.colors?.warning || "#FFC107"};`;
-      case "Critical": return `background: ${theme.colors?.error || "#F44336"}20; color: ${theme.colors?.error || "#F44336"};`;
-      default: return `background: ${theme.colors?.textSecondary || "#9E9E9E"}20; color: ${theme.colors?.textSecondary || "#9E9E9E"};`;
+      case "Low": return `background: ${theme?.colors?.info || "#2196F3"}20; color: ${theme?.colors?.info || "#2196F3"};`;
+      case "Medium": return `background: ${theme?.colors?.primary || "#1b4332"}20; color: ${theme?.colors?.primary || "#1b4332"};`;
+      case "High": return `background: ${theme?.colors?.warning || "#FFC107"}20; color: ${theme?.colors?.warning || "#FFC107"};`;
+      case "Critical": return `background: ${theme?.colors?.error || "#F44336"}20; color: ${theme?.colors?.error || "#F44336"};`;
+      default: return `background: ${theme?.colors?.textSecondary || "#9E9E9E"}20; color: ${theme?.colors?.textSecondary || "#9E9E9E"};`;
     }
   }}
 `;
@@ -164,12 +165,12 @@ const ListContainer = styled.ul`
   padding: 0;
   margin: 0;
   & > li {
-    background: ${(props) => props.theme.colors.surfaceLight};
-    border-radius: ${(props) => props.theme.borderRadius.md};
+    background: ${(props) => props.theme?.colors?.surfaceLight || '#f7fafc'};
+    border-radius: ${(props) => props.theme?.borderRadius?.md || '0.375rem'};
     padding: 0.75rem 1rem;
     margin-bottom: 0.5rem;
     font-size: 0.9rem;
-    color: ${(props) => props.theme.colors.text};
+    color: ${(props) => props.theme?.colors?.text || '#2d3748'};
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -181,7 +182,7 @@ const ListContainer = styled.ul`
 
 const ModalFooter = styled.div`
   padding: 1rem 1.5rem;
-  border-top: 1px solid ${(props) => props.theme.colors.border};
+  border-top: 1px solid ${(props) => props.theme?.colors?.border || '#e2e8f0'};
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
@@ -221,7 +222,6 @@ const ViewTaskModal = ({ task, onClose }) => {
         <ModalBody>
           <DetailGrid>
             <DetailItem><DetailLabel><FaBuilding /> Site</DetailLabel><DetailValue>{task.site?.name || 'N/A'}</DetailValue></DetailItem>
-            <DetailItem><DetailLabel><FaUserPlus /> Assigned To</DetailLabel><DetailValue>{task.assignedTo || 'Unassigned'}</DetailValue></DetailItem>
             <DetailItem><DetailLabel><FaInfoCircle /> Status</DetailLabel><DetailValue><StatusBadge status={task.status}>{getStatusIcon(task.status)} {task.status}</StatusBadge></DetailValue></DetailItem>
             <DetailItem><DetailLabel><FaStar /> Priority</DetailLabel><DetailValue><PriorityBadge priority={task.priority}><FaStar /> {task.priority}</PriorityBadge></DetailValue></DetailItem>
             <DetailItem><DetailLabel><FaCalendarAlt /> Start Date</DetailLabel><DetailValue>{formatDate(task.startDate)}</DetailValue></DetailItem>
@@ -233,12 +233,23 @@ const ViewTaskModal = ({ task, onClose }) => {
             <DetailItem><DetailLabel><FaSitemap /> Parent Task</DetailLabel><DetailValue>{task.parentTask?.name || 'None'}</DetailValue></DetailItem>
           </DetailGrid>
 
+          {task.assignedTo && task.assignedTo.length > 0 && (
+            <DetailItem>
+              <DetailLabel><FaUserPlus /> Assigned To</DetailLabel>
+              <ListContainer>
+                {task.assignedTo.map(worker => (
+                  <li key={worker._id || worker}>{worker.fullName || worker}</li>
+                ))}
+              </ListContainer>
+            </DetailItem>
+          )}
+
           {task.dependencies && task.dependencies.length > 0 && (
             <DetailItem>
               <DetailLabel><FaSitemap /> Dependencies</DetailLabel>
               <ListContainer>
                 {task.dependencies.map(dep => (
-                  <li key={dep._id || dep}>{dep.name || dep}</li> // dep might be populated object or just ID string
+                  <li key={dep._id || dep}>{dep.name || dep}</li>
                 ))}
               </ListContainer>
             </DetailItem>

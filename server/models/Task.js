@@ -1,3 +1,4 @@
+// server/models/Task.js
 const mongoose = require('mongoose');
 
 const TaskSchema = new mongoose.Schema({
@@ -42,11 +43,12 @@ const TaskSchema = new mongoose.Schema({
     actualCompletionDate: {
         type: Date,
     },
-    assignedTo: {
-        type: String,
-        trim: true,
-        default: 'Unassigned',
-    },
+    // --- UPDATED: assignedTo to be an array of Worker ObjectIds ---
+    assignedTo: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Worker', // Reference the new Worker model
+    }],
+    // --- END UPDATED ---
     parentTask: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Task',

@@ -1,25 +1,18 @@
 "use client"
 
 import { useEffect } from "react"
-// Use standard BrowserRouter and import Future from react-router-dom
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { ThemeProvider } from "styled-components"
 import { ToastContainer } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
-
-// Context Providers
 import { AuthProvider } from "./contexts/AuthContext"
 import { NotificationProvider } from "./contexts/NotificationContext"
 import { ThemeProvider as CustomThemeProvider } from "./contexts/ThemeContext"
-
-// Components
 import GlobalStyles from "./styles/GlobalStyles"
 import ErrorBoundary from "./components/common/ErrorBoundary"
 import ProtectedRoute from "./components/auth/ProtectedRoute"
 import PublicRoute from "./components/auth/publicRoute"
 import MainLayout from "./components/layout/MainLayout"
-
-// Pages
 import Login from "./pages/auth/Login"
 import Register from "./pages/auth/Register"
 import ForgotPassword from "./pages/auth/ForgotPassword"
@@ -28,25 +21,17 @@ import EmailVerification from "./pages/auth/EmailVerification"
 import DynamicDashboard from "./components/dashboard/DynamicDashboard"
 import Profile from "./pages/profile"
 import Settings from "./pages/Settings"
-
-// Module Pages
 import InventoryModule from "./pages/modules/IMS"
 import AgricultureModule from "./pages/modules/ISA"
 import WasteModule from "./pages/modules/WasteManagement"
 import ConstructionModule from "./pages/modules/ConstructionSites"
 import AnalyticsModule from "./pages/modules/Analytics"
 import UserManagement from "./pages/modules/UserManagement"
-
-// Utility Components
 import NotFound from "./pages/NotFound"
 import Maintenance from "./pages/Maintenance"
-
-// Theme
 import theme from "./styles/Theme"
 import { useTheme } from "./contexts/ThemeContext"
 
-
-// Main App Component
 function App() {
   const { currentTheme } = useTheme()
 
@@ -69,11 +54,9 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider theme={currentTheme || theme}>
         <GlobalStyles />
-        {/* Use the standard BrowserRouter and pass the future flags directly */}
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <div className="App">
             <Routes>
-              {/* Public Routes */}
               <Route
                 path="/login"
                 element={
@@ -109,7 +92,6 @@ function App() {
               <Route path="/verify-email/:token" element={<EmailVerification />} />
               <Route path="/maintenance" element={<Maintenance />} />
 
-              {/* Protected Routes with Layout */}
               <Route
                 path="/*"
                 element={
@@ -118,14 +100,9 @@ function App() {
                   </ProtectedRoute>
                 }
               >
-                {/* Dashboard */}
                 <Route path="dashboard" element={<DynamicDashboard />} />
-
-                {/* Profile & Settings */}
                 <Route path="profile" element={<Profile />} />
                 <Route path="settings" element={<Settings />} />
-
-                {/* Module Routes */}
                 <Route
                   path="inventory/*"
                   element={
@@ -174,17 +151,12 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
-
-                {/* Default route */}
                 <Route index element={<Navigate to="/dashboard" replace />} />
               </Route>
 
-              {/* Fallback Routes */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
-
-            {/* Global Components */}
             <ToastContainer
               position="top-right"
               autoClose={5000}
@@ -204,7 +176,6 @@ function App() {
   )
 }
 
-// App Wrapper with Providers
 function AppWrapper() {
   return (
     <CustomThemeProvider>

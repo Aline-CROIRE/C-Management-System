@@ -1,5 +1,6 @@
+// client/src/services/api.js
 import axios from "axios";
-import { toast } from "react-toastify"; // Note: your useConstructionManagement uses 'react-hot-toast' but api.js uses 'react-toastify'. Ensure consistency if needed.
+import { toast } from "react-hot-toast"; // Changed to react-hot-toast for consistency
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/api",
@@ -28,13 +29,11 @@ api.interceptors.response.use(
     if (response.config.responseType === 'blob') {
       return response.data;
     }
-    // This interceptor already unwraps the axios response,
-    // so 'response.data' here is the actual JSON object from your backend.
     return response.data;
   },
   (error) => {
     const errorMessage = error.response?.data?.message || error.message || "An unexpected error occurred.";
-    if (error.response?.status === 401 && window.location.pathname !== "/login") {
+    if (error.response?.status === 401 && typeof window !== 'undefined' && window.location.pathname !== "/login") {
       toast.error("Session expired. Please log in again.");
       localStorage.clear();
       sessionStorage.clear();
@@ -42,8 +41,6 @@ api.interceptors.response.use(
     } else {
       toast.error(errorMessage);
     }
-    // Crucially, reject with a new Error containing the message,
-    // so the catch blocks in useConstructionManagement can access err.message
     return Promise.reject(new Error(errorMessage));
   }
 );
@@ -141,89 +138,46 @@ export const reportsAPI = {
 };
 
 export const constructionAPI = {
-  getSites: async (params) => {
-    const fullResponse = await api.get('/construction/sites', { params });
-    console.log("Sites Full API Response:", fullResponse); // Log the full object for debugging
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
-  getSiteById: async (id) => {
-    const fullResponse = await api.get(`/construction/sites/${id}`);
-    console.log("Site Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
-  createSite: async (siteData) => {
-    const fullResponse = await api.post('/construction/sites', siteData);
-    console.log("Create Site Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
-  updateSite: async (id, siteData) => {
-    const fullResponse = await api.put(`/construction/sites/${id}`, siteData);
-    console.log("Update Site Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
-  deleteSite: async (id) => {
-    const fullResponse = await api.delete(`/construction/sites/${id}`);
-    console.log("Delete Site Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
+  getSites: async (params) => await api.get('/construction/sites', { params }),
+  getSiteById: async (id) => await api.get(`/construction/sites/${id}`),
+  createSite: async (siteData) => await api.post('/construction/sites', siteData),
+  updateSite: async (id, siteData) => await api.put(`/construction/sites/${id}`, siteData),
+  deleteSite: async (id) => await api.delete(`/construction/sites/${id}`),
 
-  getEquipment: async (params) => {
-    const fullResponse = await api.get('/construction/equipment', { params });
-    console.log("Equipment Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
-  getEquipmentById: async (id) => {
-    const fullResponse = await api.get(`/construction/equipment/${id}`);
-    console.log("Equipment by ID Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
-  createEquipment: async (equipmentData) => {
-    const fullResponse = await api.post('/construction/equipment', equipmentData);
-    console.log("Create Equipment Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
-  updateEquipment: async (id, equipmentData) => {
-    const fullResponse = await api.put(`/construction/equipment/${id}`, equipmentData);
-    console.log("Update Equipment Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
-  deleteEquipment: async (id) => {
-    const fullResponse = await api.delete(`/construction/equipment/${id}`);
-    console.log("Delete Equipment Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
+  getEquipment: async (params) => await api.get('/construction/equipment', { params }),
+  getEquipmentById: async (id) => await api.get(`/construction/equipment/${id}`),
+  createEquipment: async (equipmentData) => await api.post('/construction/equipment', equipmentData),
+  updateEquipment: async (id, equipmentData) => await api.put(`/construction/equipment/${id}`, equipmentData),
+  deleteEquipment: async (id) => await api.delete(`/construction/equipment/${id}`),
 
-  getStats: async () => {
-    const fullResponse = await api.get('/construction/stats');
-    console.log("Stats Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
+  getWorkers: async (params) => await api.get("/construction/workers", { params }),
+  getWorkerById: async (id) => await api.get(`/construction/workers/${id}`),
+  createWorker: async (workerData) => await api.post("/construction/workers", workerData),
+  updateWorker: async (id, workerData) => await api.put(`/construction/workers/${id}`, workerData),
+  deleteWorker: async (id) => await api.delete(`/construction/workers/${id}`),
 
-  getTasks: async (params) => {
-    const fullResponse = await api.get('/construction/tasks', { params });
-    console.log("Tasks Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
-  getTaskById: async (id) => {
-    const fullResponse = await api.get(`/construction/tasks/${id}`);
-    console.log("Task by ID Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
-  createTask: async (taskData) => {
-    const fullResponse = await api.post('/construction/tasks', taskData);
-    console.log("Create Task Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
-  updateTask: async (id, taskData) => {
-    const fullResponse = await api.put(`/construction/tasks/${id}`, taskData);
-    console.log("Update Task Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
-  deleteTask: async (id) => {
-    const fullResponse = await api.delete(`/construction/tasks/${id}`);
-    console.log("Delete Task Full API Response:", fullResponse);
-    return fullResponse; // RETURN THE FULL OBJECT
-  },
+  getStats: async () => await api.get('/construction/stats'),
+
+  getTasks: async (params) => await api.get('/construction/tasks', { params }),
+  getTaskById: async (id) => await api.get(`/construction/tasks/${id}`),
+  createTask: async (taskData) => await api.post('/construction/tasks', taskData),
+  updateTask: async (id, taskData) => await api.put(`/construction/tasks/${id}`, taskData),
+  deleteTask: async (id) => await api.delete(`/construction/tasks/${id}`),
+
+  getMilestones: async (siteId) => await api.get(`/construction/sites/${siteId}/milestones`),
+  createMilestone: async (siteId, milestoneData) => await api.post(`/construction/sites/${siteId}/milestones`, milestoneData),
+
+  getChangeOrders: async (siteId) => await api.get(`/construction/sites/${siteId}/change-orders`),
+  createChangeOrder: async (siteId, changeOrderData) => await api.post(`/construction/sites/${siteId}/change-orders`, changeOrderData),
+
+  getMaterialInventory: async (siteId) => await api.get(`/construction/sites/${siteId}/inventory`),
+  updateMaterialInventory: async (siteId, materialId, quantity) => await api.patch(`/construction/sites/${siteId}/inventory/${materialId}`, { quantity }),
+
+  getBudgetAnalytics: async (siteId) => await api.get(`/construction/sites/${siteId}/budget-analytics`),
+  generateFinancialReport: async (siteId, reportType) => await api.get(`/construction/sites/${siteId}/reports/${reportType}`, { responseType: 'blob' }),
+
+  assignWorker: async (siteId, workerId, assignmentData) => await api.post(`/construction/sites/${siteId}/workers/${workerId}`, assignmentData),
+  getWorkerAssignments: async (siteId) => await api.get(`/construction/sites/${siteId}/workers`),
 };
 
 export default api;

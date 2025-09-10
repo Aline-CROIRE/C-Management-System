@@ -15,11 +15,13 @@ import {
   FaDollarSign,
   FaChartBar,
   FaTasks,
+  FaProjectDiagram,
+  FaUsersCog
 } from "react-icons/fa";
 
-import Card from "../../components/common/Card";
-import Button from "../../components/common/Button";
-import LoadingSpinner from "../../components/common/LoadingSpinner";
+import Card from "../common/Card";
+import Button from "../common/Button";
+import LoadingSpinner from "../common/LoadingSpinner";
 import { useConstructionManagement } from "../../hooks/useConstructionManagement";
 import SiteTable from "./SiteTable";
 import EquipmentTable from "./EquipmentTable";
@@ -31,6 +33,11 @@ import ViewEquipmentModal from "./ViewEquipmentModal";
 import TaskTable from "./task-management/TaskTable";
 import AddEditTaskModal from "./task-management/AddEditTaskModal";
 import ViewTaskModal from "./task-management/ViewTaskModal";
+import GanttChartDisplay from "./task-management/GanttChartDisplay";
+
+import WorkerAssignmentTable from "./worker-management/WorkerAssignmentTable";
+import AddEditWorkerModal from "./worker-management/AddEditWorkerModal";
+import ViewWorkerModal from "./worker-management/ViewWorkerModal";
 
 
 const fluidText = (minPx, maxPx) => `clamp(${minPx / 16}rem, ${(minPx / 16)}rem + ${(maxPx - minPx) / (1920 - 320)}vw, ${maxPx / 16}rem)`;
@@ -153,8 +160,8 @@ const StatIconWrapper = styled.div`
   width: 48px;
   height: 48px;
   border-radius: 0.75rem;
-  background: ${(props) => props.$background || props.theme?.colors?.primary}20;
-  color: ${(props) => props.$color || props.theme?.colors?.primary};
+  background: ${(props) => props.$background || (props.theme?.colors?.primary ? `${props.theme.colors.primary}20` : '#007bff20')};
+  color: ${(props) => props.$color || props.theme?.colors?.primary || '#007bff'};
   display: flex;
   align-items: center;
   justify-content: center;
@@ -195,7 +202,7 @@ const StatFooter = styled.div`
   gap: 0.5rem;
   font-size: ${fluidText(12, 14)};
   font-weight: 600;
-  color: ${(props) => props.$color || props.theme?.colors?.primary};
+  color: ${(props) => props.$color || props.theme?.colors?.primary || '#007bff'};
   margin-top: 1rem;
 
   @media (max-width: 480px) {
@@ -203,10 +210,50 @@ const StatFooter = styled.div`
   }
 `;
 
-const SectionContainer = styled.div`
+const TabContainer = styled.div`
+  background: ${(props) => props.theme?.colors?.surface || "#ffffff"};
+  border-radius: ${(props) => props.theme?.borderRadius?.xl || "1rem"};
+  box-shadow: ${(props) => props.theme?.shadows?.lg || "0 4px 6px rgba(0, 0, 0, 0.1)"};
+  overflow: hidden;
+  border: 1px solid ${(props) => props.theme?.colors?.border || "#e2e8f0"};
   margin-bottom: 2.5rem;
+`;
+
+const Tabs = styled.div`
+  display: flex;
+  border-bottom: 1px solid ${(props) => props.theme?.colors?.border || "#e2e8f0"};
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+`;
+
+const TabButton = styled.button`
+  padding: 1rem 1.5rem;
+  font-size: ${fluidText(14, 16)};
+  font-weight: 600;
+  color: ${(props) => props.active ? (props.theme?.colors?.primary || '#007bff') : (props.theme?.colors?.textSecondary || '#718096')};
+  background: ${(props) => props.active ? (props.theme?.colors?.surfaceLight || '#f7fafc') : 'transparent'};
+  border: none;
+  border-bottom: 2px solid ${(props) => props.active ? (props.theme?.colors?.primary || '#007bff') : 'transparent'};
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  
+  &:hover {
+    color: ${(props) => props.theme?.colors?.primary || '#007bff'};
+    background: ${(props) => props.theme?.colors?.surfaceLight || '#f7fafc'};
+  }
+
   @media (max-width: 768px) {
-    margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem;
+    font-size: ${fluidText(12, 14)};
+  }
+`;
+
+const TabContent = styled.div`
+  padding: 1.5rem;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
   }
 `;
 
@@ -255,50 +302,77 @@ const SectionActions = styled.div`
   }
 `;
 
+
 const ConstructionDashboard = () => {
   const {
-    sites, equipment, tasks, stats, loading, error, refreshAllData,
+    sites, equipment, tasks, workers, stats, loading, error, refreshAllData,
     createSite, updateSite, deleteSite,
     createEquipment, updateEquipment, deleteEquipment,
     createTask, updateTask, deleteTask,
+    createWorker, updateWorker, deleteWorker,
     paginationSites, changePageSites,
     paginationEquipment, changePageEquipment,
     paginationTasks, changePageTasks,
+    paginationWorkers, changePageWorkers,
   } = useConstructionManagement();
 
-  const [isAddSiteModalOpen, setIsAddSiteModalOpen] = useState(false);
-  const [isEditSiteModalOpen, setIsEditSiteModalOpen] = useState(false);
-  const [isViewSiteModalOpen, setIsViewSiteModalOpen] = useState(false);
-  const [selectedSite, setSelectedSite] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [taskViewMode, setTaskViewMode] = useState('table');
 
-  const [isAddEquipmentModalOpen, setIsAddEquipmentModalOpen] = useState(false);
-  const [isEditEquipmentModalOpen, setIsEditEquipmentModalOpen] = useState(false);
-  const [isViewEquipmentModalOpen, setIsViewEquipmentModalOpen] = useState(false);
-  const [selectedEquipment, setSelectedEquipment] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [modalType, setModalType] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
 
-  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
-  const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
-  const [isViewTaskModalOpen, setIsViewTaskModalOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const handleExport = (type) => { console.log(`Exporting as ${type}`); setShowExportModal(false); };
+
 
   const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   const formatNumber = (num) => Number(num || 0).toLocaleString();
 
-  const handleEditSite = (site) => { setSelectedSite(site); setIsEditSiteModalOpen(true); };
-  const handleViewSite = (site) => { setSelectedSite(site); setIsViewSiteModalOpen(true); };
-  const handleDeleteSite = async (id) => { if (window.confirm("Are you sure you want to delete this site?")) await deleteSite(id); };
+  const handleAddNew = (type) => {
+    setModalType(type);
+    setSelectedItem(null);
+    setShowAddModal(true);
+  };
 
-  const handleEditEquipment = (eq) => { setSelectedEquipment(eq); setIsEditEquipmentModalOpen(true); };
-  const handleViewEquipment = (eq) => { setSelectedEquipment(eq); setIsViewEquipmentModalOpen(true); };
-  const handleDeleteEquipment = async (id) => { if (window.confirm("Are you sure you want to delete this equipment?")) await deleteEquipment(id); };
+  const handleEdit = (type, item) => {
+    setModalType(type);
+    setSelectedItem(item);
+    setShowEditModal(true);
+  };
 
-  const handleEditTask = (task) => { setSelectedTask(task); setIsEditTaskModalOpen(true); };
-  const handleViewTask = (task) => { setSelectedTask(task); setIsViewTaskModalOpen(true); };
-  const handleDeleteTask = async (id) => { if (window.confirm("Are you sure you want to delete this task?")) await deleteTask(id); };
+  const handleView = (type, item) => {
+    setModalType(type);
+    setSelectedItem(item);
+    setShowViewModal(true);
+  };
 
-  // This loading check should ideally cover the initial state when data might not yet be fetched.
-  // The `stats.sites?.total === 0` is a good safeguard, but ensures it doesn't perpetually show spinner if 0 is a valid state.
-  if (loading && (!sites.length && !equipment.length && !tasks.length && stats.sites?.total === 0)) {
+  const handleDelete = async (type, id) => {
+    if (!window.confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) {
+      return;
+    }
+    try {
+      switch (type) {
+        case 'site': await deleteSite(id); break;
+        case 'equipment': await deleteEquipment(id); break;
+        case 'task': await deleteTask(id); break;
+        case 'worker': await deleteWorker(id); break;
+        default: console.error("Unknown type for deletion:", type); break;
+      }
+    } catch (err) {
+      console.error(`Error deleting ${type}:`, err);
+    }
+  };
+
+  // Improved loading check to be more resilient
+  const areAllDataArraysEmpty = (sites?.length === 0) && (equipment?.length === 0) && (tasks?.length === 0) && (workers?.length === 0);
+  const areStatsInitiallyEmpty = (!stats || (stats?.sites?.total === undefined && stats?.equipment?.total === undefined && stats?.tasks?.total === undefined));
+  const shouldShowLoading = loading && areAllDataArraysEmpty && areStatsInitiallyEmpty;
+
+  if (shouldShowLoading) {
     return (
       <div style={{ display: 'grid', placeItems: 'center', minHeight: '80vh' }}>
         <LoadingSpinner /><p style={{ marginTop: '1rem', fontSize: '1rem', color: '#718096' }}>Loading construction data...</p>
@@ -311,29 +385,19 @@ const ConstructionDashboard = () => {
       <Card style={{ padding: '2rem', textAlign: 'center', background: '#ffebee', color: '#d32f2f' }}>
         <FaExclamationTriangle size={32} style={{ marginBottom: '1rem' }} />
         <h3>Error Loading Construction Data</h3>
-        {/* CORRECTED: Access the .message property of the error object */}
         <p>{error.message || "An unexpected error occurred while fetching data."}</p>
         <Button variant="primary" onClick={refreshAllData} style={{ marginTop: '1rem' }}>Try Again</Button>
       </Card>
     );
   }
 
-  return (
-    <>
-      <HeaderSection>
-        <HeaderContent>
-          <HeaderTitle>Construction Site Management</HeaderTitle>
-          <HeaderSubtitle>
-            Comprehensive management of construction projects, equipment, and resources
-          </HeaderSubtitle>
-        </HeaderContent>
-      </HeaderSection>
-
+  const renderOverviewTab = () => (
+    <TabContent>
       <StatsGrid>
         <StatCard>
           <StatContentTop>
             <div>
-              <StatValue>{formatNumber(stats.sites.active)}</StatValue>
+              <StatValue>{formatNumber(stats?.sites?.active)}</StatValue>
               <StatLabel>Active Sites</StatLabel>
             </div>
             <StatIconWrapper $background="linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%)" $color="white">
@@ -341,14 +405,14 @@ const ConstructionDashboard = () => {
             </StatIconWrapper>
           </StatContentTop>
           <StatFooter $color="#4CAF50">
-            <FaChartLine /> {formatNumber(stats.sites.total)} Total Projects
+            <FaChartLine /> {formatNumber(stats?.sites?.total)} Total Projects
           </StatFooter>
         </StatCard>
 
         <StatCard>
           <StatContentTop>
             <div>
-              <StatValue>{formatNumber(stats.equipment.total)}</StatValue>
+              <StatValue>{formatNumber(stats?.equipment?.total)}</StatValue>
               <StatLabel>Equipment Units</StatLabel>
             </div>
             <StatIconWrapper $background="linear-gradient(135deg, #2196F3 0%, #64B5F6 100%)" $color="white">
@@ -356,14 +420,14 @@ const ConstructionDashboard = () => {
             </StatIconWrapper>
           </StatContentTop>
           <StatFooter $color="#2196F3">
-            <FaChartLine /> {formatNumber(stats.equipment.operational)} Operational
+            <FaChartLine /> {formatNumber(stats?.equipment?.operational)} Operational
           </StatFooter>
         </StatCard>
 
         <StatCard>
           <StatContentTop>
             <div>
-              <StatValue>{formatNumber(stats.tasks.total)}</StatValue>
+              <StatValue>{formatNumber(stats?.tasks?.total)}</StatValue>
               <StatLabel>Total Tasks</StatLabel>
             </div>
             <StatIconWrapper $background="linear-gradient(135deg, #FFC107 0%, #FFD54F 100%)" $color="white">
@@ -371,14 +435,14 @@ const ConstructionDashboard = () => {
             </StatIconWrapper>
           </StatContentTop>
           <StatFooter $color="#FFC107">
-            <FaChartBar /> {formatNumber(stats.tasks.pending)} Pending
+            <FaChartBar /> {formatNumber(stats?.tasks?.pending)} Pending
           </StatFooter>
         </StatCard>
 
         <StatCard>
           <StatContentTop>
             <div>
-              <StatValue>{formatNumber(stats.equipment.inMaintenance)}</StatValue>
+              <StatValue>{formatNumber(stats?.equipment?.inMaintenance)}</StatValue>
               <StatLabel>Maintenance Due</StatLabel>
             </div>
             <StatIconWrapper $background="linear-gradient(135deg, #F44336 0%, #EF5350 100%)" $color="white">
@@ -393,7 +457,7 @@ const ConstructionDashboard = () => {
         <StatCard>
           <StatContentTop>
             <div>
-              <StatValue>{formatCurrency(stats.sites.totalBudget)}</StatValue>
+              <StatValue>{formatCurrency(stats?.sites?.totalBudget)}</StatValue>
               <StatLabel>Total Budget</StatLabel>
             </div>
             <StatIconWrapper $background="linear-gradient(135deg, #673AB7 0%, #9575CD 100%)" $color="white">
@@ -401,14 +465,14 @@ const ConstructionDashboard = () => {
             </StatIconWrapper>
           </StatContentTop>
           <StatFooter $color="#673AB7">
-            <FaTasks /> {formatCurrency(stats.sites.totalExpenditure)} spent
+            <FaTasks /> {formatCurrency(stats?.sites?.totalExpenditure)} spent
           </StatFooter>
         </StatCard>
 
         <StatCard>
           <StatContentTop>
             <div>
-              <StatValue>{formatNumber(stats.sites.delayed)}</StatValue>
+              <StatValue>{formatNumber(stats?.sites?.delayed)}</StatValue>
               <StatLabel>Delayed Sites</StatLabel>
             </div>
             <StatIconWrapper $background="linear-gradient(135deg, #FF9800 0%, #FFB74D 100%)" $color="white">
@@ -420,107 +484,204 @@ const ConstructionDashboard = () => {
           </StatFooter>
         </StatCard>
       </StatsGrid>
+    </TabContent>
+  );
 
-      <SectionContainer>
-        <SectionHeader>
-          <SectionTitle>
-            <FaBuilding /> Construction Sites
-          </SectionTitle>
-          <SectionActions>
-            <Button variant="outline" size="sm"><FaDownload /> Export Sites</Button>
-            <Button variant="primary" size="sm" onClick={() => setIsAddSiteModalOpen(true)}><FaPlus /> Add New Site</Button>
-          </SectionActions>
-        </SectionHeader>
+  const renderSitesTab = () => (
+    <TabContent>
+      <SectionHeader>
+        <SectionTitle>
+          <FaBuilding /> Construction Sites
+        </SectionTitle>
+        <SectionActions>
+          <Button variant="outline" size="sm" onClick={() => setShowExportModal(true)} disabled={loading}><FaDownload /> Export Sites</Button>
+          <Button variant="primary" size="sm" onClick={() => handleAddNew('site')} disabled={loading}><FaPlus /> Add New Site</Button>
+        </SectionActions>
+      </SectionHeader>
+      <SiteTable
+        sites={sites}
+        loading={loading}
+        pagination={paginationSites}
+        onPageChange={changePageSites}
+        onEdit={(site) => handleEdit('site', site)}
+        onDelete={(id) => handleDelete('site', id)}
+        onView={(site) => handleView('site', site)}
+      />
+    </TabContent>
+  );
 
-        <SiteTable
+  return (
+    <>
+      <HeaderSection>
+        <HeaderContent>
+          <HeaderTitle>Construction Site Management</HeaderTitle>
+          <HeaderSubtitle>
+            Comprehensive management of construction projects, equipment, and resources
+          </HeaderSubtitle>
+        </HeaderContent>
+      </HeaderSection>
+
+      <TabContainer>
+        <Tabs>
+          <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')}>Overview</TabButton>
+          <TabButton active={activeTab === 'sites'} onClick={() => setActiveTab('sites')}>Sites</TabButton>
+          <TabButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')}>Tasks</TabButton>
+          <TabButton active={activeTab === 'equipment'} onClick={() => setActiveTab('equipment')}>Equipment</TabButton>
+          <TabButton active={activeTab === 'workers'} onClick={() => setActiveTab('workers')}>Workers</TabButton>
+        </Tabs>
+
+        {activeTab === 'overview' && renderOverviewTab()}
+        {activeTab === 'sites' && renderSitesTab()}
+        {activeTab === 'tasks' && (
+          <TabContent>
+            <SectionHeader>
+              <SectionTitle><FaTasks /> Project Tasks</SectionTitle>
+              <SectionActions>
+                <Button
+                    variant={taskViewMode === 'table' ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => setTaskViewMode('table')}
+                    disabled={loading}
+                >
+                    <FaTasks /> Table View
+                </Button>
+                <Button
+                    variant={taskViewMode === 'gantt' ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => setTaskViewMode('gantt')}
+                    disabled={loading}
+                >
+                    <FaProjectDiagram /> Gantt Chart
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowExportModal(true)} disabled={loading}><FaDownload /> Export Tasks</Button>
+                <Button variant="primary" size="sm" onClick={() => handleAddNew('task')} disabled={loading}><FaPlus /> Add Task</Button>
+              </SectionActions>
+            </SectionHeader>
+
+            {taskViewMode === 'table' ? (
+                <TaskTable
+                    tasks={tasks}
+                    loading={loading}
+                    pagination={paginationTasks}
+                    onPageChange={changePageTasks}
+                    onEdit={(task) => handleEdit('task', task)}
+                    onDelete={(id) => handleDelete('task', id)}
+                    onView={(task) => handleView('task', task)}
+                />
+            ) : (
+                <GanttChartDisplay
+                    tasks={tasks}
+                    loading={loading}
+                    error={error}
+                />
+            )}
+          </TabContent>
+        )}
+        {activeTab === 'equipment' && (
+          <TabContent>
+            <SectionHeader>
+              <SectionTitle><FaTools /> Equipment Inventory</SectionTitle>
+              <SectionActions>
+                <Button variant="outline" size="sm" onClick={() => setShowExportModal(true)} disabled={loading}><FaDownload /> Export Equipment</Button>
+                <Button variant="primary" size="sm" onClick={() => handleAddNew('equipment')} disabled={loading}><FaPlus /> Add Equipment</Button>
+              </SectionActions>
+            </SectionHeader>
+            <EquipmentTable
+              equipment={equipment}
+              loading={loading}
+              pagination={paginationEquipment}
+              onPageChange={changePageEquipment}
+              onEdit={(eq) => handleEdit('equipment', eq)}
+              onDelete={(id) => handleDelete('equipment', id)}
+              onView={(eq) => handleView('equipment', eq)}
+            />
+          </TabContent>
+        )}
+        {activeTab === 'workers' && (
+          <TabContent>
+            <SectionHeader>
+              <SectionTitle><FaUsersCog /> Worker Management</SectionTitle>
+              <SectionActions>
+                <Button variant="outline" size="sm" onClick={() => setShowExportModal(true)} disabled={loading}><FaDownload /> Export Workers</Button>
+                <Button variant="primary" size="sm" onClick={() => handleAddNew('worker')} disabled={loading}><FaPlus /> Add Worker</Button>
+              </SectionActions>
+            </SectionHeader>
+            <WorkerAssignmentTable
+              workers={workers}
+              loading={loading}
+              pagination={paginationWorkers} 
+              onPageChange={changePageWorkers}
+              onEdit={(worker) => handleEdit('worker', worker)}
+              onDelete={(id) => handleDelete('worker', id)}
+              onView={(worker) => handleView('worker', worker)}
+            />
+          </TabContent>
+        )}
+      </TabContainer>
+
+      {showAddModal && modalType === 'site' && (
+        <AddSiteModal onClose={() => setShowAddModal(false)} onSave={createSite} loading={loading} />
+      )}
+      {showAddModal && modalType === 'equipment' && (
+        <AddEquipmentModal onClose={() => setShowAddModal(false)} onSave={createEquipment} loading={loading} sites={sites} />
+      )}
+      {showAddModal && modalType === 'task' && (
+        <AddEditTaskModal
+          onClose={() => setShowAddModal(false)}
+          onSave={createTask}
+          loading={loading}
           sites={sites}
-          loading={loading}
-          pagination={paginationSites}
-          onPageChange={changePageSites}
-          onEdit={handleEditSite}
-          onDelete={handleDeleteSite}
-          onView={handleViewSite}
+          allTasks={tasks}
+          workers={workers}
         />
-      </SectionContainer>
-
-      <SectionContainer>
-        <SectionHeader>
-          <SectionTitle>
-            <FaTools /> Equipment Inventory
-          </SectionTitle>
-          <SectionActions>
-            <Button variant="outline" size="sm"><FaDownload /> Export Equipment</Button>
-            <Button variant="primary" size="sm" onClick={() => setIsAddEquipmentModalOpen(true)}><FaPlus /> Add Equipment</Button>
-          </SectionActions>
-        </SectionHeader>
-
-        <EquipmentTable
-          equipment={equipment}
-          loading={loading}
-          pagination={paginationEquipment}
-          onPageChange={changePageEquipment}
-          onEdit={handleEditEquipment}
-          onDelete={handleDeleteEquipment}
-          onView={handleViewEquipment}
-        />
-      </SectionContainer>
-
-      <SectionContainer>
-        <SectionHeader>
-          <SectionTitle>
-            <FaTasks /> Project Tasks
-          </SectionTitle>
-          <SectionActions>
-            <Button variant="outline" size="sm"><FaDownload /> Export Tasks</Button>
-            <Button variant="primary" size="sm" onClick={() => setIsAddTaskModalOpen(true)}><FaPlus /> Add Task</Button>
-          </SectionActions>
-        </SectionHeader>
-
-        <TaskTable
-          tasks={tasks}
-          loading={loading}
-          pagination={paginationTasks}
-          onPageChange={changePageTasks}
-          onEdit={handleEditTask}
-          onDelete={handleDeleteTask}
-          onView={handleViewTask}
-        />
-      </SectionContainer>
-
-
-      {/* Modals */}
-      {isAddSiteModalOpen && <AddSiteModal onClose={() => setIsAddSiteModalOpen(false)} onSave={createSite} loading={loading} />}
-      {isEditSiteModalOpen && selectedSite && <AddSiteModal onClose={() => setIsEditSiteModalOpen(false)} onSave={updateSite} loading={loading} siteToEdit={selectedSite} />}
-      {isViewSiteModalOpen && selectedSite && <ViewSiteModal onClose={() => setIsViewSiteModalOpen(false)} site={selectedSite} />}
-
-      {isAddEquipmentModalOpen && <AddEquipmentModal onClose={() => setIsAddEquipmentModalOpen(false)} onSave={createEquipment} loading={loading} sites={sites} />}
-      {isEditEquipmentModalOpen && selectedEquipment && <AddEquipmentModal onClose={() => setIsEditEquipmentModalOpen(false)} onSave={updateEquipment} loading={loading} equipmentToEdit={selectedEquipment} sites={sites} />}
-      {isViewEquipmentModalOpen && selectedEquipment && <ViewEquipmentModal onClose={() => setIsViewEquipmentModalOpen(false)} equipment={selectedEquipment} />}
-
-      {isAddTaskModalOpen && (
-          <AddEditTaskModal
-              onClose={() => setIsAddTaskModalOpen(false)}
-              onSave={createTask}
-              loading={loading}
-              sites={sites}
-              allTasks={tasks}
-          />
       )}
-      {isEditTaskModalOpen && selectedTask && (
-          <AddEditTaskModal
-              onClose={() => setIsEditTaskModalOpen(false)}
-              onSave={updateTask}
-              loading={loading}
-              taskToEdit={selectedTask}
-              sites={sites}
-              allTasks={tasks}
-          />
+      {showAddModal && modalType === 'worker' && (
+        <AddEditWorkerModal onClose={() => setShowAddModal(false)} onSave={createWorker} loading={loading} />
       )}
-      {isViewTaskModalOpen && selectedTask && (
-          <ViewTaskModal
-              onClose={() => setIsViewTaskModalOpen(false)}
-              task={selectedTask}
-          />
+
+      {showEditModal && modalType === 'site' && selectedItem && (
+        <AddSiteModal onClose={() => setShowEditModal(false)} onSave={updateSite} loading={loading} siteToEdit={selectedItem} />
+      )}
+      {showEditModal && modalType === 'equipment' && selectedItem && (
+        <AddEquipmentModal onClose={() => setShowEditModal(false)} onSave={updateEquipment} loading={loading} equipmentToEdit={selectedItem} sites={sites} />
+      )}
+      {showEditModal && modalType === 'task' && selectedItem && (
+        <AddEditTaskModal
+          onClose={() => setShowEditModal(false)}
+          onSave={updateTask}
+          loading={loading}
+          taskToEdit={selectedItem}
+          sites={sites}
+          allTasks={tasks}
+          workers={workers}
+        />
+      )}
+      {showEditModal && modalType === 'worker' && selectedItem && (
+        <AddEditWorkerModal onClose={() => setShowEditModal(false)} onSave={updateWorker} loading={loading} workerToEdit={selectedItem} />
+      )}
+
+      {showViewModal && modalType === 'site' && selectedItem && (
+        <ViewSiteModal onClose={() => setShowViewModal(false)} site={selectedItem} />
+      )}
+      {showViewModal && modalType === 'equipment' && selectedItem && (
+        <ViewEquipmentModal onClose={() => setShowViewModal(false)} equipment={selectedItem} />
+      )}
+      {showViewModal && modalType === 'task' && selectedItem && (
+        <ViewTaskModal onClose={() => setShowViewModal(false)} task={selectedItem} />
+      )}
+      {showViewModal && modalType === 'worker' && selectedItem && (
+        <ViewWorkerModal onClose={() => setShowViewModal(false)} worker={selectedItem} />
+      )}
+
+      {showExportModal && (
+        <Card style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 1000, padding: '2rem' }}>
+          <h3>Export Options</h3>
+          <p>Choose export type:</p>
+          <Button onClick={() => handleExport('pdf')} disabled={loading}>PDF</Button>
+          <Button onClick={() => handleExport('excel')} style={{ marginLeft: '1rem' }} disabled={loading}>Excel</Button>
+          <Button onClick={() => handleExport('csv')} style={{ marginLeft: '1rem' }} disabled={loading}>CSV</Button>
+          <Button variant="secondary" onClick={() => setShowExportModal(false)} style={{ marginTop: '1rem', width: '100%' }} disabled={loading}>Cancel</Button>
+        </Card>
       )}
     </>
   );
