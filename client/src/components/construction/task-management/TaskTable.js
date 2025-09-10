@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import styled from "styled-components";
 import {
   FaClipboardList, FaEdit, FaEye, FaTrash,
-  FaSort, FaSortUp, FaSortDown, FaCalendarAlt, 
+  FaSort, FaSortUp, FaSortDown, FaCalendarAlt,
   FaChevronLeft, FaChevronRight, FaInfoCircle, FaStar, FaUserPlus, FaSitemap, FaCheckCircle, FaExclamationTriangle, FaClock,
   FaTimes
 } from "react-icons/fa";
@@ -36,7 +36,7 @@ const TableContainer = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 1000px;
+  min-width: 1200px;
 `;
 
 const TableHeader = styled.thead`
@@ -119,7 +119,7 @@ const TaskName = styled.div`
   color: ${(props) => props.theme?.colors?.heading || "#1a202c"};
 `;
 
-const TaskSite = styled.div`
+const TaskMeta = styled.div`
   font-size: 0.8rem;
   color: ${(props) => props.theme?.colors?.textSecondary || "#718096"};
   display: flex;
@@ -210,6 +210,10 @@ const TaskTable = ({
             aValue = a[sortConfig.key]?.name || '';
             bValue = b[sortConfig.key]?.name || '';
         }
+        if (sortConfig.key === 'assignedTo') {
+            aValue = a.assignedTo && a.assignedTo.length > 0 ? a.assignedTo[0].fullName : '';
+            bValue = b.assignedTo && b.assignedTo.length > 0 ? b.assignedTo[0].fullName : '';
+        }
         if (['startDate', 'dueDate', 'actualCompletionDate'].includes(sortConfig.key)) {
             aValue = moment(aValue).valueOf();
             bValue = moment(bValue).valueOf();
@@ -250,7 +254,11 @@ const TaskTable = ({
   };
 
   if (loading && tasks.length === 0) {
-    return <div style={{ display: "grid", placeItems: "center", padding: "4rem" }}><LoadingSpinner /></div>;
+    return (
+      <TableWrapper style={{ minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <LoadingSpinner />
+      </TableWrapper>
+    );
   }
 
   if (!loading && tasks.length === 0) {
@@ -282,7 +290,9 @@ const TaskTable = ({
               <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "assignedTo"} onClick={() => handleSort("assignedTo")}>Assigned To {getSortIcon("assignedTo")}</TableHeaderCell>
               <TableHeaderCell $sortable $sorted={sortConfig.key === "status"} onClick={() => handleSort("status")}>Status {getSortIcon("status")}</TableHeaderCell>
               <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "priority"} onClick={() => handleSort("priority")}>Priority {getSortIcon("priority")}</TableHeaderCell>
+              <TableHeaderCell $sortable $sorted={sortConfig.key === "startDate"} onClick={() => handleSort("startDate")}>Start Date {getSortIcon("startDate")}</TableHeaderCell>
               <TableHeaderCell $sortable $sorted={sortConfig.key === "dueDate"} onClick={() => handleSort("dueDate")}>Due Date {getSortIcon("dueDate")}</TableHeaderCell>
+              <TableHeaderCell $sortable $sorted={sortConfig.key === "progress"} onClick={() => handleSort("progress")}>Progress {getSortIcon("progress")}</TableHeaderCell>
               <TableHeaderCell>Actions</TableHeaderCell>
             </tr>
           </TableHeader>
@@ -292,16 +302,22 @@ const TaskTable = ({
                 <TableCell>
                   <TaskInfo>
                     <TaskName>{task.name}</TaskName>
-                    <TaskSite>{task.parentTask?.name ? `Sub-task of: ${task.parentTask.name}` : ''}</TaskSite>
+                    {task.parentTask?.name && <TaskMeta><FaSitemap size={10} /> Sub-task of: {task.parentTask.name}</TaskMeta>}
                   </TaskInfo>
                 </TableCell>
                 {!hideSiteColumn && (
                   <TableCell className="hide-on-mobile">{task.site?.name || 'N/A'}</TableCell>
                 )}
-                <TableCell className="hide-on-tablet">{task.assignedTo || 'Unassigned'}</TableCell>
+                <TableCell className="hide-on-tablet">
+                    {task.assignedTo && task.assignedTo.length > 0
+                        ? task.assignedTo.map(worker => worker.fullName).join(', ')
+                        : 'Unassigned'}
+                </TableCell>
                 <TableCell><StatusBadge status={task.status}>{getStatusIcon(task.status)} {task.status}</StatusBadge></TableCell>
                 <TableCell className="hide-on-mobile"><PriorityBadge priority={task.priority}><FaStar /> {task.priority}</PriorityBadge></TableCell>
+                <TableCell>{moment(task.startDate).format('MMM Do, YYYY')}</TableCell>
                 <TableCell>{moment(task.dueDate).format('MMM Do, YYYY')}</TableCell>
+                <TableCell>{task.progress}%</TableCell>
                 <TableCell>
                   <ActionButtonGroup>
                     <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(task)}><FaEye /></Button>
