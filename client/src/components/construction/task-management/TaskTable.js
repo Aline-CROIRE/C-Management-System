@@ -1,3 +1,4 @@
+// client/src/components/construction/task-management/TaskTable.js
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -6,7 +7,7 @@ import {
   FaClipboardList, FaEdit, FaEye, FaTrash,
   FaSort, FaSortUp, FaSortDown, FaCalendarAlt,
   FaChevronLeft, FaChevronRight, FaInfoCircle, FaStar, FaUserPlus, FaSitemap, FaCheckCircle, FaExclamationTriangle, FaClock,
-  FaTimes
+  FaTimes, FaUsers, FaTools // Added for allocated resources
 } from "react-icons/fa";
 import Button from "../../common/Button";
 import LoadingSpinner from "../../common/LoadingSpinner";
@@ -36,7 +37,7 @@ const TableContainer = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 1200px;
+  min-width: 1400px; /* Increased min-width for new columns */
 `;
 
 const TableHeader = styled.thead`
@@ -125,6 +126,7 @@ const TaskMeta = styled.div`
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  flex-wrap: wrap; /* Allow wrapping for multiple resources */
 `;
 
 const StatusBadge = styled.span`
@@ -210,9 +212,13 @@ const TaskTable = ({
             aValue = a[sortConfig.key]?.name || '';
             bValue = b[sortConfig.key]?.name || '';
         }
-        if (sortConfig.key === 'assignedTo') {
+        if (sortConfig.key === 'assignedTo') { // Sort by first assigned worker
             aValue = a.assignedTo && a.assignedTo.length > 0 ? a.assignedTo[0].fullName : '';
             bValue = b.assignedTo && b.assignedTo.length > 0 ? b.assignedTo[0].fullName : '';
+        }
+        if (sortConfig.key === 'progress') {
+            aValue = parseFloat(aValue || 0);
+            bValue = parseFloat(bValue || 0);
         }
         if (['startDate', 'dueDate', 'actualCompletionDate'].includes(sortConfig.key)) {
             aValue = moment(aValue).valueOf();
@@ -287,7 +293,8 @@ const TaskTable = ({
               {!hideSiteColumn && (
                 <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "site"} onClick={() => handleSort("site")}>Site {getSortIcon("site")}</TableHeaderCell>
               )}
-              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "assignedTo"} onClick={() => handleSort("assignedTo")}>Assigned To {getSortIcon("assignedTo")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "assignedTo"} onClick={() => handleSort("assignedTo")}>Assigned To {getSortIcon("assignedTo")}</TableHeaderCell> {/* Existing `assignedTo` */}
+              <TableHeaderCell className="hide-on-tablet">Allocated Resources</TableHeaderCell> {/* NEW */}
               <TableHeaderCell $sortable $sorted={sortConfig.key === "status"} onClick={() => handleSort("status")}>Status {getSortIcon("status")}</TableHeaderCell>
               <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "priority"} onClick={() => handleSort("priority")}>Priority {getSortIcon("priority")}</TableHeaderCell>
               <TableHeaderCell $sortable $sorted={sortConfig.key === "startDate"} onClick={() => handleSort("startDate")}>Start Date {getSortIcon("startDate")}</TableHeaderCell>
@@ -312,6 +319,13 @@ const TaskTable = ({
                     {task.assignedTo && task.assignedTo.length > 0
                         ? task.assignedTo.map(worker => worker.fullName).join(', ')
                         : 'Unassigned'}
+                </TableCell>
+                <TableCell className="hide-on-tablet"> {/* NEW Allocated Resources */}
+                    <TaskMeta>
+                        {task.allocatedWorkers && task.allocatedWorkers.length > 0 && <span><FaUsers size={10} /> {task.allocatedWorkers.length} workers</span>}
+                        {task.allocatedEquipment && task.allocatedEquipment.length > 0 && <span><FaTools size={10} style={{marginLeft: task.allocatedWorkers.length > 0 ? '0.5rem' : '0'}}/> {task.allocatedEquipment.length} equipment</span>}
+                        {(task.allocatedWorkers.length === 0 && task.allocatedEquipment.length === 0) && 'None'}
+                    </TaskMeta>
                 </TableCell>
                 <TableCell><StatusBadge status={task.status}>{getStatusIcon(task.status)} {task.status}</StatusBadge></TableCell>
                 <TableCell className="hide-on-mobile"><PriorityBadge priority={task.priority}><FaStar /> {task.priority}</PriorityBadge></TableCell>

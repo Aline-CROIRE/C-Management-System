@@ -1,11 +1,4 @@
-// The provided code is already structured to support dynamic updates.
-// No further code changes are strictly necessary for the described "connection"
-// aspects, as the `useConstructionManagement` hook's `refreshAllData`
-// and the careful passing of props facilitate the desired reactivity.
-
-// However, for completeness, here's the full code block for ConstructionDashboard
-// along with a reminder of the key integration points.
-
+// client/src/components/construction/ConstructionDashboard.js
 "use client";
 
 import React, { useState } from "react";
@@ -24,7 +17,10 @@ import {
   FaChartBar,
   FaTasks,
   FaProjectDiagram,
-  FaUsersCog
+  FaUsersCog,
+  FaClipboardList,
+  FaFileInvoiceDollar,
+  FaHardHat,
 } from "react-icons/fa";
 
 import Card from "../common/Card";
@@ -33,25 +29,29 @@ import LoadingSpinner from "../common/LoadingSpinner";
 import { useConstructionManagement } from "../../hooks/useConstructionManagement";
 import SiteTable from "./SiteTable";
 import EquipmentTable from "./EquipmentTable";
+
+// Add/Edit/View Modals for Core Entities
 import AddSiteModal from "./AddSiteModal";
 import AddEquipmentModal from "./AddEquipmentModal";
+import AddEditWorkerModal from "./worker-management/AddEditWorkerModal";
+import AddEditTaskModal from "./task-management/AddEditTaskModal";
+
 import ViewSiteModal from "./ViewSiteModal";
 import ViewEquipmentModal from "./ViewEquipmentModal";
-
-import TaskTable from "./task-management/TaskTable";
-import AddEditTaskModal from "./task-management/AddEditTaskModal";
+import ViewWorkerModal from "./worker-management/ViewWorkerModal";
 import ViewTaskModal from "./task-management/ViewTaskModal";
+
+// Task Management Tab Components
+import TaskTable from "./task-management/TaskTable";
 import GanttChartDisplay from "./task-management/GanttChartDisplay";
 
+// Worker Management Tab Components
 import WorkerAssignmentTable from "./worker-management/WorkerAssignmentTable";
-import AddEditWorkerModal from "./worker-management/AddEditWorkerModal";
-import ViewWorkerModal from "./worker-management/ViewWorkerModal";
-
 
 const fluidText = (minPx, maxPx) => `clamp(${minPx / 16}rem, ${(minPx / 16)}rem + ${(maxPx - minPx) / (1920 - 320)}vw, ${maxPx / 16}rem)`;
 
 const HeaderSection = styled.div`
-  background: linear-gradient(135deg, #4CAF50 0%, #8BC34A 100%);
+  background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
   border-radius: 1rem;
   padding: 2.5rem 3rem;
   margin-bottom: 2rem;
@@ -146,9 +146,6 @@ const StatCard = styled(Card)`
   }
 
   @media (max-width: 480px) {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
     padding: 1rem;
   }
 `;
@@ -310,7 +307,6 @@ const SectionActions = styled.div`
   }
 `;
 
-
 const ConstructionDashboard = () => {
   const {
     sites, equipment, tasks, workers, stats, loading, error, refreshAllData,
@@ -322,6 +318,13 @@ const ConstructionDashboard = () => {
     paginationEquipment, changePageEquipment,
     paginationTasks, changePageTasks,
     paginationWorkers, changePageWorkers,
+
+    // NEW STATES AND CRUD FUNCTIONS FROM HOOK
+    siteMaterialInventory, createSiteMaterial, updateSiteMaterial, deleteSiteMaterial,
+    siteMaterialRequests, createMaterialRequest, updateMaterialRequestStatus, deleteMaterialRequest,
+    sitePaymentRequests, createPaymentRequest, updatePaymentRequestStatus, deletePaymentRequest,
+    siteChangeOrders, createChangeOrder, updateChangeOrder, deleteChangeOrder,
+    siteSafetyIncidents, createSafetyIncident, updateSafetyIncident, deleteSafetyIncident,
   } = useConstructionManagement();
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -335,7 +338,6 @@ const ConstructionDashboard = () => {
 
   const [showExportModal, setShowExportModal] = useState(false);
   const handleExport = (type) => { console.log(`Exporting as ${type}`); setShowExportModal(false); };
-
 
   const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   const formatNumber = (num) => Number(num || 0).toLocaleString();
@@ -368,6 +370,26 @@ const ConstructionDashboard = () => {
         case 'equipment': await deleteEquipment(id); break;
         case 'task': await deleteTask(id); break;
         case 'worker': await deleteWorker(id); break;
+        case 'material_request':
+            const req = siteMaterialRequests.find(r => r._id === id);
+            if (req && req.site) await deleteMaterialRequest(req.site, id);
+            else console.error("Could not find site ID for material request deletion.");
+            break;
+        case 'payment_request':
+            const payReq = sitePaymentRequests.find(r => r._id === id);
+            if (payReq && payReq.site) await deletePaymentRequest(payReq.site, id);
+            else console.error("Could not find site ID for payment request deletion.");
+            break;
+        case 'change_order':
+            const co = siteChangeOrders.find(r => r._id === id);
+            if (co && co.site) await deleteChangeOrder(co.site, id);
+            else console.error("Could not find site ID for change order deletion.");
+            break;
+        case 'safety_incident':
+            const si = siteSafetyIncidents.find(r => r._id === id);
+            if (si && si.site) await deleteSafetyIncident(si.site, id);
+            else console.error("Could not find site ID for safety incident deletion.");
+            break;
         default: console.error("Unknown type for deletion:", type); break;
       }
     } catch (err) {
@@ -375,7 +397,6 @@ const ConstructionDashboard = () => {
     }
   };
 
-  // Improved loading check to be more resilient
   const areAllDataArraysEmpty = (sites?.length === 0) && (equipment?.length === 0) && (tasks?.length === 0) && (workers?.length === 0);
   const areStatsInitiallyEmpty = (!stats || (stats?.sites?.total === undefined && stats?.equipment?.total === undefined && stats?.tasks?.total === undefined));
   const shouldShowLoading = loading && areAllDataArraysEmpty && areStatsInitiallyEmpty;
@@ -491,6 +512,66 @@ const ConstructionDashboard = () => {
             <FaExclamationTriangle /> Requires review
           </StatFooter>
         </StatCard>
+
+        <StatCard>
+          <StatContentTop>
+            <div>
+              <StatValue>{formatNumber(stats?.financials?.pendingPaymentRequests)}</StatValue>
+              <StatLabel>Pending Payments</StatLabel>
+            </div>
+            <StatIconWrapper $background="linear-gradient(135deg, #FF5722 0%, #FFAB91 100%)" $color="white">
+              <FaFileInvoiceDollar />
+            </StatIconWrapper>
+          </StatContentTop>
+          <StatFooter $color="#FF5722">
+            <FaChartBar /> Needs Approval
+          </StatFooter>
+        </StatCard>
+
+        <StatCard>
+          <StatContentTop>
+            <div>
+              <StatValue>{formatNumber(stats?.financials?.pendingMaterialRequests)}</StatValue>
+              <StatLabel>Material Requests</StatLabel>
+            </div>
+            <StatIconWrapper $background="linear-gradient(135deg, #00BCD4 0%, #80DEEA 100%)" $color="white">
+              <FaClipboardList />
+            </StatIconWrapper>
+          </StatContentTop>
+          <StatFooter $color="#00BCD4">
+            <FaChartBar /> Awaiting Order
+          </StatFooter>
+        </StatCard>
+
+        <StatCard>
+          <StatContentTop>
+            <div>
+              <StatValue>{formatNumber(stats?.financials?.pendingChangeOrders)}</StatValue>
+              <StatLabel>Change Orders</StatLabel>
+            </div>
+            <StatIconWrapper $background="linear-gradient(135deg, #795548 0%, #A1887F 100%)" $color="white">
+              <FaProjectDiagram />
+            </StatIconWrapper>
+          </StatContentTop>
+          <StatFooter $color="#795548">
+            <FaExclamationTriangle /> Review Required
+          </StatFooter>
+        </StatCard>
+
+        <StatCard>
+          <StatContentTop>
+            <div>
+              <StatValue>{formatNumber(stats?.workers?.total)}</StatValue>
+              <StatLabel>Total Workers</StatLabel>
+            </div>
+            <StatIconWrapper $background="linear-gradient(135deg, #3F51B5 0%, #7986CB 100%)" $color="white">
+              <FaUsersCog />
+            </StatIconWrapper>
+          </StatContentTop>
+          <StatFooter $color="#3F51B5">
+            <FaChartLine /> {formatNumber(stats?.workers?.active)} Active
+          </StatFooter>
+        </StatCard>
       </StatsGrid>
     </TabContent>
   );
@@ -518,6 +599,42 @@ const ConstructionDashboard = () => {
     </TabContent>
   );
 
+  const renderMaterialsTab = () => (
+    <TabContent>
+      <SectionHeader>
+        <SectionTitle><FaClipboardList /> Site Materials Overview</SectionTitle>
+        <SectionActions>
+          <Button variant="outline" size="sm" disabled><FaDownload /> Export Materials</Button>
+        </SectionActions>
+      </SectionHeader>
+      <p style={{ textAlign: 'center', color: '#718096', fontStyle: 'italic' }}>Material overview coming soon...</p>
+    </TabContent>
+  );
+
+  const renderFinancialsTab = () => (
+    <TabContent>
+      <SectionHeader>
+        <SectionTitle><FaFileInvoiceDollar /> Financial Overview</SectionTitle>
+        <SectionActions>
+          <Button variant="outline" size="sm" disabled><FaDownload /> Export Financials</Button>
+        </SectionActions>
+      </SectionHeader>
+      <p style={{ textAlign: 'center', color: '#718096', fontStyle: 'italic' }}>Financial data and requests coming soon...</p>
+    </TabContent>
+  );
+
+  const renderSafetyTab = () => (
+    <TabContent>
+      <SectionHeader>
+        <SectionTitle><FaHardHat /> Safety & Incidents</SectionTitle>
+        <SectionActions>
+          <Button variant="outline" size="sm" disabled><FaDownload /> Export Incidents</Button>
+        </SectionActions>
+      </SectionHeader>
+      <p style={{ textAlign: 'center', color: '#718096', fontStyle: 'italic' }}>Safety incidents management coming soon...</p>
+    </TabContent>
+  );
+
   return (
     <>
       <HeaderSection>
@@ -536,6 +653,9 @@ const ConstructionDashboard = () => {
           <TabButton active={activeTab === 'tasks'} onClick={() => setActiveTab('tasks')}>Tasks</TabButton>
           <TabButton active={activeTab === 'equipment'} onClick={() => setActiveTab('equipment')}>Equipment</TabButton>
           <TabButton active={activeTab === 'workers'} onClick={() => setActiveTab('workers')}>Workers</TabButton>
+          <TabButton active={activeTab === 'materials'} onClick={() => setActiveTab('materials')}>Materials</TabButton>
+          <TabButton active={activeTab === 'financials'} onClick={() => setActiveTab('financials')}>Financials</TabButton>
+          <TabButton active={activeTab === 'safety'} onClick={() => setActiveTab('safety')}>Safety</TabButton>
         </Tabs>
 
         {activeTab === 'overview' && renderOverviewTab()}
@@ -546,20 +666,20 @@ const ConstructionDashboard = () => {
               <SectionTitle><FaTasks /> Project Tasks</SectionTitle>
               <SectionActions>
                 <Button
-                    variant={taskViewMode === 'table' ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => setTaskViewMode('table')}
-                    disabled={loading}
+                  variant={taskViewMode === 'table' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => setTaskViewMode('table')}
+                  disabled={loading}
                 >
-                    <FaTasks /> Table View
+                  <FaTasks /> Table View
                 </Button>
                 <Button
-                    variant={taskViewMode === 'gantt' ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => setTaskViewMode('gantt')}
-                    disabled={loading}
+                  variant={taskViewMode === 'gantt' ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => setTaskViewMode('gantt')}
+                  disabled={loading}
                 >
-                    <FaProjectDiagram /> Gantt Chart
+                  <FaProjectDiagram /> Gantt Chart
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setShowExportModal(true)} disabled={loading}><FaDownload /> Export Tasks</Button>
                 <Button variant="primary" size="sm" onClick={() => handleAddNew('task')} disabled={loading}><FaPlus /> Add Task</Button>
@@ -567,21 +687,21 @@ const ConstructionDashboard = () => {
             </SectionHeader>
 
             {taskViewMode === 'table' ? (
-                <TaskTable
-                    tasks={tasks}
-                    loading={loading}
-                    pagination={paginationTasks}
-                    onPageChange={changePageTasks}
-                    onEdit={(task) => handleEdit('task', task)}
-                    onDelete={(id) => handleDelete('task', id)}
-                    onView={(task) => handleView('task', task)}
-                />
+              <TaskTable
+                tasks={tasks}
+                loading={loading}
+                pagination={paginationTasks}
+                onPageChange={changePageTasks}
+                onEdit={(task) => handleEdit('task', task)}
+                onDelete={(id) => handleDelete('task', id)}
+                onView={(task) => handleView('task', task)}
+              />
             ) : (
-                <GanttChartDisplay
-                    tasks={tasks}
-                    loading={loading}
-                    error={error}
-                />
+              <GanttChartDisplay
+                tasks={tasks}
+                loading={loading}
+                error={error}
+              />
             )}
           </TabContent>
         )}
@@ -625,8 +745,12 @@ const ConstructionDashboard = () => {
             />
           </TabContent>
         )}
+        {activeTab === 'materials' && renderMaterialsTab()}
+        {activeTab === 'financials' && renderFinancialsTab()}
+        {activeTab === 'safety' && renderSafetyTab()}
       </TabContainer>
 
+      {/* Add Modals */}
       {showAddModal && modalType === 'site' && (
         <AddSiteModal onClose={() => setShowAddModal(false)} onSave={createSite} loading={loading} />
       )}
@@ -638,15 +762,16 @@ const ConstructionDashboard = () => {
           onClose={() => setShowAddModal(false)}
           onSave={createTask}
           loading={loading}
-          sites={sites} // Passed to allow task assignment to sites
-          allTasks={tasks} // Passed for parent task/dependency selection
-          workers={workers} // Passed for worker assignment
+          sites={sites}
+          allTasks={tasks}
+          workers={workers}
         />
       )}
       {showAddModal && modalType === 'worker' && (
         <AddEditWorkerModal onClose={() => setShowAddModal(false)} onSave={createWorker} loading={loading} />
       )}
 
+      {/* Edit Modals */}
       {showEditModal && modalType === 'site' && selectedItem && (
         <AddSiteModal onClose={() => setShowEditModal(false)} onSave={updateSite} loading={loading} siteToEdit={selectedItem} />
       )}
@@ -668,8 +793,9 @@ const ConstructionDashboard = () => {
         <AddEditWorkerModal onClose={() => setShowEditModal(false)} onSave={updateWorker} loading={loading} workerToEdit={selectedItem} />
       )}
 
+      {/* View Modals */}
       {showViewModal && modalType === 'site' && selectedItem && (
-        <ViewSiteModal onClose={() => setShowViewModal(false)} site={selectedItem} tasks={tasks} workers={workers} sites={sites} createTask={createTask} updateTask={updateTask} deleteTask={deleteTask} loading={loading} />
+        <ViewSiteModal onClose={() => setShowViewModal(false)} site={selectedItem} />
       )}
       {showViewModal && modalType === 'equipment' && selectedItem && (
         <ViewEquipmentModal onClose={() => setShowViewModal(false)} equipment={selectedItem} />
