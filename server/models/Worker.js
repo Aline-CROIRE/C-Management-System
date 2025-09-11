@@ -14,20 +14,36 @@ const WorkerSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        trim: true,
+        enum: ['General Labor', 'Skilled Labor', 'Supervisor', 'Electrician', 'Plumber', 'Heavy Equipment Operator', 'Safety Officer', 'Foreman', 'Other'],
         default: 'General Labor',
     },
     contactNumber: {
         type: String,
         trim: true,
-        default: '',
     },
     email: {
         type: String,
         trim: true,
         lowercase: true,
-        // unique: true, // Consider if email should be unique across all workers or just per user
         default: '',
+    },
+    hourlyRate: {
+        type: Number,
+        min: 0,
+        default: 0,
+    },
+    employmentType: {
+        type: String,
+        enum: ['Full-time', 'Part-time', 'Contractor'],
+        default: 'Full-time',
+    },
+    hireDate: {
+        type: Date,
+    },
+    emergencyContact: {
+        name: { type: String, trim: true },
+        phone: { type: String, trim: true },
+        relationship: { type: String, trim: true },
     },
     skills: [{ // Array of strings for skills
         type: String,
@@ -40,21 +56,21 @@ const WorkerSchema = new mongoose.Schema({
     notes: {
         type: String,
         trim: true,
-        default: '',
     },
-    createdAt: {
-        type: Date,
-        default: Date.now,
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now,
-    },
-});
-
-WorkerSchema.pre('save', function (next) {
-    this.updatedAt = Date.now();
-    next();
+    certifications: [{ // References to Certification model
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Certification',
+    }],
+    documents: [{ // References to Document (e.g., resume, ID, contracts)
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Document',
+    }],
+    timesheets: [{ // References to Timesheet for this worker
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Timesheet',
+    }],
+}, {
+    timestamps: true,
 });
 
 module.exports = mongoose.model('Worker', WorkerSchema);

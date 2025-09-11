@@ -1,3 +1,4 @@
+// server/models/Equipment.js
 const mongoose = require('mongoose');
 
 const EquipmentSchema = new mongoose.Schema({
@@ -18,15 +19,27 @@ const EquipmentSchema = new mongoose.Schema({
         uppercase: true,
         trim: true,
     },
+    serialNumber: {
+        type: String,
+        trim: true,
+    },
+    manufacturer: {
+        type: String,
+        trim: true,
+    },
+    model: {
+        type: String,
+        trim: true,
+    },
     type: {
         type: String,
         enum: ['Heavy Machinery', 'Hand Tool', 'Vehicle', 'Safety Gear', 'Lifting Equipment', 'Other'],
-        required: true,
+        default: 'Heavy Machinery',
     },
     currentSite: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ConstructionSite',
-        default: null, // Can be unassigned
+        default: null, // Null if in storage/warehouse
     },
     status: {
         type: String,
@@ -50,6 +63,10 @@ const EquipmentSchema = new mongoose.Schema({
     currentValue: { // Depreciated value
         type: Number,
         min: 0,
+        default: function() { return this.purchaseCost; },
+    },
+    warrantyExpiry: {
+        type: Date,
     },
     lastMaintenance: {
         type: Date,
@@ -57,34 +74,41 @@ const EquipmentSchema = new mongoose.Schema({
     nextMaintenance: {
         type: Date,
     },
-    utilization: { // Percentage
+    hourlyRate: { // For billing or internal cost tracking per hour
+        type: Number,
+        min: 0,
+        default: 0,
+    },
+    fuelType: {
+        type: String,
+        trim: true,
+    },
+    utilization: { // Percentage utilization
         type: Number,
         min: 0,
         max: 100,
         default: 0,
     },
+    rentalInfo: { // Details if the equipment is rented
+        isRented: { type: Boolean, default: false },
+        rentalCompany: { type: String, trim: true },
+        rentalCost: { type: Number, min: 0, default: 0 },
+        returnDate: { type: Date },
+    },
     notes: {
         type: String,
         trim: true,
     },
-    // Future fields:
-    // assignedTasks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Task' }],
-    // scheduledAvailability: [{ startDate: Date, endDate: Date, site: ObjectId }],
-    // fuelConsumptionLogs: [{ date: Date, quantity: Number }],
-    // gpsCoordinates: { lat: Number, lng: Number, timestamp: Date },
-    createdAt: {
-        type: Date,
-        default: Date.now,
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now,
-    },
-});
-
-EquipmentSchema.pre('save', function (next) {
-    this.updatedAt = Date.now();
-    next();
+    maintenanceLogs: [{ // References to MaintenanceLog
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'MaintenanceLog',
+    }],
+    documents: [{ // References to Document (e.g., manuals, purchase receipts)
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Document',
+    }],
+}, {
+    timestamps: true,
 });
 
 module.exports = mongoose.model('Equipment', EquipmentSchema);

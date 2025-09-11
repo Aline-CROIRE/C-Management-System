@@ -20,7 +20,6 @@ const TaskSchema = new mongoose.Schema({
     description: {
         type: String,
         trim: true,
-        default: '',
     },
     status: {
         type: String,
@@ -43,20 +42,19 @@ const TaskSchema = new mongoose.Schema({
     actualCompletionDate: {
         type: Date,
     },
-    // --- UPDATED: assignedTo to be an array of Worker ObjectIds ---
-    assignedTo: [{
+    assignedTo: [{ // Array of Worker ObjectIds
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Worker', // Reference the new Worker model
+        ref: 'Worker',
     }],
-    // --- END UPDATED ---
     parentTask: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Task',
         default: null,
     },
-    dependencies: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Task',
+    dependencies: [{ // More complex dependencies: taskId, type (FS, SS, FF), lag (days)
+        taskId: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', required: true },
+        type: { type: String, enum: ['FS', 'SS', 'FF'], default: 'FS' }, // Finish-to-Start, Start-to-Start, Finish-to-Finish
+        lag: { type: Number, default: 0 }, // Lag in days
     }],
     progress: {
         type: Number,
@@ -67,19 +65,48 @@ const TaskSchema = new mongoose.Schema({
     notes: {
         type: String,
         trim: true,
-        default: '',
     },
-    createdAt: {
-        type: Date,
-        default: Date.now,
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now,
-    },
+    // Resource Allocation
+    allocatedWorkers: [{
+        worker: { type: mongoose.Schema.Types.ObjectId, ref: 'Worker', required: true },
+        estimatedHours: { type: Number, min: 0, default: 0 },
+        actualHours: { type: Number, min: 0, default: 0 }, // Updated from Timesheets
+    }],
+    allocatedEquipment: [{
+        equipment: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipment', required: true },
+        estimatedHours: { type: Number, min: 0, default: 0 }, // Or usage units
+        actualHours: { type: Number, min: 0, default: 0 },
+    }],
+    requiredMaterials: [{
+        materialName: { type: String, required: true }, // For simplicity, just name and quantity. Could reference a full Inventory Material
+        quantity: { type: Number, min: 0, required: true },
+        unit: { type: String, trim: true },
+        actualConsumption: { type: Number, min: 0, default: 0 },
+    }],
+    // Costing
+    estimatedLaborCost: { type: Number, min: 0, default: 0 },
+    estimatedMaterialCost: { type: Number, min: 0, default: 0 },
+    estimatedEquipmentCost: { type: Number, min: 0, default: 0 },
+    actualLaborCost: { type: Number, min: 0, default: 0 },
+    actualMaterialCost: { type: Number, min: 0, default: 0 },
+    actualEquipmentCost: { type: Number, min: 0, default: 0 },
+    documents: [{ // Task-specific documents
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Document',
+    }],
+}, {
+    timestamps: true,
 });
 
+// Update actual completion date logic
 TaskSchema.pre('save', function (next) {
+    if (this.isModified('status')) {
+        if (this.status === 'Completed' && !this.actualCompletionDate) {
+            this.actualCompletionDate = new Date();
+        } else if (this.status !== 'Completed' && this.actualCompletionDate) {
+            this.actualCompletionDate = null;
+        }
+    }
     this.updatedAt = Date.now();
     next();
 });
