@@ -1,3 +1,4 @@
+// client/src/components/construction/SiteTable.js
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -5,7 +6,8 @@ import styled from "styled-components";
 import {
   FaBuilding, FaEdit, FaEye, FaTrash,
   FaSort, FaSortUp, FaSortDown, FaCode,
-  FaChevronLeft, FaChevronRight, FaChartPie, FaCheckCircle, FaExclamationTriangle, FaCalendarAlt, FaInfoCircle
+  FaChevronLeft, FaChevronRight, FaChartPie, FaCheckCircle, FaExclamationTriangle, FaCalendarAlt, FaInfoCircle,
+  FaUserTie, FaUsers, FaDollarSign, FaFileInvoiceDollar, FaTools
 } from "react-icons/fa";
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
@@ -35,7 +37,11 @@ const TableContainer = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 1000px;
+  min-width: 1200px;
+
+  @media (max-width: 768px) {
+    min-width: 100%;
+  }
 `;
 
 const TableHeader = styled.thead`
@@ -45,7 +51,7 @@ const TableHeader = styled.thead`
 const TableHeaderCell = styled.th`
   padding: 1rem 1.5rem;
   text-align: left;
-  font-size: clamp(0.7rem, 1.5vw, 0.75rem);
+  font-size: clamp(0.8rem, 1.5vw, 1rem);
   font-weight: 600;
   color: ${(props) => props.theme?.colors?.textSecondary || "#718096"};
   text-transform: uppercase;
@@ -65,15 +71,9 @@ const TableHeaderCell = styled.th`
     transition: opacity 0.2s ease;
   }
 
-  &.hide-on-tablet {
-    @media (max-width: 1024px) {
-      display: none;
-    }
-  }
-  &.hide-on-mobile {
-    @media (max-width: 768px) {
-      display: none;
-    }
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+    font-size: 0.9rem;
   }
 `;
 
@@ -95,16 +95,10 @@ const TableCell = styled.td`
   color: ${(props) => props.theme?.colors?.text || "#2d3748"};
   vertical-align: middle;
   white-space: nowrap;
-  
-  &.hide-on-tablet {
-    @media (max-width: 1024px) {
-      display: none;
-    }
-  }
-  &.hide-on-mobile {
-    @media (max-width: 768px) {
-      display: none;
-    }
+
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+    font-size: 0.85rem;
   }
 `;
 
@@ -149,7 +143,11 @@ const StatusBadge = styled.span`
   }}
 `;
 
-const ActionButtonGroup = styled.div` display: flex; align-items: center; gap: 0.25rem; `;
+const ActionButtonGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+`;
 
 const EmptyState = styled.div`
   text-align: center;
@@ -170,10 +168,19 @@ const TableFooter = styled.div`
   @media (max-width: 768px) {
     flex-direction: column;
     gap: 1rem;
+    padding: 1rem;
   }
 `;
 
-const PaginationControls = styled.div` display: flex; gap: 0.5rem; `;
+const PaginationControls = styled.div`
+  display: flex;
+  gap: 0.5rem;
+
+  @media (max-width: 768px) {
+    justify-content: center;
+    width: 100%;
+  }
+`;
 
 const SiteTable = ({
   sites = [],
@@ -193,6 +200,11 @@ const SiteTable = ({
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
         
+        // Handle nested properties for sorting
+        if (['budget', 'expenditure', 'progress', 'workersCount', 'equipmentCount'].includes(sortConfig.key)) {
+            aValue = parseFloat(aValue || 0);
+            bValue = parseFloat(bValue || 0);
+        }
         if (['startDate', 'endDate', 'actualEndDate'].includes(sortConfig.key)) {
             aValue = moment(aValue).valueOf();
             bValue = moment(bValue).valueOf();
@@ -249,7 +261,6 @@ const SiteTable = ({
   const totalPages = Math.ceil(pagination.total / pagination.limit) || 1;
   const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-
   return (
     <TableWrapper>
       <TableContainer>
@@ -258,10 +269,14 @@ const SiteTable = ({
             <tr>
               <TableHeaderCell $sortable $sorted={sortConfig.key === "name"} onClick={() => handleSort("name")}>Site Name {getSortIcon("name")}</TableHeaderCell>
               <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "projectCode"} onClick={() => handleSort("projectCode")}>Code {getSortIcon("projectCode")}</TableHeaderCell>
-              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "location"} onClick={() => handleSort("location")}>Location {getSortIcon("location")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "clientName"} onClick={() => handleSort("clientName")}>Client {getSortIcon("clientName")}</TableHeaderCell>
               <TableHeaderCell $sortable $sorted={sortConfig.key === "status"} onClick={() => handleSort("status")}>Status {getSortIcon("status")}</TableHeaderCell>
               <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "progress"} onClick={() => handleSort("progress")}>Progress {getSortIcon("progress")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "manager"} onClick={() => handleSort("manager")}>Manager {getSortIcon("manager")}</TableHeaderCell>
               <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "budget"} onClick={() => handleSort("budget")}>Budget {getSortIcon("budget")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "expenditure"} onClick={() => handleSort("expenditure")}>Expenditure {getSortIcon("expenditure")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "workersCount"} onClick={() => handleSort("workersCount")}>Workers {getSortIcon("workersCount")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "equipmentCount"} onClick={() => handleSort("equipmentCount")}>Equipment {getSortIcon("equipmentCount")}</TableHeaderCell>
               <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "endDate"} onClick={() => handleSort("endDate")}>Deadline {getSortIcon("endDate")}</TableHeaderCell>
               <TableHeaderCell>Actions</TableHeaderCell>
             </tr>
@@ -276,10 +291,14 @@ const SiteTable = ({
                   </SiteInfo>
                 </TableCell>
                 <TableCell className="hide-on-mobile">{site.projectCode}</TableCell>
-                <TableCell className="hide-on-tablet">{site.location}</TableCell>
+                <TableCell className="hide-on-tablet">{site.clientName || 'N/A'}</TableCell>
                 <TableCell><StatusBadge status={site.status}>{getStatusIcon(site.status)} {site.status}</StatusBadge></TableCell>
                 <TableCell className="hide-on-mobile">{site.progress}%</TableCell>
+                <TableCell className="hide-on-tablet"><FaUserTie size={10} style={{marginRight: '0.25rem'}} />{site.manager}</TableCell>
                 <TableCell className="hide-on-mobile">{formatCurrency(site.budget)}</TableCell>
+                <TableCell className="hide-on-tablet">{formatCurrency(site.expenditure)}</TableCell>
+                <TableCell className="hide-on-tablet"><FaUsers size={10} style={{marginRight: '0.25rem'}}/>{site.workersCount}</TableCell>
+                <TableCell className="hide-on-tablet"><FaTools size={10} style={{marginRight: '0.25rem'}}/>{site.equipmentCount}</TableCell>
                 <TableCell className="hide-on-tablet">{moment(site.endDate).format('MMM Do, YYYY')}</TableCell>
                 <TableCell>
                   <ActionButtonGroup>

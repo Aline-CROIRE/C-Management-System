@@ -4,12 +4,13 @@
 import React, { useState, useEffect } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
-import { FaTimes, FaSave, FaUserCog, FaBriefcase, FaPhone, FaEnvelope, FaTools, FaInfoCircle, FaCheckCircle, FaSpinner } from "react-icons/fa";
-import Button from "../../common/Button"; // CORRECTED PATH
-import Input from "../../common/Input";   // CORRECTED PATH
-import Select from "../../common/Select"; // CORRECTED PATH
-import LoadingSpinner from "../../common/LoadingSpinner"; // CORRECTED PATH
-import Checkbox from "../../common/Checkbox"; // CORRECTED PATH
+import { FaTimes, FaSave, FaUserCog, FaBriefcase, FaPhone, FaEnvelope, FaTools, FaInfoCircle, FaCheckCircle, FaSpinner,
+         FaBuilding } from "react-icons/fa"; // ADDED FaBuilding icon
+import Button from "../../common/Button";
+import Input from "../../common/Input";
+import Select from "../../common/Select";
+import LoadingSpinner from "../../common/LoadingSpinner";
+import Checkbox from "../../common/Checkbox";
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -213,8 +214,7 @@ const ModalFooter = styled.div`
   }
 `;
 
-
-const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null }) => {
+const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null, sites = [] }) => { // NEW: sites prop
     const isEditMode = Boolean(workerToEdit);
 
     const [formData, setFormData] = useState({
@@ -225,6 +225,11 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null }) =
         skills: [],
         isActive: true,
         notes: '',
+        hourlyRate: '', // NEW
+        employmentType: 'Full-time', // NEW
+        hireDate: '', // NEW
+        emergencyContact: { name: '', phone: '', relationship: '' }, // NEW
+        currentSite: '', // NEW
     });
     const [errors, setErrors] = useState({});
     const [newSkill, setNewSkill] = useState('');
@@ -239,6 +244,11 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null }) =
                 skills: workerToEdit.skills || [],
                 isActive: workerToEdit.isActive ?? true,
                 notes: workerToEdit.notes || '',
+                hourlyRate: workerToEdit.hourlyRate?.toString() ?? '', // NEW
+                employmentType: workerToEdit.employmentType || 'Full-time', // NEW
+                hireDate: workerToEdit.hireDate ? moment(workerToEdit.hireDate).format('YYYY-MM-DD') : '', // NEW
+                emergencyContact: workerToEdit.emergencyContact || { name: '', phone: '', relationship: '' }, // NEW
+                currentSite: workerToEdit.currentSite?._id || '', // NEW
             });
         } else {
             setFormData({
@@ -249,13 +259,29 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null }) =
                 skills: [],
                 isActive: true,
                 notes: '',
+                hourlyRate: '',
+                employmentType: 'Full-time',
+                hireDate: '',
+                emergencyContact: { name: '', phone: '', relationship: '' },
+                currentSite: '',
             });
         }
     }, [workerToEdit, isEditMode]);
 
     const handleInputChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+        if (name.startsWith('emergencyContact.')) {
+            const field = name.split('.')[1];
+            setFormData((prev) => ({
+                ...prev,
+                emergencyContact: {
+                    ...prev.emergencyContact,
+                    [field]: value,
+                },
+            }));
+        } else {
+            setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+        }
     };
 
     const handleAddSkill = (e) => {
@@ -278,6 +304,7 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null }) =
         if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             newErrors.email = "Invalid email format.";
         }
+        if (formData.hourlyRate && parseFloat(formData.hourlyRate) < 0) newErrors.hourlyRate = "Hourly rate must be non-negative.";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -286,20 +313,21 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null }) =
         e.preventDefault();
         if (!validateForm()) return;
         
-        try {
-            if (isEditMode) {
-                await onSave(workerToEdit._id, formData);
-            } else {
-                await onSave(formData);
-            }
-            onClose();
-        } catch (err) {
-            console.error("Failed to save worker:", err);
-            // Error handling is already in useConstructionManagement and api.js interceptor
+        const payload = { ...formData };
+        payload.hourlyRate = Number(payload.hourlyRate);
+
+        // Pass previous site ID to help backend update counts
+        if (isEditMode) {
+            payload._prevCurrentSite = workerToEdit.currentSite?._id || null; // NEW: Pass previous site
+            await onSave(workerToEdit._id, payload);
+        } else {
+            await onSave(payload);
         }
+        onClose();
     };
 
-    const workerRoles = ['General Labor', 'Skilled Labor', 'Supervisor', 'Electrician', 'Plumber', 'Heavy Equipment Operator', 'Other'];
+    const workerRoles = ['General Labor', 'Skilled Labor', 'Supervisor', 'Electrician', 'Plumber', 'Heavy Equipment Operator', 'Safety Officer', 'Foreman', 'Other'];
+    const employmentTypes = ['Full-time', 'Part-time', 'Contractor']; // NEW
 
     return ReactDOM.createPortal(
         <ModalOverlay onClick={onClose}>
@@ -330,6 +358,48 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null }) =
                             <ThemedInput id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} placeholder="e.g., worker@example.com" error={errors.email} />
                             {errors.email && <p style={{color: 'red', fontSize: '0.8rem'}}>{errors.email}</p>}
                         </FormGroup>
+                        
+                        <FormGroup> {/* NEW */}
+                            <Label htmlFor="hourlyRate"><FaMoneyBillWave /> Hourly Rate</Label>
+                            <ThemedInput id="hourlyRate" name="hourlyRate" type="number" step="0.01" value={formData.hourlyRate} onChange={handleInputChange} min="0" error={errors.hourlyRate} />
+                            {errors.hourlyRate && <p style={{color: 'red', fontSize: '0.8rem'}}>{errors.hourlyRate}</p>}
+                        </FormGroup>
+                        <FormGroup> {/* NEW */}
+                            <Label htmlFor="employmentType"><FaBriefcase /> Employment Type</Label>
+                            <ThemedSelect id="employmentType" name="employmentType" value={formData.employmentType} onChange={handleInputChange}>
+                                {employmentTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                            </ThemedSelect>
+                        </FormGroup>
+                        <FormGroup> {/* NEW */}
+                            <Label htmlFor="hireDate"><FaCalendarAlt /> Hire Date</Label>
+                            <ThemedInput id="hireDate" name="hireDate" type="date" value={formData.hireDate} onChange={handleInputChange} />
+                        </FormGroup>
+                        <FormGroup> {/* NEW */}
+                            <Label htmlFor="currentSite"><FaBuilding /> Primary Site</Label>
+                            <ThemedSelect id="currentSite" name="currentSite" value={formData.currentSite} onChange={handleInputChange}>
+                                <option value="">None (Unassigned)</option>
+                                {sites.map(site => <option key={site._id} value={site._id}>{site.name} ({site.projectCode})</option>)}
+                            </ThemedSelect>
+                        </FormGroup>
+
+                        <FormGroup style={{ gridColumn: '1 / -1' }}> {/* NEW: Emergency Contact */}
+                            <Label><FaInfoCircle /> Emergency Contact</Label>
+                            <FormGrid style={{marginTop: '0.5rem', marginBottom: '0', gap: '0.75rem'}}>
+                                <FormGroup>
+                                    <Label htmlFor="emergencyContactName">Name</Label>
+                                    <ThemedInput id="emergencyContactName" name="emergencyContact.name" value={formData.emergencyContact.name} onChange={handleInputChange} placeholder="Contact Name" />
+                                </FormGroup>
+                                <FormGroup>
+                                    <Label htmlFor="emergencyContactPhone">Phone</Label>
+                                    <ThemedInput id="emergencyContactPhone" name="emergencyContact.phone" value={formData.emergencyContact.phone} onChange={handleInputChange} placeholder="Contact Phone" />
+                                </FormGroup>
+                                <FormGroup style={{ gridColumn: '1 / -1' }}>
+                                    <Label htmlFor="emergencyContactRelationship">Relationship</Label>
+                                    <ThemedInput id="emergencyContactRelationship" name="emergencyContact.relationship" value={formData.emergencyContact.relationship} onChange={handleInputChange} placeholder="Relationship" />
+                                </FormGroup>
+                            </FormGrid>
+                        </FormGroup>
+
                         <FormGroup style={{ gridColumn: '1 / -1' }}>
                             <Label htmlFor="skills"><FaTools /> Skills (Press Enter to add)</Label>
                             <SkillsInputContainer>

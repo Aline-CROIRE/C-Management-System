@@ -1,3 +1,4 @@
+// client/src/components/construction/EquipmentTable.js
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -5,7 +6,8 @@ import styled from "styled-components";
 import {
   FaTools, FaEdit, FaEye, FaTrash,
   FaSort, FaSortUp, FaSortDown, FaTag,
-  FaChevronLeft, FaChevronRight, FaWrench, FaBuilding, FaCheckCircle, FaExclamationTriangle, FaClock, FaInfoCircle
+  FaChevronLeft, FaChevronRight, FaWrench, FaBuilding, FaCheckCircle, FaExclamationTriangle, FaClock, FaInfoCircle,
+  FaDollarSign, FaIndustry // Added for Manufacturer
 } from "react-icons/fa";
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
@@ -35,7 +37,7 @@ const TableContainer = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 1100px;
+  min-width: 1300px; /* Increased min-width for new columns */
 `;
 
 const TableHeader = styled.thead`
@@ -193,14 +195,20 @@ const EquipmentTable = ({
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
         
+        // Handle nested properties for sorting
         if (sortConfig.key === 'currentSite') {
             aValue = a[sortConfig.key]?.name || '';
             bValue = b[sortConfig.key]?.name || '';
         }
-        if (['purchaseDate', 'lastMaintenance', 'nextMaintenance'].includes(sortConfig.key)) {
+        if (['purchaseDate', 'lastMaintenance', 'nextMaintenance', 'warrantyExpiry'].includes(sortConfig.key)) {
             aValue = moment(aValue).valueOf();
             bValue = moment(bValue).valueOf();
         }
+        if (['purchaseCost', 'currentValue', 'hourlyRate', 'utilization'].includes(sortConfig.key)) {
+            aValue = parseFloat(aValue || 0);
+            bValue = parseFloat(bValue || 0);
+        }
+
 
         if (typeof aValue === 'string') aValue = aValue.toLowerCase();
         if (typeof bValue === 'string') bValue = bValue.toLowerCase();
@@ -263,9 +271,12 @@ const EquipmentTable = ({
               <TableHeaderCell $sortable $sorted={sortConfig.key === "name"} onClick={() => handleSort("name")}>Equipment Name {getSortIcon("name")}</TableHeaderCell>
               <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "assetTag"} onClick={() => handleSort("assetTag")}>Asset Tag {getSortIcon("assetTag")}</TableHeaderCell>
               <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "type"} onClick={() => handleSort("type")}>Type {getSortIcon("type")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "manufacturer"} onClick={() => handleSort("manufacturer")}>Manufacturer {getSortIcon("manufacturer")}</TableHeaderCell> {/* NEW */}
               <TableHeaderCell $sortable $sorted={sortConfig.key === "status"} onClick={() => handleSort("status")}>Status {getSortIcon("status")}</TableHeaderCell>
               <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "currentSite"} onClick={() => handleSort("currentSite")}>Assigned Site {getSortIcon("currentSite")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "hourlyRate"} onClick={() => handleSort("hourlyRate")}>Rate/Hr {getSortIcon("hourlyRate")}</TableHeaderCell> {/* NEW */}
               <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "nextMaintenance"} onClick={() => handleSort("nextMaintenance")}>Next Maintenance {getSortIcon("nextMaintenance")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "warrantyExpiry"} onClick={() => handleSort("warrantyExpiry")}>Warranty {getSortIcon("warrantyExpiry")}</TableHeaderCell> {/* NEW */}
               <TableHeaderCell>Actions</TableHeaderCell>
             </tr>
           </TableHeader>
@@ -280,9 +291,12 @@ const EquipmentTable = ({
                 </TableCell>
                 <TableCell className="hide-on-mobile">{eq.assetTag}</TableCell>
                 <TableCell className="hide-on-tablet">{eq.type}</TableCell>
+                <TableCell className="hide-on-tablet"><FaIndustry size={10} style={{marginRight: '0.25rem'}}/>{eq.manufacturer || 'N/A'}</TableCell> {/* NEW */}
                 <TableCell><StatusBadge status={eq.status}>{getStatusIcon(eq.status)} {eq.status}</StatusBadge></TableCell>
                 <TableCell className="hide-on-mobile">{eq.currentSite?.name || 'None'}</TableCell>
-                <TableCell className="hide-on-tablet">{moment(eq.nextMaintenance).format('MMM Do, YYYY')}</TableCell>
+                <TableCell className="hide-on-tablet">{formatCurrency(eq.hourlyRate)}</TableCell> {/* NEW */}
+                <TableCell className="hide-on-tablet">{eq.nextMaintenance ? moment(eq.nextMaintenance).format('MMM Do, YYYY') : 'N/A'}</TableCell>
+                <TableCell className="hide-on-tablet">{eq.warrantyExpiry ? moment(eq.warrantyExpiry).format('MMM Do, YYYY') : 'N/A'}</TableCell> {/* NEW */}
                 <TableCell>
                   <ActionButtonGroup>
                     <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(eq)}><FaEye /></Button>

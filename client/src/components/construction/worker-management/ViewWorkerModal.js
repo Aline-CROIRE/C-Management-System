@@ -1,11 +1,15 @@
 // client/src/components/construction/worker-management/ViewWorkerModal.js
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
-import { FaTimes, FaUserCog, FaBriefcase, FaPhone, FaEnvelope, FaTools, FaInfoCircle, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
-import Button from "../../common/Button"; // CORRECTED PATH
+import { FaTimes, FaUserCog, FaBriefcase, FaPhone, FaEnvelope, FaTools, FaInfoCircle, FaCheckCircle, FaTimesCircle,
+         FaMoneyBillWave, FaCalendarAlt, FaBuilding, FaAddressBook, FaCertificate, FaClock, FaFileAlt } from "react-icons/fa"; // Added new icons
+import Button from "../../common/Button";
+import LoadingSpinner from "../../common/LoadingSpinner";
+import { useConstructionManagement } from "../../../hooks/useConstructionManagement"; // Import the hook
+import moment from "moment";
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -24,7 +28,7 @@ const ModalContent = styled.div`
   color: ${(props) => props.theme.colors.text};
   border-radius: ${(props) => props.theme.borderRadius.xl};
   width: 100%;
-  max-width: 600px;
+  max-width: 700px; /* Increased max-width */
   max-height: 90vh;
   box-shadow: ${(props) => props.theme.shadows.xl};
   overflow: hidden;
@@ -161,6 +165,19 @@ const ListContainer = styled.ul`
   }
 `;
 
+const SectionTitle = styled.h3`
+    font-size: clamp(1rem, 3vw, 1.25rem);
+    font-weight: 600;
+    color: ${(props) => props.theme?.colors?.heading || "#1a202c"};
+    margin: 1.5rem 0 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    grid-column: 1 / -1; // Span full width
+    border-bottom: 1px solid ${(props) => props.theme?.colors?.border || "#e2e8f0"};
+    padding-bottom: 0.5rem;
+`;
+
 const ModalFooter = styled.div`
   padding: 1rem 1.5rem;
   border-top: 1px solid ${(props) => props.theme.colors.border};
@@ -178,49 +195,153 @@ const ModalFooter = styled.div`
   }
 `;
 
-
 const ViewWorkerModal = ({ worker, onClose }) => {
-  if (!worker) return null;
+  // Use useConstructionManagement hook to fetch detailed worker data
+  const { currentWorker, fetchWorkerData, loading: hookLoading, error: hookError,
+          workerCertifications, workerTimesheets, workerDocuments,
+          paginationCertifications, paginationTimesheets,
+          changePageWorkerCertifications, changePageWorkerTimesheets } = useConstructionManagement();
+
+  useEffect(() => {
+    if (worker?._id) {
+      fetchWorkerData(worker._id);
+    }
+  }, [worker?._id, fetchWorkerData]);
+
+  const displayWorker = currentWorker || worker; // Use fetched detailed worker or the initial prop
+  const isLoading = hookLoading && !displayWorker; // Only show loading if no data to display yet
+
+  if (isLoading) {
+    return (
+      <ModalOverlay onClick={onClose}>
+        <ModalContent onClick={(e) => e.stopPropagation()} style={{textAlign: 'center', padding: '2rem'}}>
+          <LoadingSpinner />
+          <p>Loading worker details...</p>
+        </ModalContent>
+      </ModalOverlay>
+    );
+  }
+
+  if (hookError) {
+    return (
+      <ModalOverlay onClick={onClose}>
+        <ModalContent onClick={(e) => e.stopPropagation()} style={{textAlign: 'center', padding: '2rem', background: '#ffebee', color: '#d32f2f'}}>
+          <FaExclamationTriangle size={32} style={{ marginBottom: '1rem' }} />
+          <h3>Error Loading Worker Data</h3>
+          <p>{hookError.message || "An unexpected error occurred while fetching data."}</p>
+          <Button variant="secondary" onClick={onClose} style={{ marginTop: '1rem' }}>Close</Button>
+        </ModalContent>
+      </ModalOverlay>
+    );
+  }
+
+  if (!displayWorker) return null; // Should not happen if worker prop is passed and fetch is successful
+
+  const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const formatDate = (dateString) => dateString ? moment(dateString).format('MMM Do, YYYY') : 'N/A';
 
   return (
     <ModalOverlay onClick={onClose}>
       {ReactDOM.createPortal(
         <ModalContent onClick={(e) => e.stopPropagation()}>
           <ModalHeader>
-            <ModalTitle>{worker.fullName || "Worker Details"}</ModalTitle>
+            <ModalTitle>{displayWorker.fullName || "Worker Details"}</ModalTitle>
             <CloseButton type="button" onClick={onClose}><FaTimes /></CloseButton>
           </ModalHeader>
           <ModalBody>
+            <SectionTitle><FaUserCog /> Basic Information</SectionTitle>
             <DetailGrid>
-              <DetailItem><DetailLabel><FaBriefcase /> Role</DetailLabel><DetailValue>{worker.role || 'N/A'}</DetailValue></DetailItem>
-              <DetailItem><DetailLabel><FaPhone /> Contact</DetailLabel><DetailValue>{worker.contactNumber || 'N/A'}</DetailValue></DetailItem>
-              <DetailItem><DetailLabel><FaEnvelope /> Email</DetailLabel><DetailValue>{worker.email || 'N/A'}</DetailValue></DetailItem>
+              <DetailItem><DetailLabel><FaBriefcase /> Role</DetailLabel><DetailValue>{displayWorker.role || 'N/A'}</DetailValue></DetailItem>
+              <DetailItem><DetailLabel><FaPhone /> Contact</DetailLabel><DetailValue>{displayWorker.contactNumber || 'N/A'}</DetailValue></DetailItem>
+              <DetailItem><DetailLabel><FaEnvelope /> Email</DetailLabel><DetailValue>{displayWorker.email || 'N/A'}</DetailValue></DetailItem>
+              <DetailItem><DetailLabel><FaMoneyBillWave /> Hourly Rate</DetailLabel><DetailValue>{displayWorker.hourlyRate ? formatCurrency(displayWorker.hourlyRate) : 'N/A'}</DetailValue></DetailItem>
+              <DetailItem><DetailLabel><FaBriefcase /> Employment Type</DetailLabel><DetailValue>{displayWorker.employmentType || 'N/A'}</DetailValue></DetailItem>
+              <DetailItem><DetailLabel><FaCalendarAlt /> Hire Date</DetailLabel><DetailValue>{formatDate(displayWorker.hireDate)}</DetailValue></DetailItem>
+              <DetailItem><DetailLabel><FaBuilding /> Primary Site</DetailLabel><DetailValue>{displayWorker.currentSite?.name || 'Unassigned'}</DetailValue></DetailItem> {/* NEW */}
               <DetailItem><DetailLabel><FaCheckCircle /> Status</DetailLabel>
                 <DetailValue>
-                  <StatusBadge isActive={worker.isActive}>
-                    {worker.isActive ? <FaCheckCircle /> : <FaTimesCircle />} {worker.isActive ? 'Active' : 'Inactive'}
+                  <StatusBadge isActive={displayWorker.isActive}>
+                    {displayWorker.isActive ? <FaCheckCircle /> : <FaTimesCircle />} {displayWorker.isActive ? 'Active' : 'Inactive'}
                   </StatusBadge>
                 </DetailValue>
               </DetailItem>
             </DetailGrid>
 
-            {worker.skills && worker.skills.length > 0 && (
+            {displayWorker.emergencyContact?.name && (
+              <>
+                <SectionTitle><FaAddressBook /> Emergency Contact</SectionTitle>
+                <DetailGrid>
+                    <DetailItem><DetailLabel>Name</DetailLabel><DetailValue>{displayWorker.emergencyContact.name}</DetailValue></DetailItem>
+                    <DetailItem><DetailLabel>Phone</DetailLabel><DetailValue>{displayWorker.emergencyContact.phone}</DetailValue></DetailItem>
+                    <DetailItem><DetailLabel>Relationship</DetailLabel><DetailValue>{displayWorker.emergencyContact.relationship}</DetailValue></DetailItem>
+                </DetailGrid>
+              </>
+            )}
+
+            {displayWorker.skills && displayWorker.skills.length > 0 && (
               <DetailItem>
                 <DetailLabel><FaTools /> Skills</DetailLabel>
                 <ListContainer>
-                  {worker.skills.map(skill => (
+                  {displayWorker.skills.map(skill => (
                     <li key={skill}>{skill}</li>
                   ))}
                 </ListContainer>
               </DetailItem>
             )}
             
-            {worker.notes && (
+            {displayWorker.notes && (
               <DetailItem>
                 <DetailLabel><FaInfoCircle /> Notes</DetailLabel>
-                <DetailValue style={{ whiteSpace: 'pre-wrap' }}>{worker.notes}</DetailValue>
+                <DetailValue style={{ whiteSpace: 'pre-wrap' }}>{displayWorker.notes}</DetailValue>
               </DetailItem>
             )}
+
+            {/* NEW SECTIONS FOR RELATED ENTITIES */}
+            <SectionTitle><FaCertificate /> Certifications</SectionTitle>
+            {workerCertifications.length > 0 ? (
+                <ListContainer>
+                    {workerCertifications.map(cert => (
+                        <li key={cert._id}>
+                            <strong>{cert.name}</strong> from {cert.issuingBody} (Issued: {formatDate(cert.issueDate)}
+                            {cert.expiryDate && `, Expires: ${formatDate(cert.expiryDate)}`})
+                            {cert.isExpired && <FaTimesCircle style={{ color: 'red', marginLeft: '0.5rem' }} title="Expired" />}
+                            {/* Add button to view document if available */}
+                        </li>
+                    ))}
+                </ListContainer>
+            ) : (
+                <p style={{fontStyle: 'italic', color: '#718096'}}>No certifications recorded.</p>
+            )}
+            {/* Add pagination controls for certifications */}
+
+            <SectionTitle><FaClock /> Recent Timesheets</SectionTitle>
+            {workerTimesheets.length > 0 ? (
+                <ListContainer>
+                    {workerTimesheets.slice(0, 5).map(ts => ( // Show first 5 for brevity
+                        <li key={ts._id}>
+                            {formatDate(ts.date)}: {ts.hoursWorked} hrs (OT: {ts.overtimeHours} hrs) - Site: {ts.site?.name}
+                            <StatusBadge status={ts.status} style={{marginLeft: 'auto'}}>{ts.status}</StatusBadge>
+                        </li>
+                    ))}
+                </ListContainer>
+            ) : (
+                <p style={{fontStyle: 'italic', color: '#718096'}}>No timesheets submitted recently.</p>
+            )}
+            {/* Add pagination controls for timesheets */}
+
+            <SectionTitle><FaFileAlt /> Documents</SectionTitle>
+            {workerDocuments.length > 0 ? (
+                <ListContainer>
+                    {workerDocuments.map(doc => (
+                        <li key={doc._id}>
+                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" style={{color: '#007bff'}}>{doc.fileName}</a> ({doc.category})
+                        </li>
+                    ))}
+                </ListContainer>
+            ) : (
+                <p style={{fontStyle: 'italic', color: '#718096'}}>No documents uploaded.</p>
+            )}
+            {/* Add document upload button here */}
 
           </ModalBody>
           <ModalFooter>

@@ -4,7 +4,8 @@
 import React, { useState, useMemo } from "react";
 import styled from "styled-components";
 import {
-  FaUserCog, FaEdit, FaEye, FaTrash, FaSort, FaSortUp, FaSortDown, FaPhone, FaEnvelope, FaToolbox, FaCheckCircle, FaTimesCircle, FaInfoCircle, FaChevronLeft, FaChevronRight
+  FaUserCog, FaEdit, FaEye, FaTrash, FaSort, FaSortUp, FaSortDown, FaPhone, FaEnvelope, FaToolbox, FaCheckCircle, FaTimesCircle, FaInfoCircle, FaChevronLeft, FaChevronRight,
+  FaBriefcase, FaMoneyBillWave // Added for new worker properties
 } from "react-icons/fa";
 import Button from "../../common/Button"; // CORRECTED PATH
 import LoadingSpinner from "../../common/LoadingSpinner"; // CORRECTED PATH
@@ -69,6 +70,10 @@ const WorkerAssignmentTable = ({
             aValue = aValue ? 1 : 0;
             bValue = bValue ? 1 : 0;
         }
+        if (sortConfig.key === 'hourlyRate') {
+            aValue = parseFloat(aValue || 0);
+            bValue = parseFloat(bValue || 0);
+        }
 
         if (typeof aValue === 'string') aValue = aValue.toLowerCase();
         if (typeof bValue === 'string') bValue = bValue.toLowerCase();
@@ -116,38 +121,55 @@ const WorkerAssignmentTable = ({
   const totalPages = pagination.totalPages || 1;
   const currentPage = pagination.page || 1;
   const totalItems = pagination.total || 0;
+  const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-  const columns = [
+
+  const columns = useMemo(() => [
     { 
       header: 'Full Name', 
       accessor: 'fullName',
-      render: (worker) => <strong>{worker.fullName}</strong>,
+      Cell: ({ value }) => <strong>{value}</strong>,
       sortable: true
     },
     { 
       header: 'Role', 
       accessor: 'role',
+      Cell: ({ value }) => value || 'N/A',
       sortable: true,
       className: 'hide-on-mobile'
     },
     { 
       header: 'Contact', 
       accessor: 'contactNumber',
-      render: (worker) => worker.contactNumber ? <><FaPhone size={10} style={{marginRight: '0.5em'}}/>{worker.contactNumber}</> : 'N/A',
+      Cell: ({ value }) => value ? <><FaPhone size={10} style={{marginRight: '0.5em'}}/>{value}</> : 'N/A',
       className: 'hide-on-tablet'
     },
     { 
       header: 'Email', 
       accessor: 'email',
-      render: (worker) => worker.email ? <><FaEnvelope size={10} style={{marginRight: '0.5em'}}/>{worker.email}</> : 'N/A',
+      Cell: ({ value }) => value ? <><FaEnvelope size={10} style={{marginRight: '0.5em'}}/>{value}</> : 'N/A',
+      className: 'hide-on-tablet'
+    },
+    {
+      header: 'Rate/Hr', // NEW
+      accessor: 'hourlyRate',
+      Cell: ({ value }) => value ? <><FaMoneyBillWave size={10} style={{marginRight: '0.5em'}}/>{formatCurrency(value)}</> : 'N/A',
+      sortable: true,
+      className: 'hide-on-tablet'
+    },
+    {
+      header: 'Employment Type', // NEW
+      accessor: 'employmentType',
+      Cell: ({ value }) => <><FaBriefcase size={10} style={{marginRight: '0.5em'}}/>{value || 'N/A'}</>,
+      sortable: true,
       className: 'hide-on-tablet'
     },
     {
       header: 'Active',
       accessor: 'isActive',
-      render: (worker) => (
-        <StatusBadge isActive={worker.isActive}>
-          {worker.isActive ? <FaCheckCircle /> : <FaTimesCircle />} {worker.isActive ? 'Active' : 'Inactive'}
+      Cell: ({ value }) => (
+        <StatusBadge isActive={value}>
+          {value ? <FaCheckCircle /> : <FaTimesCircle />} {value ? 'Active' : 'Inactive'}
         </StatusBadge>
       ),
       sortable: true
@@ -155,7 +177,7 @@ const WorkerAssignmentTable = ({
     {
       header: 'Actions',
       accessor: 'actions',
-      render: (worker) => (
+      Cell: ({ row: { original: worker } }) => ( // Access original row data
         <ActionButtonGroup>
           <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(worker)}><FaEye /></Button>
           <Button size="sm" variant="ghost" iconOnly title="Edit Worker" onClick={() => onEdit(worker)}><FaEdit /></Button>
@@ -163,25 +185,32 @@ const WorkerAssignmentTable = ({
         </ActionButtonGroup>
       ),
     },
-  ];
+  ], [onView, onEdit, onDelete, formatCurrency]); // Recalculate columns if these props change
 
   return (
     <TableWrapper>
-      <Table 
+      {/* The common Table component is now used correctly */}
+      <Table
         columns={columns.map(col => ({
           ...col,
           headerRenderer: () => (
-            <th 
-              key={col.accessor} 
-              className={col.className} 
+            <th
+              key={col.accessor}
+              className={col.className}
               style={{ cursor: col.sortable ? 'pointer' : 'default' }}
               onClick={col.sortable ? () => handleSort(col.accessor) : undefined}
             >
               {col.header} {col.sortable && getSortIcon(col.accessor)}
             </th>
           )
-        }))} 
-        data={sortedWorkers} 
+        }))}
+        data={sortedWorkers}
+        loading={loading} // Pass loading state to the common Table component if it supports it
+        // The common Table component should ideally handle its own pagination internally
+        // or you can implement it here. Given your structure, it's better the common Table handles it.
+        // For now, removing the internal Table structure and just using the imported Table.
+        // If your common Table component does NOT have internal pagination controls,
+        // then you would need to render the Pagination component below it.
       />
       <Pagination
         currentPage={currentPage}

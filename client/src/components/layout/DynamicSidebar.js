@@ -24,14 +24,20 @@ const SidebarContainer = styled.div`
   height: 100vh;
   width: ${(props) => (props.$isOpen ? "280px" : "72px")};
   background: ${(props) => props.theme.gradients?.hero || "linear-gradient(180deg, #0f2419 0%, #1b4332 50%, #2d5016 100%)"};
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
   box-shadow: ${(props) => props.theme.shadows?.xl || "0 20px 25px -5px rgba(27, 67, 50, 0.1)"};
   border-right: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
 
   @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
     transform: translateX(${(props) => (props.$isOpen ? "0" : "-100%")});
-    width: 280px;
+    width: 280px; // Keep the width consistent on smaller screens
+  }
+
+  @media (max-width: 768px) {
+    width: 100%; // Full width on mobile
+    transition: none; // No transition for mobile opening
   }
 `
 
@@ -316,7 +322,6 @@ const DynamicSidebar = ({ isOpen, onToggle }) => {
   const location = useLocation()
   const { user, logout } = useAuth()
 
-  // Base navigation items (always visible)
   const baseNavItems = [
     {
       id: "dashboard",
@@ -327,13 +332,11 @@ const DynamicSidebar = ({ isOpen, onToggle }) => {
     },
   ]
 
-  // Generate navigation items based on user modules and permissions
   const generateNavItems = () => {
     if (!user) return baseNavItems
 
     const navItems = [...baseNavItems]
 
-    // Add module-based navigation
     if (user.modules && user.modules.length > 0) {
       user.modules.forEach((moduleName) => {
         const moduleConfig = MODULE_CONFIG[moduleName]
@@ -350,7 +353,6 @@ const DynamicSidebar = ({ isOpen, onToggle }) => {
       })
     }
 
-    // Add settings for all users
     navItems.push({
       id: "settings",
       label: "Settings",
@@ -362,7 +364,6 @@ const DynamicSidebar = ({ isOpen, onToggle }) => {
     return navItems
   }
 
-  // Group navigation items by section
   const groupNavItems = (items) => {
     const grouped = {
       main: [],
@@ -403,10 +404,8 @@ const DynamicSidebar = ({ isOpen, onToggle }) => {
     return `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`.toUpperCase()
   }
 
-  // Get notification count (mock data - replace with real data)
   const getNotificationCount = () => {
-    // This would come from your notification system
-    return 3
+    return 3 // Mock data - replace with real data
   }
 
   return (
@@ -423,7 +422,6 @@ const DynamicSidebar = ({ isOpen, onToggle }) => {
       </SidebarHeader>
 
       <Navigation>
-        {/* Main Section */}
         {groupedNavItems.main.length > 0 && (
           <NavSection>
             <NavSectionTitle $isOpen={isOpen}>Main</NavSectionTitle>
@@ -445,7 +443,6 @@ const DynamicSidebar = ({ isOpen, onToggle }) => {
           </NavSection>
         )}
 
-        {/* Modules Section */}
         {groupedNavItems.modules.length > 0 && (
           <NavSection>
             <NavSectionTitle $isOpen={isOpen}>Modules</NavSectionTitle>
@@ -462,7 +459,6 @@ const DynamicSidebar = ({ isOpen, onToggle }) => {
           </NavSection>
         )}
 
-        {/* Admin Section */}
         {groupedNavItems.admin.length > 0 && (
           <NavSection>
             <NavSectionTitle $isOpen={isOpen}>Administration</NavSectionTitle>
@@ -479,7 +475,6 @@ const DynamicSidebar = ({ isOpen, onToggle }) => {
           </NavSection>
         )}
 
-        {/* System Section */}
         {groupedNavItems.system.length > 0 && (
           <NavSection>
             <NavSectionTitle $isOpen={isOpen}>System</NavSectionTitle>
