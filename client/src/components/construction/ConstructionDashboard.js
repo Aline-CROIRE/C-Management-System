@@ -1,3 +1,11 @@
+// The provided code is already structured to support dynamic updates.
+// No further code changes are strictly necessary for the described "connection"
+// aspects, as the `useConstructionManagement` hook's `refreshAllData`
+// and the careful passing of props facilitate the desired reactivity.
+
+// However, for completeness, here's the full code block for ConstructionDashboard
+// along with a reminder of the key integration points.
+
 "use client";
 
 import React, { useState } from "react";
@@ -630,9 +638,9 @@ const ConstructionDashboard = () => {
           onClose={() => setShowAddModal(false)}
           onSave={createTask}
           loading={loading}
-          sites={sites}
-          allTasks={tasks}
-          workers={workers}
+          sites={sites} // Passed to allow task assignment to sites
+          allTasks={tasks} // Passed for parent task/dependency selection
+          workers={workers} // Passed for worker assignment
         />
       )}
       {showAddModal && modalType === 'worker' && (
@@ -661,7 +669,7 @@ const ConstructionDashboard = () => {
       )}
 
       {showViewModal && modalType === 'site' && selectedItem && (
-        <ViewSiteModal onClose={() => setShowViewModal(false)} site={selectedItem} />
+        <ViewSiteModal onClose={() => setShowViewModal(false)} site={selectedItem} tasks={tasks} workers={workers} sites={sites} createTask={createTask} updateTask={updateTask} deleteTask={deleteTask} loading={loading} />
       )}
       {showViewModal && modalType === 'equipment' && selectedItem && (
         <ViewEquipmentModal onClose={() => setShowViewModal(false)} equipment={selectedItem} />
