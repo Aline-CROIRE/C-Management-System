@@ -5,11 +5,15 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
 import { FaTimes, FaUserCog, FaBriefcase, FaPhone, FaEnvelope, FaTools, FaInfoCircle, FaCheckCircle, FaTimesCircle,
-         FaMoneyBillWave, FaCalendarAlt, FaBuilding, FaAddressBook, FaCertificate, FaClock, FaFileAlt } from "react-icons/fa"; // Added new icons
+         FaMoneyBillWave, FaCalendarAlt, FaBuilding, FaAddressBook, FaCertificate, FaClock, FaFileAlt, FaExclamationTriangle } from "react-icons/fa";
 import Button from "../../common/Button";
 import LoadingSpinner from "../../common/LoadingSpinner";
-import { useConstructionManagement } from "../../../hooks/useConstructionManagement"; // Import the hook
+import { useConstructionManagement } from "../../../hooks/useConstructionManagement";
 import moment from "moment";
+
+// NEW SUB-MODALS (Importing newly created placeholders, if needed. For ViewWorker, likely only UploadDocumentModal)
+// import UploadDocumentModal from '../document-management/UploadDocumentModal'; // Assuming a common UploadDocumentModal
+
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -28,7 +32,7 @@ const ModalContent = styled.div`
   color: ${(props) => props.theme.colors.text};
   border-radius: ${(props) => props.theme.borderRadius.xl};
   width: 100%;
-  max-width: 700px; /* Increased max-width */
+  max-width: 700px;
   max-height: 90vh;
   box-shadow: ${(props) => props.theme.shadows.xl};
   overflow: hidden;
@@ -178,9 +182,37 @@ const SectionTitle = styled.h3`
     padding-bottom: 0.5rem;
 `;
 
+const SectionHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+  border-bottom: 1px solid ${(props) => props.theme?.colors?.borderLight || '#f0f0f0'};
+  padding-bottom: 0.75rem;
+`;
+
+const SectionActions = styled.div`
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+
+    @media (max-width: 480px) {
+        width: 100%;
+        button {
+            flex-grow: 1;
+            padding: 0.5rem;
+            font-size: 0.8rem;
+        }
+    }
+`;
+
 const ModalFooter = styled.div`
   padding: 1rem 1.5rem;
-  border-top: 1px solid ${(props) => props.theme.colors.border};
+  border-top: 1px solid ${(props) => props.theme?.colors?.border || '#e2e8f0'};
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
@@ -196,20 +228,27 @@ const ModalFooter = styled.div`
 `;
 
 const ViewWorkerModal = ({ worker, onClose }) => {
-  // Use useConstructionManagement hook to fetch detailed worker data
   const { currentWorker, fetchWorkerData, loading: hookLoading, error: hookError,
           workerCertifications, workerTimesheets, workerDocuments,
-          paginationCertifications, paginationTimesheets,
-          changePageWorkerCertifications, changePageWorkerTimesheets } = useConstructionManagement();
+          // paginationCertifications, paginationTimesheets, // Removed pagination here as list is short
+          // changePageWorkerCertifications, changePageWorkerTimesheets // Removed pagination handlers
+          uploadDocument, deleteDocument,
+        } = useConstructionManagement();
+
+  // State for UploadDocumentModal
+  const [isUploadDocumentModalOpen, setIsUploadDocumentModalOpen] = useState(false);
+  const [documentRefContext, setDocumentRefContext] = useState({ refId: '', refModel: 'Worker' });
 
   useEffect(() => {
     if (worker?._id) {
       fetchWorkerData(worker._id);
+      // Manually trigger fetches for related paginated data if needed, or if not embedded
+      // For this example, assuming certifications, timesheets, documents are fetched by fetchWorkerData
     }
   }, [worker?._id, fetchWorkerData]);
 
-  const displayWorker = currentWorker || worker; // Use fetched detailed worker or the initial prop
-  const isLoading = hookLoading && !displayWorker; // Only show loading if no data to display yet
+  const displayWorker = currentWorker || worker;
+  const isLoading = hookLoading && !displayWorker;
 
   if (isLoading) {
     return (
@@ -235,10 +274,18 @@ const ViewWorkerModal = ({ worker, onClose }) => {
     );
   }
 
-  if (!displayWorker) return null; // Should not happen if worker prop is passed and fetch is successful
+  if (!displayWorker) return null;
 
   const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   const formatDate = (dateString) => dateString ? moment(dateString).format('MMM Do, YYYY') : 'N/A';
+
+  // Document handlers
+  const handleUploadDocumentClick = (refModel, refId) => { setDocumentRefContext({ refModel, refId }); setIsUploadDocumentModalOpen(true); };
+  const handleDeleteDocument = async (docId, refModel, refId) => {
+      if (window.confirm("Are you sure you want to delete this document?")) {
+          await deleteDocument(docId, refModel, refId);
+      }
+  };
 
   return (
     <ModalOverlay onClick={onClose}>
@@ -257,7 +304,7 @@ const ViewWorkerModal = ({ worker, onClose }) => {
               <DetailItem><DetailLabel><FaMoneyBillWave /> Hourly Rate</DetailLabel><DetailValue>{displayWorker.hourlyRate ? formatCurrency(displayWorker.hourlyRate) : 'N/A'}</DetailValue></DetailItem>
               <DetailItem><DetailLabel><FaBriefcase /> Employment Type</DetailLabel><DetailValue>{displayWorker.employmentType || 'N/A'}</DetailValue></DetailItem>
               <DetailItem><DetailLabel><FaCalendarAlt /> Hire Date</DetailLabel><DetailValue>{formatDate(displayWorker.hireDate)}</DetailValue></DetailItem>
-              <DetailItem><DetailLabel><FaBuilding /> Primary Site</DetailLabel><DetailValue>{displayWorker.currentSite?.name || 'Unassigned'}</DetailValue></DetailItem> {/* NEW */}
+              <DetailItem><DetailLabel><FaBuilding /> Primary Site</DetailLabel><DetailValue>{displayWorker.currentSite?.name || 'Unassigned'}</DetailValue></DetailItem>
               <DetailItem><DetailLabel><FaCheckCircle /> Status</DetailLabel>
                 <DetailValue>
                   <StatusBadge isActive={displayWorker.isActive}>
@@ -296,52 +343,70 @@ const ViewWorkerModal = ({ worker, onClose }) => {
               </DetailItem>
             )}
 
-            {/* NEW SECTIONS FOR RELATED ENTITIES */}
-            <SectionTitle><FaCertificate /> Certifications</SectionTitle>
-            {workerCertifications.length > 0 ? (
+            <SectionHeader>
+                <SectionTitle><FaCertificate /> Certifications</SectionTitle>
+                <SectionActions>
+                    {/* Add button to add new certification */}
+                </SectionActions>
+            </SectionHeader>
+            {workerCertifications && workerCertifications.length > 0 ? (
                 <ListContainer>
                     {workerCertifications.map(cert => (
                         <li key={cert._id}>
                             <strong>{cert.name}</strong> from {cert.issuingBody} (Issued: {formatDate(cert.issueDate)}
                             {cert.expiryDate && `, Expires: ${formatDate(cert.expiryDate)}`})
-                            {cert.isExpired && <FaTimesCircle style={{ color: 'red', marginLeft: '0.5rem' }} title="Expired" />}
-                            {/* Add button to view document if available */}
+                            {moment(cert.expiryDate).isBefore(moment()) && <FaTimesCircle style={{ color: 'red', marginLeft: '0.5rem' }} title="Expired" />}
+                            {/* Add button to view/download document if available */}
                         </li>
                     ))}
                 </ListContainer>
             ) : (
                 <p style={{fontStyle: 'italic', color: '#718096'}}>No certifications recorded.</p>
             )}
-            {/* Add pagination controls for certifications */}
 
-            <SectionTitle><FaClock /> Recent Timesheets</SectionTitle>
-            {workerTimesheets.length > 0 ? (
+            <SectionHeader>
+                <SectionTitle><FaClock /> Recent Timesheets</SectionTitle>
+                <SectionActions>
+                    {/* Add button to add new timesheet */}
+                </SectionActions>
+            </SectionHeader>
+            {workerTimesheets && workerTimesheets.length > 0 ? (
                 <ListContainer>
-                    {workerTimesheets.slice(0, 5).map(ts => ( // Show first 5 for brevity
+                    {workerTimesheets.slice(0, 5).map(ts => (
                         <li key={ts._id}>
                             {formatDate(ts.date)}: {ts.hoursWorked} hrs (OT: {ts.overtimeHours} hrs) - Site: {ts.site?.name}
-                            <StatusBadge status={ts.status} style={{marginLeft: 'auto'}}>{ts.status}</StatusBadge>
+                            <StatusBadge isActive={ts.status === 'Approved'} style={{marginLeft: 'auto'}}>{ts.status}</StatusBadge>
                         </li>
                     ))}
                 </ListContainer>
             ) : (
                 <p style={{fontStyle: 'italic', color: '#718096'}}>No timesheets submitted recently.</p>
             )}
-            {/* Add pagination controls for timesheets */}
 
-            <SectionTitle><FaFileAlt /> Documents</SectionTitle>
-            {workerDocuments.length > 0 ? (
+            <SectionHeader>
+                <SectionTitle><FaFileAlt /> Documents</SectionTitle>
+                <SectionActions>
+                    <Button variant="primary" size="sm" onClick={() => handleUploadDocumentClick('Worker', displayWorker._id)}>
+                        <FaFileUpload /> Upload Document
+                    </Button>
+                </SectionActions>
+            </SectionHeader>
+            {workerDocuments && workerDocuments.length > 0 ? (
                 <ListContainer>
                     {workerDocuments.map(doc => (
                         <li key={doc._id}>
-                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" style={{color: '#007bff'}}>{doc.fileName}</a> ({doc.category})
+                            <strong><a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" style={{color: '#007bff'}}><FaDownload /> {doc.fileName}</a></strong>
+                            <br />
+                            <small>Category: {doc.category} | Uploaded: {formatDate(doc.createdAt)}</small>
+                            <div style={{marginLeft: 'auto', display: 'flex', gap: '0.5rem'}}>
+                                <Button size="sm" variant="ghost" iconOnly title="Delete Document" onClick={() => handleDeleteDocument(doc._id, 'Worker', displayWorker._id)}><FaTrashAlt style={{color: '#c53030'}}/></Button>
+                            </div>
                         </li>
                     ))}
                 </ListContainer>
             ) : (
                 <p style={{fontStyle: 'italic', color: '#718096'}}>No documents uploaded.</p>
             )}
-            {/* Add document upload button here */}
 
           </ModalBody>
           <ModalFooter>

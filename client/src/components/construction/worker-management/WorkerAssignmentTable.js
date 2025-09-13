@@ -5,12 +5,13 @@ import React, { useState, useMemo } from "react";
 import styled from "styled-components";
 import {
   FaUserCog, FaEdit, FaEye, FaTrash, FaSort, FaSortUp, FaSortDown, FaPhone, FaEnvelope, FaToolbox, FaCheckCircle, FaTimesCircle, FaInfoCircle, FaChevronLeft, FaChevronRight,
-  FaBriefcase, FaMoneyBillWave // Added for new worker properties
+  FaBriefcase, FaMoneyBillWave
 } from "react-icons/fa";
-import Button from "../../common/Button"; // CORRECTED PATH
-import LoadingSpinner from "../../common/LoadingSpinner"; // CORRECTED PATH
-import Table from "../../common/Table"; // CORRECTED PATH
-import Pagination from "../../common/Pagination"; // CORRECTED PATH
+import Button from "../../common/Button";
+import LoadingSpinner from "../../common/LoadingSpinner";
+// Assuming you have common Table and Pagination components
+import Table from "../../common/Table";
+import Pagination from "../../common/Pagination";
 
 
 const TableWrapper = styled.div`
@@ -74,6 +75,12 @@ const WorkerAssignmentTable = ({
             aValue = parseFloat(aValue || 0);
             bValue = parseFloat(bValue || 0);
         }
+        // Assuming role, employmentType are strings
+        if (['role', 'employmentType', 'fullName'].includes(sortConfig.key)) {
+            aValue = aValue || '';
+            bValue = bValue || '';
+        }
+
 
         if (typeof aValue === 'string') aValue = aValue.toLowerCase();
         if (typeof bValue === 'string') bValue = bValue.toLowerCase();
@@ -125,40 +132,40 @@ const WorkerAssignmentTable = ({
 
 
   const columns = useMemo(() => [
-    { 
-      header: 'Full Name', 
+    {
+      header: 'Full Name',
       accessor: 'fullName',
       Cell: ({ value }) => <strong>{value}</strong>,
       sortable: true
     },
-    { 
-      header: 'Role', 
+    {
+      header: 'Role',
       accessor: 'role',
       Cell: ({ value }) => value || 'N/A',
       sortable: true,
       className: 'hide-on-mobile'
     },
-    { 
-      header: 'Contact', 
+    {
+      header: 'Contact',
       accessor: 'contactNumber',
       Cell: ({ value }) => value ? <><FaPhone size={10} style={{marginRight: '0.5em'}}/>{value}</> : 'N/A',
       className: 'hide-on-tablet'
     },
-    { 
-      header: 'Email', 
+    {
+      header: 'Email',
       accessor: 'email',
       Cell: ({ value }) => value ? <><FaEnvelope size={10} style={{marginRight: '0.5em'}}/>{value}</> : 'N/A',
       className: 'hide-on-tablet'
     },
     {
-      header: 'Rate/Hr', // NEW
+      header: 'Rate/Hr',
       accessor: 'hourlyRate',
       Cell: ({ value }) => value ? <><FaMoneyBillWave size={10} style={{marginRight: '0.5em'}}/>{formatCurrency(value)}</> : 'N/A',
       sortable: true,
       className: 'hide-on-tablet'
     },
     {
-      header: 'Employment Type', // NEW
+      header: 'Employment Type',
       accessor: 'employmentType',
       Cell: ({ value }) => <><FaBriefcase size={10} style={{marginRight: '0.5em'}}/>{value || 'N/A'}</>,
       sortable: true,
@@ -177,7 +184,7 @@ const WorkerAssignmentTable = ({
     {
       header: 'Actions',
       accessor: 'actions',
-      Cell: ({ row: { original: worker } }) => ( // Access original row data
+      Cell: ({ row: { original: worker } }) => (
         <ActionButtonGroup>
           <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(worker)}><FaEye /></Button>
           <Button size="sm" variant="ghost" iconOnly title="Edit Worker" onClick={() => onEdit(worker)}><FaEdit /></Button>
@@ -189,10 +196,17 @@ const WorkerAssignmentTable = ({
 
   return (
     <TableWrapper>
-      {/* The common Table component is now used correctly */}
+      {/*
+        Using a simple HTML table for TaskTable and SiteTable to maintain custom
+        responsive logic. The common Table component from ../common/Table.js
+        is a generic component that needs to be adapted.
+        For WorkerAssignmentTable, I'm explicitly using a common Table as requested,
+        demonstrating how it would ideally be used.
+      */}
       <Table
         columns={columns.map(col => ({
           ...col,
+          // Custom header rendering to include sort icons and click handlers
           headerRenderer: () => (
             <th
               key={col.accessor}
@@ -205,12 +219,8 @@ const WorkerAssignmentTable = ({
           )
         }))}
         data={sortedWorkers}
-        loading={loading} // Pass loading state to the common Table component if it supports it
-        // The common Table component should ideally handle its own pagination internally
-        // or you can implement it here. Given your structure, it's better the common Table handles it.
-        // For now, removing the internal Table structure and just using the imported Table.
-        // If your common Table component does NOT have internal pagination controls,
-        // then you would need to render the Pagination component below it.
+        loading={loading}
+        // Assuming common Table handles its own styling for cells, or you pass custom Cell component
       />
       <Pagination
         currentPage={currentPage}
