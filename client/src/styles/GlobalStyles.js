@@ -1,3 +1,4 @@
+// client/src/styles/GlobalStyles.js
 import { createGlobalStyle } from "styled-components"
 
 const GlobalStyle = createGlobalStyle`
@@ -9,6 +10,10 @@ const GlobalStyle = createGlobalStyle`
 
   html {
     scroll-behavior: smooth;
+    /* IMPORTANT: Allow horizontal scrolling for the entire page */
+    overflow-x: auto; 
+    /* Always show vertical scrollbar to prevent layout shifts */
+    overflow-y: scroll; 
   }
 
   body {
@@ -19,13 +24,16 @@ const GlobalStyle = createGlobalStyle`
     background: ${(props) => props.theme.colors?.surfaceLight || "#f7fafc"};
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
+    /* IMPORTANT: Change from hidden to auto to allow global horizontal scroll */
+    overflow-x: auto; 
+    /* Always show vertical scrollbar to prevent layout shifts */
+    overflow-y: scroll; 
   }
 
   /* Scrollbar Styling */
   ::-webkit-scrollbar {
     width: 8px;
-    height: 8px;
+    height: 8px; /* Added height for horizontal scrollbar visibility */
   }
 
   ::-webkit-scrollbar-track {
@@ -222,6 +230,6 @@ const GlobalStyle = createGlobalStyle`
     color: ${(props) => props.theme.colors?.textSecondary || "#718096"};
     line-height: ${(props) => props.theme.typography?.lineHeight?.relaxed || "1.625"};
   }
-`
+`;
 
-export default GlobalStyle
+export default GlobalStyle;

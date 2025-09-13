@@ -4,31 +4,30 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const { body, validationResult } = require("express-validator");
 const moment = require("moment");
-const multer = require('multer'); // For handling file uploads
+const multer = require('multer');
 
 // Import all models
 const ConstructionSite = require("../models/ConstructionSite");
 const Equipment = require("../models/Equipment");
 const Task = require("../models/Task");
 const Worker = require("../models/Worker");
-const Document = require("../models/Document"); // New
-const Certification = require("../models/Certification"); // New
-const MaintenanceLog = require("../models/MaintenanceLog"); // New
-const Timesheet = require("../models/Timesheet"); // New
-const ChangeOrder = require("../models/ChangeOrder"); // New
-const MaterialRequest = require("../models/MaterialRequest"); // New
-const PaymentRequest = require("../models/PaymentRequest"); // New
-const SafetyIncident = require("../models/SafetyIncident"); // New
+const Document = require("../models/Document");
+const Certification = require("../models/Certification");
+const MaintenanceLog = require("../models/MaintenanceLog");
+const Timesheet = require("../models/Timesheet");
+const ChangeOrder = require("../models/ChangeOrder");
+const MaterialRequest = require("../models/MaterialRequest");
+const PaymentRequest = require("../models/PaymentRequest");
+const SafetyIncident = require("../models/SafetyIncident");
 
-const { verifyToken } = require("../middleware/auth"); // Assuming this middleware exists
-const { isAdmin, isProjectManager, isSiteEngineer } = require("../middleware/roleMiddleware"); // Assuming role-based middleware for some routes
+const { verifyToken } = require("../middleware/auth");
+const { isAdmin, isProjectManager, isSiteEngineer } = require("../middleware/roleMiddleware");
 
 // --- Multer Configuration for File Uploads (Placeholder) ---
-// Configure storage for multer
-const storage = multer.memoryStorage(); // Store files in memory
+const storage = multer.memoryStorage();
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB file size limit
+    limits: { fileSize: 10 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         if (!file.originalname.match(/\.(pdf|doc|docx|xls|xlsx|jpg|jpeg|png|gif)$/)) {
             return cb(new Error('Only PDF, Word, Excel, and image files are allowed!'), false);
@@ -37,27 +36,13 @@ const upload = multer({
     },
 });
 
-// Placeholder for actual file upload to cloud storage (e.g., S3, GCP Storage)
 const uploadFileToStorage = async (file, folderName = 'documents') => {
-    // In a real application, this would interact with your cloud storage SDK
-    // Example: const s3 = new AWS.S3();
-    // const params = {
-    //   Bucket: process.env.AWS_S3_BUCKET_NAME,
-    //   Key: `${folderName}/${Date.now()}-${file.originalname}`,
-    //   Body: file.buffer,
-    //   ContentType: file.mimetype,
-    // };
-    // const data = await s3.upload(params).promise();
-    // return data.Location; // Return the public URL of the uploaded file
-
-    // For now, return a dummy URL
     console.log(`Simulating upload for: ${file.originalname} to ${folderName}`);
     return `https://example.com/uploads/${folderName}/${Date.now()}-${file.originalname.replace(/\s/g, '_')}`;
 };
 // --- End Multer Configuration ---
 
 
-// Helper to send validation errors
 const sendValidationErrors = (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -204,9 +189,9 @@ router.get("/sites/:id", verifyToken, async (req, res) => {
             .populate('documents')
             .populate('paymentRequests')
             .populate('materialRequests')
-            .populate({
+            .populate({ // NEW: Populate worker details for site's assignedWorkers
                 path: 'assignedWorkers.worker',
-                select: 'fullName role'
+                select: 'fullName role contactNumber email currentSite'
             })
             .populate('safetyIncidents');
             
@@ -364,9 +349,9 @@ router.delete("/sites/:id", verifyToken, async (req, res) => {
         await MaterialRequest.deleteMany({ site: id, user: userId });
         await PaymentRequest.deleteMany({ site: id, user: userId });
         await SafetyIncident.deleteMany({ site: id, user: userId });
-        // Documents linked to the site will be handled via refId/refModel logic, if needed.
-        // For simplicity, we'll assume direct deletion here for now.
         await Document.deleteMany({ refId: id, refModel: 'ConstructionSite', user: userId });
+        // NEW: Unassign all workers whose currentSite was this site
+        await Worker.updateMany({ currentSite: id, user: userId }, { $set: { currentSite: null } });
 
 
         res.json({ success: true, message: "Construction site deleted successfully!" });
@@ -404,7 +389,7 @@ router.get("/equipment", verifyToken, async (req, res) => {
 
         const equipment = await Equipment.find(query)
             .populate('currentSite', 'name projectCode')
-            .populate('documents') // Populate linked documents
+            .populate('documents')
             .sort({ [sort]: sortOrder })
             .skip(skip)
             .limit(limitNum);
@@ -434,7 +419,7 @@ router.get("/equipment/:id", verifyToken, async (req, res) => {
         const equipmentItem = await Equipment.findOne({ _id: id, user: userId })
             .populate('currentSite', 'name projectCode')
             .populate('documents')
-            .populate('maintenanceLogs'); // Populate linked maintenance logs
+            .populate('maintenanceLogs');
             
         if (!equipmentItem) {
             return res.status(404).json({ success: false, message: "Equipment not found or does not belong to user." });
@@ -542,7 +527,7 @@ router.put("/equipment/:id", verifyToken, [
     try {
         const userId = req.user._id;
         const { id } = req.params;
-        const { assetTag, currentSite, _prevCurrentSite, ...restOfUpdateData } = req.body; // _prevCurrentSite is a frontend hint
+        const { assetTag, currentSite, _prevCurrentSite, ...restOfUpdateData } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(404).json({ success: false, message: "Equipment not found (Invalid ID format)." });
@@ -625,12 +610,10 @@ router.delete("/equipment/:id", verifyToken, async (req, res) => {
                 { $inc: { equipmentCount: -1 } }
             );
         }
-        // Remove equipment from any tasks it was allocated to
         await Task.updateMany(
             { 'allocatedEquipment.equipment': deletedEquipment._id, user: userId },
             { $pull: { allocatedEquipment: { equipment: deletedEquipment._id } } }
         );
-        // Delete related maintenance logs and documents
         await MaintenanceLog.deleteMany({ equipment: id, user: userId });
         await Document.deleteMany({ refId: id, refModel: 'Equipment', user: userId });
 
@@ -672,16 +655,16 @@ router.get("/tasks", verifyToken, async (req, res) => {
             .populate('site', 'name projectCode')
             .populate('parentTask', 'name')
             .populate({
-                path: 'dependencies.taskId', // Populate the taskId field within the dependencies array
+                path: 'dependencies.taskId',
                 select: 'name startDate dueDate'
             })
-            .populate('assignedTo', 'fullName role') // Old 'assignedTo'
+            .populate('assignedTo', 'fullName role')
             .populate({
-                path: 'allocatedWorkers.worker', // New 'allocatedWorkers'
+                path: 'allocatedWorkers.worker',
                 select: 'fullName role'
             })
             .populate({
-                path: 'allocatedEquipment.equipment', // New 'allocatedEquipment'
+                path: 'allocatedEquipment.equipment',
                 select: 'name assetTag'
             })
             .populate('documents')
@@ -806,8 +789,6 @@ router.post("/tasks", verifyToken, [
 
         await newTask.save();
         site.tasks.push(newTask._id);
-        // Recalculate workersCount for the site based on tasks, or directly assign workers to site
-        // For now, simple push. More complex logic needed for full connection
         await site.save();
 
         res.status(201).json({ success: true, message: "Task created successfully!", data: newTask });
@@ -1010,8 +991,9 @@ router.get("/workers", verifyToken, async (req, res) => {
         const sortOrder = order === 'desc' ? -1 : 1;
 
         const workers = await Worker.find(query)
-            .populate('certifications') // Populate linked certifications
-            .populate('documents') // Populate linked documents
+            .populate('currentSite', 'name projectCode') // NEW: Populate currentSite
+            .populate('certifications')
+            .populate('documents')
             .sort({ [sort]: sortOrder })
             .skip(skip)
             .limit(limitNum);
@@ -1039,6 +1021,7 @@ router.get("/workers/:id", verifyToken, async (req, res) => {
         }
 
         const worker = await Worker.findOne({ _id: id, user: userId })
+            .populate('currentSite', 'name projectCode') // NEW: Populate currentSite
             .populate('certifications')
             .populate('documents')
             .populate('timesheets');
@@ -1070,6 +1053,7 @@ router.post("/workers", verifyToken, [
     body('emergencyContact.name', 'Emergency contact name must be a string').optional().isString().trim(),
     body('emergencyContact.phone', 'Emergency contact phone must be a string').optional().isString().trim(),
     body('emergencyContact.relationship', 'Emergency contact relationship must be a string').optional().isString().trim(),
+    body('currentSite', 'Current site must be a valid ID').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Invalid current site ID.'), // NEW
 ], async (req, res) => {
     const validationErrors = sendValidationErrors(req, res);
     if (validationErrors) return;
@@ -1077,14 +1061,31 @@ router.post("/workers", verifyToken, [
     try {
         const userId = req.user._id;
         const { fullName, role, contactNumber, email, skills, isActive, notes,
-            hourlyRate, employmentType, hireDate, emergencyContact } = req.body;
+            hourlyRate, employmentType, hireDate, emergencyContact, currentSite } = req.body; // NEW: currentSite
+
+        // Validate if currentSite exists and belongs to the user
+        if (currentSite && mongoose.Types.ObjectId.isValid(currentSite)) {
+            const site = await ConstructionSite.findOne({ _id: currentSite, user: userId });
+            if (!site) {
+                return res.status(400).json({ success: false, message: "Provided current site does not exist or does not belong to the user." });
+            }
+        }
 
         const newWorker = new Worker({
             user: userId, fullName, role: role || 'General Labor', contactNumber, email, skills: skills || [], isActive: isActive ?? true, notes,
-            hourlyRate, employmentType, hireDate, emergencyContact,
+            hourlyRate, employmentType, hireDate, emergencyContact, currentSite: currentSite || null, // NEW
         });
 
         await newWorker.save();
+
+        // NEW: Increment workersCount on the assigned site
+        if (newWorker.currentSite) {
+            await ConstructionSite.updateOne(
+                { _id: newWorker.currentSite, user: userId },
+                { $inc: { workersCount: 1 } }
+            );
+        }
+
         res.status(201).json({ success: true, message: "Worker created successfully!", data: newWorker });
     } catch (err) {
         console.error("Error creating worker:", err);
@@ -1113,6 +1114,8 @@ router.put("/workers/:id", verifyToken, [
     body('emergencyContact.name', 'Emergency contact name must be a string').optional().isString().trim(),
     body('emergencyContact.phone', 'Emergency contact phone must be a string').optional().isString().trim(),
     body('emergencyContact.relationship', 'Emergency contact relationship must be a string').optional().isString().trim(),
+    body('currentSite', 'Current site must be a valid ID').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Invalid current site ID.'), // NEW
+    body('_prevCurrentSite', 'Previous current site ID must be valid').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Invalid previous current site ID.'), // Frontend hint
 ], async (req, res) => {
     const validationErrors = sendValidationErrors(req, res);
     if (validationErrors) return;
@@ -1120,10 +1123,21 @@ router.put("/workers/:id", verifyToken, [
     try {
         const userId = req.user._id;
         const { id } = req.params;
-        const updateData = req.body;
+        const { currentSite, _prevCurrentSite, ...restOfUpdateData } = req.body; // NEW: currentSite, _prevCurrentSite from frontend
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(404).json({ success: false, message: "Worker not found (Invalid ID format)." });
+        }
+
+        const newCurrentSiteId = (currentSite && mongoose.Types.ObjectId.isValid(currentSite)) ? currentSite : null;
+        const updateData = { currentSite: newCurrentSiteId, ...restOfUpdateData };
+
+        // Validate new currentSite if provided
+        if (newCurrentSiteId) {
+            const site = await ConstructionSite.findOne({ _id: newCurrentSiteId, user: userId });
+            if (!site) {
+                return res.status(400).json({ success: false, message: "Provided new current site does not exist or does not belong to the user." });
+            }
         }
 
         const updatedWorker = await Worker.findOneAndUpdate(
@@ -1135,6 +1149,25 @@ router.put("/workers/:id", verifyToken, [
         if (!updatedWorker) {
             return res.status(404).json({ success: false, message: "Worker not found or does not belong to user." });
         }
+
+        // NEW: Update workersCount on sites if currentSite changed
+        const prevSiteId = String(_prevCurrentSite);
+        const oldSiteIdValid = prevSiteId && prevSiteId !== 'undefined' && prevSiteId !== 'null' && mongoose.Types.ObjectId.isValid(prevSiteId);
+
+        if (oldSiteIdValid && String(oldSiteIdValid) !== String(newCurrentSiteId)) {
+            await ConstructionSite.updateOne(
+                { _id: oldSiteIdValid, user: userId },
+                { $inc: { workersCount: -1 } }
+            );
+        }
+
+        if (newCurrentSiteId && String(oldSiteIdValid) !== String(newCurrentSiteId)) {
+            await ConstructionSite.updateOne(
+                { _id: newCurrentSiteId, user: userId },
+                { $inc: { workersCount: 1 } }
+            );
+        }
+
         res.json({ success: true, message: "Worker updated successfully!", data: updatedWorker });
     } catch (err) {
         console.error("Error updating worker:", err);
@@ -1160,7 +1193,14 @@ router.delete("/workers/:id", verifyToken, async (req, res) => {
             return res.status(404).json({ success: false, message: "Worker not found or does not belong to user." });
         }
 
-        // Remove worker from any tasks or site assignments
+        // NEW: Decrement workersCount on the site the worker was assigned to
+        if (deletedWorker.currentSite && mongoose.Types.ObjectId.isValid(deletedWorker.currentSite)) {
+            await ConstructionSite.updateOne(
+                { _id: deletedWorker.currentSite, user: userId },
+                { $inc: { workersCount: -1 } }
+            );
+        }
+
         await Task.updateMany(
             { assignedTo: deletedWorker._id, user: userId },
             { $pull: { assignedTo: deletedWorker._id } }
@@ -1173,7 +1213,6 @@ router.delete("/workers/:id", verifyToken, async (req, res) => {
             { 'assignedWorkers.worker': deletedWorker._id, user: userId },
             { $pull: { assignedWorkers: { worker: deletedWorker._id } } }
         );
-        // Delete related certifications, timesheets, and documents
         await Certification.deleteMany({ worker: id, user: userId });
         await Timesheet.deleteMany({ worker: id, user: userId });
         await Document.deleteMany({ refId: id, refModel: 'Worker', user: userId });
@@ -1277,7 +1316,7 @@ router.delete("/sites/:siteId/milestones/:milestoneId", verifyToken, async (req,
             return res.status(404).json({ success: false, message: "Construction site not found or does not belong to user." });
         }
 
-        site.milestones.id(milestoneId).deleteOne(); // Use deleteOne() on the subdocument
+        site.milestones.id(milestoneId).deleteOne();
         await site.save();
 
         res.json({ success: true, message: "Milestone deleted successfully!" });
@@ -1309,7 +1348,6 @@ router.post("/sites/:siteId/material-inventory", verifyToken, [
             return res.status(404).json({ success: false, message: "Construction site not found or does not belong to user." });
         }
 
-        // Prevent duplicate material names
         const existingMaterial = site.siteMaterialInventory.find(item => item.materialName.toLowerCase() === newItemData.materialName.toLowerCase());
         if (existingMaterial) {
             return res.status(400).json({ success: false, message: "Material with this name already exists in site inventory." });
@@ -1351,7 +1389,6 @@ router.put("/sites/:siteId/material-inventory/:itemId", verifyToken, [
             return res.status(404).json({ success: false, message: "Material item not found in site inventory." });
         }
 
-        // Prevent changing materialName to an existing one
         const existingMaterialWithSameName = site.siteMaterialInventory.find(item =>
             String(item._id) !== itemId && item.materialName.toLowerCase() === updateData.materialName.toLowerCase()
         );
@@ -1426,9 +1463,12 @@ router.post("/sites/:siteId/assigned-workers", verifyToken, [
         }
 
         site.assignedWorkers.push({ worker: workerId, assignedRole, assignmentStartDate, assignmentEndDate });
-        site.workersCount = (site.workersCount || 0) + 1; // Increment site worker count
+        // NOTE: workersCount on ConstructionSite is now primarily managed by the Worker's currentSite field.
+        // This 'assignedWorkers' array is for more granular assignments *to* the site (e.g., tasks on site).
+        // If this `assignedWorkers` also signifies incrementing `workersCount`, ensure it's not double-counted with Worker.currentSite.
+        // For simplicity, `workersCount` is updated via Worker model.
         await site.save();
-        await site.populate({ path: 'assignedWorkers.worker', select: 'fullName role' });
+        await site.populate({ path: 'assignedWorkers.worker', select: 'fullName role contactNumber email' });
 
 
         res.status(201).json({ success: true, message: "Worker assigned to site successfully!", data: site.assignedWorkers[site.assignedWorkers.length - 1] });
@@ -1464,7 +1504,6 @@ router.put("/sites/:siteId/assigned-workers/:assignmentId", verifyToken, [
             return res.status(404).json({ success: false, message: "Worker assignment not found on this site." });
         }
 
-        // Ensure the worker ID itself isn't changed if it would conflict with another existing assignment
         const { worker: newWorkerId } = updateData;
         if (String(assignment.worker) !== String(newWorkerId)) {
              const existingAssignmentWithNewWorker = site.assignedWorkers.find(aw => String(aw.worker) === String(newWorkerId) && String(aw._id) !== assignmentId);
@@ -1475,7 +1514,7 @@ router.put("/sites/:siteId/assigned-workers/:assignmentId", verifyToken, [
         
         Object.assign(assignment, updateData);
         await site.save();
-        await site.populate({ path: 'assignedWorkers.worker', select: 'fullName role' });
+        await site.populate({ path: 'assignedWorkers.worker', select: 'fullName role contactNumber email' });
 
         res.json({ success: true, message: "Worker assignment updated successfully!", data: assignment });
     } catch (err) {
@@ -1503,7 +1542,9 @@ router.delete("/sites/:siteId/assigned-workers/:assignmentId", verifyToken, asyn
         }
         
         assignment.deleteOne();
-        site.workersCount = Math.max(0, (site.workersCount || 0) - 1); // Decrement site worker count
+        // workersCount on ConstructionSite is now primarily managed by the Worker's currentSite field.
+        // If this `assignedWorkers` array was used to increment workersCount, it needs corresponding decrement.
+        // For simplicity, `workersCount` is updated via Worker model.
         await site.save();
 
         res.json({ success: true, message: "Worker unassigned from site successfully!" });
@@ -1630,7 +1671,6 @@ router.put("/sites/:siteId/change-orders/:changeOrderId", verifyToken, [
             return res.status(404).json({ success: false, message: "Change order not found or does not belong to user/site." });
         }
 
-        // Handle approval/rejection logic
         if (updateData.status && (updateData.status === 'Approved' || updateData.status === 'Rejected') && changeOrder.status === 'Pending') {
             updateData.approvedBy = userId;
             updateData.approvalDate = Date.now();
@@ -1794,18 +1834,26 @@ router.patch("/sites/:siteId/material-requests/:requestId/status", verifyToken, 
         }
         // Add logic here to update site material inventory if status is 'Received'
         // For 'Received' status, you would typically update the site's materialInventory array.
-        // Example:
-        // if (status === 'Received') {
-        //     await ConstructionSite.updateOne(
-        //         { _id: siteId, 'siteMaterialInventory.materialName': materialRequest.materialName },
-        //         { $inc: { 'siteMaterialInventory.$.quantityOnHand': materialRequest.quantity } }
-        //     );
-        //     // If material doesn't exist, add it
-        //     await ConstructionSite.updateOne(
-        //         { _id: siteId, 'siteMaterialInventory.materialName': { $ne: materialRequest.materialName } },
-        //         { $push: { siteMaterialInventory: { materialName: materialRequest.materialName, quantityOnHand: materialRequest.quantity, unit: materialRequest.unit, lastUpdated: Date.now() } } }
-        //     );
-        // }
+        if (status === 'Received' || status === 'Partially Received') {
+             // Find or create the material in the site's embedded inventory
+            const site = await ConstructionSite.findOne({ _id: siteId, user: userId });
+            if (site) {
+                const existingMaterialIndex = site.siteMaterialInventory.findIndex(item => item.materialName.toLowerCase() === materialRequest.materialName.toLowerCase());
+                if (existingMaterialIndex > -1) {
+                    site.siteMaterialInventory[existingMaterialIndex].quantityOnHand += materialRequest.quantity;
+                    site.siteMaterialInventory[existingExistingMaterialIndex].lastUpdated = Date.now();
+                } else {
+                    site.siteMaterialInventory.push({
+                        materialName: materialRequest.materialName,
+                        quantityOnHand: materialRequest.quantity,
+                        unit: materialRequest.unit,
+                        lastUpdated: Date.now(),
+                        minStockLevel: 0 // Default, can be updated later
+                    });
+                }
+                await site.save();
+            }
+        }
 
         await materialRequest.save();
         res.json({ success: true, message: "Material request status updated!", data: materialRequest });
@@ -1868,7 +1916,7 @@ router.get("/sites/:siteId/payment-requests", verifyToken, async (req, res) => {
         const sortOrder = order === 'desc' ? -1 : 1;
 
         const paymentRequests = await PaymentRequest.find(query)
-            .populate('requestedBy', 'fullName email') // Assuming requestedBy is a User
+            .populate('requestedBy', 'fullName email')
             .populate('approvedBy', 'fullName email')
             .populate('receipts')
             .sort({ [sort]: sortOrder })
@@ -1909,16 +1957,15 @@ router.post("/sites/:siteId/payment-requests", verifyToken, [
         if (!site) {
             return res.status(404).json({ success: false, message: "Construction site not found or does not belong to user." });
         }
-        // Assuming req.user._id is the requester for simplicity, or validate reqUserId
         if (String(reqUserId) !== String(userId)) {
-             // For strict validation, ensure the requestedBy user is part of the project or has permission
+            // For strict validation, ensure the requestedBy user is part of the project or has permission
         }
 
         const newPaymentRequest = new PaymentRequest({
             ...newRequestData,
             user: userId,
             site: siteId,
-            requestedBy: reqUserId, // Or just userId
+            requestedBy: reqUserId,
             status: 'Pending',
         });
         await newPaymentRequest.save();
@@ -1939,7 +1986,7 @@ router.patch("/sites/:siteId/payment-requests/:requestId/status", verifyToken, [
     const validationErrors = sendValidationErrors(req, res);
     if (validationErrors) return;
     try {
-        const userId = req.user._id; // User approving/rejecting
+        const userId = req.user._id;
         const { siteId, requestId } = req.params;
         const { status } = req.body;
 
@@ -1952,8 +1999,7 @@ router.patch("/sites/:siteId/payment-requests/:requestId/status", verifyToken, [
             return res.status(404).json({ success: false, message: "Payment request not found or does not belong to user/site." });
         }
 
-        // Only allow status change from Pending to Approved/Rejected/Paid
-        if (paymentRequest.status !== 'Pending' && status === 'Approved' || status === 'Rejected') {
+        if (paymentRequest.status !== 'Pending' && (status === 'Approved' || status === 'Rejected')) {
             return res.status(400).json({ success: false, message: "Only pending requests can be approved or rejected." });
         }
         if (paymentRequest.status !== 'Approved' && status === 'Paid') {
@@ -1965,7 +2011,6 @@ router.patch("/sites/:siteId/payment-requests/:requestId/status", verifyToken, [
             paymentRequest.approvedBy = userId;
             paymentRequest.approvedAt = Date.now();
         }
-        // If approved/paid, update site expenditure
         if (status === 'Approved' || status === 'Paid') {
             await ConstructionSite.updateOne(
                 { _id: siteId, user: userId },
@@ -2012,7 +2057,7 @@ router.delete("/sites/:siteId/payment-requests/:requestId", verifyToken, async (
 // --- DOCUMENTS ---
 router.post("/documents/upload", verifyToken, upload.single('file'), [
     body('refId', 'Reference ID is required').isMongoId().withMessage('Invalid reference ID.'),
-    body('refModel', 'Reference model is required').not().isEmpty().trim().isIn(['ConstructionSite', 'Task', 'Equipment', 'Worker', 'ChangeOrder', 'SafetyIncident']),
+    body('refModel', 'Reference model is required').not().isEmpty().trim().isIn(['ConstructionSite', 'Task', 'Equipment', 'Worker', 'ChangeOrder', 'SafetyIncident', 'PaymentRequest']), // Added PaymentRequest
     body('category', 'Invalid document category').optional().isIn(['Permit', 'Drawing', 'Contract', 'Photo', 'Report', 'Certificate', 'Other']),
     body('description', 'Description must be a string').optional().isString().trim(),
 ], async (req, res) => {
@@ -2028,22 +2073,27 @@ router.post("/documents/upload", verifyToken, upload.single('file'), [
         const { refId, refModel, category, description } = req.body;
         const file = req.file;
 
-        // Verify refId and refModel actually exist and belong to user
         let parentDoc;
-        switch (refModel) {
-            case 'ConstructionSite': parentDoc = await ConstructionSite.findOne({ _id: refId, user: userId }); break;
-            case 'Task': parentDoc = await Task.findOne({ _id: refId, user: userId }); break;
-            case 'Equipment': parentDoc = await Equipment.findOne({ _id: refId, user: userId }); break;
-            case 'Worker': parentDoc = await Worker.findOne({ _id: refId, user: userId }); break;
-            case 'ChangeOrder': parentDoc = await ChangeOrder.findOne({ _id: refId, user: userId }); break;
-            case 'SafetyIncident': parentDoc = await SafetyIncident.findOne({ _id: refId, user: userId }); break;
-            default: return res.status(400).json({ success: false, message: "Invalid refModel provided." });
+        const modelMap = {
+            'ConstructionSite': ConstructionSite,
+            'Task': Task,
+            'Equipment': Equipment,
+            'Worker': Worker,
+            'ChangeOrder': ChangeOrder,
+            'SafetyIncident': SafetyIncident,
+            'PaymentRequest': PaymentRequest, // NEW
+        };
+        const Model = modelMap[refModel];
+        if (!Model) {
+            return res.status(400).json({ success: false, message: "Invalid refModel provided." });
         }
+        parentDoc = await Model.findOne({ _id: refId, user: userId });
+
         if (!parentDoc) {
             return res.status(404).json({ success: false, message: `${refModel} with ID ${refId} not found or does not belong to you.` });
         }
 
-        const fileUrl = await uploadFileToStorage(file, refModel.toLowerCase()); // Implement actual upload to S3/GCS
+        const fileUrl = await uploadFileToStorage(file, refModel.toLowerCase());
         if (!fileUrl) {
             return res.status(500).json({ success: false, message: "Failed to upload file to storage." });
         }
@@ -2061,9 +2111,8 @@ router.post("/documents/upload", verifyToken, upload.single('file'), [
         });
         await newDocument.save();
 
-        // Add document reference to the parent document's array (if applicable, or handled by populate)
-        if (refModel !== 'Certification') { // Certifications handled by link field, not array
-             if (!parentDoc.documents) parentDoc.documents = []; // Initialize if not exists
+        if (refModel !== 'Certification') { // Certifications use a direct 'document' field, not an array of docs
+             if (!parentDoc.documents) parentDoc.documents = [];
              parentDoc.documents.push(newDocument._id);
              await parentDoc.save();
         }
@@ -2083,20 +2132,26 @@ router.get("/documents/:refModel/:refId", verifyToken, async (req, res) => {
         if (!mongoose.Types.ObjectId.isValid(refId)) {
             return res.status(404).json({ success: false, message: "Invalid reference ID format." });
         }
-        if (!['ConstructionSite', 'Task', 'Equipment', 'Worker', 'ChangeOrder', 'SafetyIncident'].includes(refModel)) {
+        if (!['ConstructionSite', 'Task', 'Equipment', 'Worker', 'ChangeOrder', 'SafetyIncident', 'PaymentRequest'].includes(refModel)) {
             return res.status(400).json({ success: false, message: "Invalid refModel provided." });
         }
 
-        // Verify refId and refModel actually exist and belong to user
         let parentDoc;
-        switch (refModel) {
-            case 'ConstructionSite': parentDoc = await ConstructionSite.findOne({ _id: refId, user: userId }); break;
-            case 'Task': parentDoc = await Task.findOne({ _id: refId, user: userId }); break;
-            case 'Equipment': parentDoc = await Equipment.findOne({ _id: refId, user: userId }); break;
-            case 'Worker': parentDoc = await Worker.findOne({ _id: refId, user: userId }); break;
-            case 'ChangeOrder': parentDoc = await ChangeOrder.findOne({ _id: refId, user: userId }); break;
-            case 'SafetyIncident': parentDoc = await SafetyIncident.findOne({ _id: refId, user: userId }); break;
+        const modelMap = {
+            'ConstructionSite': ConstructionSite,
+            'Task': Task,
+            'Equipment': Equipment,
+            'Worker': Worker,
+            'ChangeOrder': ChangeOrder,
+            'SafetyIncident': SafetyIncident,
+            'PaymentRequest': PaymentRequest,
+        };
+        const Model = modelMap[refModel];
+        if (!Model) {
+            return res.status(400).json({ success: false, message: "Invalid refModel provided." });
         }
+        parentDoc = await Model.findOne({ _id: refId, user: userId });
+        
         if (!parentDoc) {
             return res.status(404).json({ success: false, message: `${refModel} with ID ${refId} not found or does not belong to you.` });
         }
@@ -2123,20 +2178,22 @@ router.delete("/documents/:id", verifyToken, async (req, res) => {
             return res.status(404).json({ success: false, message: "Document not found or does not belong to user." });
         }
 
-        // Remove reference from parent document
         if (deletedDocument.refId && deletedDocument.refModel) {
-            switch (deletedDocument.refModel) {
-                case 'ConstructionSite':
-                case 'Task':
-                case 'Equipment':
-                case 'Worker':
-                case 'ChangeOrder':
-                case 'SafetyIncident':
-                    await mongoose.model(deletedDocument.refModel).updateOne(
-                        { _id: deletedDocument.refId, user: userId },
-                        { $pull: { documents: deletedDocument._id } }
-                    );
-                    break;
+            const modelMap = {
+                'ConstructionSite': ConstructionSite,
+                'Task': Task,
+                'Equipment': Equipment,
+                'Worker': Worker,
+                'ChangeOrder': ChangeOrder,
+                'SafetyIncident': SafetyIncident,
+                'PaymentRequest': PaymentRequest,
+            };
+            const Model = modelMap[deletedDocument.refModel];
+            if (Model) {
+                await Model.updateOne(
+                    { _id: deletedDocument.refId, user: userId },
+                    { $pull: { documents: deletedDocument._id } }
+                );
             }
         }
         // TODO: In a real app, delete the file from cloud storage as well
@@ -2279,7 +2336,7 @@ router.delete("/workers/:workerId/certifications/:certId", verifyToken, async (r
             { _id: workerId, user: userId },
             { $pull: { certifications: deletedCertification._id } }
         );
-        if (deletedCertification.document) { // Also delete the associated document
+        if (deletedCertification.document) {
             await Document.deleteOne({ _id: deletedCertification.document, user: userId });
         }
 
@@ -2343,7 +2400,6 @@ router.post("/equipment/:equipmentId/maintenance-logs", verifyToken, [
         if (!equipment) {
             return res.status(404).json({ success: false, message: "Equipment not found or does not belong to user." });
         }
-        // Validate provided document IDs
         if (newMaintenanceLogData.documents && newMaintenanceLogData.documents.length > 0) {
             const existingDocs = await Document.find({ _id: { $in: newMaintenanceLogData.documents }, user: userId, refId: equipmentId, refModel: 'Equipment' });
             if (existingDocs.length !== newMaintenanceLogData.documents.length) {
@@ -2359,9 +2415,7 @@ router.post("/equipment/:equipmentId/maintenance-logs", verifyToken, [
         await newMaintenanceLog.save();
 
         equipment.maintenanceLogs.push(newMaintenanceLog._id);
-        // Optionally update lastMaintenance/nextMaintenance on the equipment
         equipment.lastMaintenance = newMaintenanceLog.date;
-        // Logic for nextMaintenance update would be here
         await equipment.save();
 
         res.status(201).json({ success: true, message: "Maintenance log added successfully!", data: newMaintenanceLog });
@@ -2400,7 +2454,6 @@ router.put("/equipment/:equipmentId/maintenance-logs/:logId", verifyToken, [
         if (!equipment) {
             return res.status(404).json({ success: false, message: "Equipment not found or does not belong to user." });
         }
-        // Validate provided document IDs
         if (updateData.documents && updateData.documents.length > 0) {
             const existingDocs = await Document.find({ _id: { $in: updateData.documents }, user: userId, refId: equipmentId, refModel: 'Equipment' });
             if (existingDocs.length !== updateData.documents.length) {
@@ -2508,7 +2561,7 @@ router.post("/workers/:workerId/timesheets", verifyToken, [
     const validationErrors = sendValidationErrors(req, res);
     if (validationErrors) return;
     try {
-        const userId = req.user._id; // User who submitted the timesheet
+        const userId = req.user._id;
         const { workerId } = req.params;
         const newTimesheetData = req.body;
 
@@ -2605,7 +2658,7 @@ router.patch("/workers/:workerId/timesheets/:timesheetId/status", verifyToken, [
     const validationErrors = sendValidationErrors(req, res);
     if (validationErrors) return;
     try {
-        const userId = req.user._id; // User approving/rejecting
+        const userId = req.user._id;
         const { workerId, timesheetId } = req.params;
         const { status } = req.body;
 
@@ -2619,14 +2672,12 @@ router.patch("/workers/:workerId/timesheets/:timesheetId/status", verifyToken, [
         }
 
         if (status === 'Approved' && timesheet.status !== 'Approved') {
-            // Update actualHours in allocatedWorkers for the task if applicable
             if (timesheet.task) {
                 await Task.updateOne(
                     { _id: timesheet.task, 'allocatedWorkers.worker': workerId, user: userId },
                     { $inc: { 'allocatedWorkers.$.actualHours': timesheet.hoursWorked + timesheet.overtimeHours } }
                 );
             }
-            // Update site expenditure if hourly rate is tracked
             const worker = await Worker.findById(workerId);
             if (worker && worker.hourlyRate > 0 && timesheet.site) {
                 const laborCost = (timesheet.hoursWorked + timesheet.overtimeHours) * worker.hourlyRate;
@@ -2874,7 +2925,6 @@ router.get("/sites/:siteId/budget-analytics", verifyToken, async (req, res) => {
             return res.status(404).json({ success: false, message: "Construction site not found or does not belong to user." });
         }
 
-        // Example: Calculate budget variance per category
         const budgetSummary = site.budgetDetails.map(item => ({
             category: item.category,
             planned: item.plannedAmount,
@@ -2898,7 +2948,6 @@ router.get("/sites/:siteId/budget-analytics", verifyToken, async (req, res) => {
                     progress: site.progress,
                 },
                 budgetBreakdown: budgetSummary,
-                // Add more complex analytics here, e.g., cost per task, cost per worker, equipment costs
             },
         });
 
@@ -2919,8 +2968,8 @@ router.get("/sites/:siteId/reports/:reportType", verifyToken, async (req, res) =
 
         const site = await ConstructionSite.findOne({ _id: siteId, user: userId })
             .populate('tasks')
-            .populate('equipment') // Need to fetch equipment separately or ensure site.equipment is properly denormalized/referenced
-            .populate('workers') // Same for workers
+            .populate('equipment')
+            .populate('assignedWorkers.worker') // NEW: Populate assigned workers
             .populate('changeOrders')
             .populate('paymentRequests')
             .populate('materialRequests');
@@ -2929,11 +2978,6 @@ router.get("/sites/:siteId/reports/:reportType", verifyToken, async (req, res) =
             return res.status(404).json({ success: false, message: "Construction site not found or does not belong to user." });
         }
 
-        // This is a placeholder. Actual report generation (PDF, Excel) is complex
-        // and would involve libraries like 'pdfkit', 'exceljs', etc.
-        // It would construct a document based on the reportType and site data.
-
-        // Example: Simple JSON response for now
         let reportContent = {
             reportType: reportType,
             siteName: site.name,
@@ -2964,22 +3008,15 @@ router.get("/sites/:siteId/reports/:reportType", verifyToken, async (req, res) =
                 };
                 break;
             case 'resource-utilization':
-                // This would require more complex aggregations from tasks and timesheets
                 reportContent.data = {
                     equipmentCount: site.equipmentCount,
                     workersCount: site.workersCount,
-                    // detailed utilization
+                    assignedWorkers: site.assignedWorkers.map(aw => ({ fullName: aw.worker.fullName, role: aw.assignedRole, site: site.name })),
                 };
                 break;
             default:
                 return res.status(400).json({ success: false, message: "Invalid report type." });
         }
-
-        // In a real application, you'd send a generated file:
-        // res.setHeader('Content-Type', 'application/pdf');
-        // res.setHeader('Content-Disposition', `attachment; filename=${reportType}-${site.projectCode}.pdf`);
-        // pdfDoc.pipe(res);
-        // pdfDoc.end();
 
         res.json({ success: true, message: `Report '${reportType}' generated (placeholder)!`, data: reportContent });
 
