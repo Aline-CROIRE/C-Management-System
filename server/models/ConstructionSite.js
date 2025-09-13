@@ -3,16 +3,16 @@ const mongoose = require('mongoose');
 
 const MilestoneSchema = new mongoose.Schema({
     name: { type: String, required: true },
-    targetDate: { type: Date, required: true }, // Renamed from dueDate for clarity
-    actualCompletionDate: Date, // Renamed from completionDate
+    targetDate: { type: Date, required: true },
+    actualCompletionDate: Date,
     status: {
         type: String,
-        enum: ['Planned', 'In Progress', 'Completed', 'Delayed'], // Renamed 'Pending' to 'Planned'
+        enum: ['Planned', 'In Progress', 'Completed', 'Delayed'],
         default: 'Planned'
     },
     description: String,
     criticalPath: { type: Boolean, default: false },
-}, { _id: true }); // Ensure sub-documents get an _id
+}, { _id: true });
 
 const BudgetLineItemSchema = new mongoose.Schema({
     category: {
@@ -23,11 +23,11 @@ const BudgetLineItemSchema = new mongoose.Schema({
     description: String,
     plannedAmount: { type: Number, required: true, min: 0 },
     actualAmount: { type: Number, default: 0, min: 0 },
-    variance: { type: Number, default: 0 } // Calculated field
+    variance: { type: Number, default: 0 }
 }, { _id: true });
 
 const SiteMaterialInventoryItemSchema = new mongoose.Schema({
-    materialName: { // Could link to a global inventory model if available
+    materialName: {
         type: String,
         required: true,
         trim: true,
@@ -43,7 +43,7 @@ const SiteMaterialInventoryItemSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
-    minStockLevel: { // For reorder alerts
+    minStockLevel: {
         type: Number,
         min: 0,
         default: 0,
@@ -60,7 +60,7 @@ const AssignedWorkerToSiteSchema = new mongoose.Schema({
         ref: 'Worker',
         required: true,
     },
-    assignedRole: { // Specific role for this assignment on this site
+    assignedRole: {
         type: String,
         trim: true,
     },
@@ -102,16 +102,16 @@ const ConstructionSiteSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
-    clientName: { // New: Client details
+    clientName: {
         type: String,
         trim: true,
     },
-    contractValue: { // New: Total contract value
+    contractValue: {
         type: Number,
         min: 0,
         default: 0,
     },
-    manager: { // Can be a User ID or just a name
+    manager: {
         type: String,
         required: true,
         trim: true,
@@ -120,14 +120,14 @@ const ConstructionSiteSchema = new mongoose.Schema({
         type: Date,
         required: true,
     },
-    endDate: { // Planned end date
+    endDate: {
         type: Date,
         required: true,
     },
-    actualEndDate: { // Actual completion date
+    actualEndDate: {
         type: Date,
     },
-    phase: { // New: Project phase
+    phase: {
         type: String,
         enum: ['Initiation', 'Planning', 'Execution', 'Monitoring', 'Closing'],
         default: 'Planning',
@@ -137,13 +137,13 @@ const ConstructionSiteSchema = new mongoose.Schema({
         enum: ['Planning', 'Active', 'On-Hold', 'Delayed', 'Completed', 'Cancelled'],
         default: 'Planning',
     },
-    progress: { // Overall project progress
+    progress: {
         type: Number,
         min: 0,
         max: 100,
         default: 0,
     },
-    riskLevel: { // New: Project risk level
+    riskLevel: {
         type: String,
         enum: ['Low', 'Medium', 'High', 'Critical'],
         default: 'Low',
@@ -157,53 +157,53 @@ const ConstructionSiteSchema = new mongoose.Schema({
         trim: true,
     },
     // Financials
-    budget: { // Total allocated budget for the project
+    budget: {
         type: Number,
         required: true,
         min: 0,
     },
-    expenditure: { // Total actual expenditure
+    expenditure: {
         type: Number,
         default: 0,
         min: 0,
     },
-    budgetDetails: [BudgetLineItemSchema], // Detailed budget breakdown
-    paymentRequests: [{ // References to PaymentRequest
+    budgetDetails: [BudgetLineItemSchema],
+    paymentRequests: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'PaymentRequest',
     }],
     // Resources summary (can be calculated or explicitly stored)
-    workersCount: { // Total active workers assigned to tasks on this site
+    workersCount: { // Total active workers assigned to tasks on this site, or linked via currentSite
         type: Number,
         default: 0,
         min: 0,
     },
-    equipmentCount: { // Total equipment assigned to this site
+    equipmentCount: {
         type: Number,
         default: 0,
         min: 0,
     },
     // Management aspects
-    milestones: [MilestoneSchema], // Embedded milestones
-    tasks: [{ // References to Task model
+    milestones: [MilestoneSchema],
+    tasks: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Task',
     }],
-    changeOrders: [{ // References to ChangeOrder model
+    changeOrders: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ChangeOrder',
     }],
-    documents: [{ // References to Document (e.g., permits, drawings, contracts, photos)
+    documents: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Document',
     }],
-    siteMaterialInventory: [SiteMaterialInventoryItemSchema], // Embedded material inventory for this site
-    materialRequests: [{ // References to MaterialRequest
+    siteMaterialInventory: [SiteMaterialInventoryItemSchema],
+    materialRequests: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'MaterialRequest',
     }],
-    assignedWorkers: [AssignedWorkerToSiteSchema], // Direct worker assignments to the site
-    safetyIncidents: [{ // References to SafetyIncident
+    assignedWorkers: [AssignedWorkerToSiteSchema], // Direct worker assignments to the site for more granular control
+    safetyIncidents: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'SafetyIncident',
     }],
@@ -243,4 +243,4 @@ ConstructionSiteSchema.pre('save', function(next) {
     next();
 });
 
-module.exports = mongoose.model('ConstructionSite', ConstructionSiteSchema);
+module.exports = mongoose.models.ConstructionSite || mongoose.model('ConstructionSite', ConstructionSiteSchema);

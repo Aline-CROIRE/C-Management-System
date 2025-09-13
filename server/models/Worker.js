@@ -57,6 +57,11 @@ const WorkerSchema = new mongoose.Schema({
         type: String,
         trim: true,
     },
+    currentSite: { // NEW: Primary assigned site for the worker
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'ConstructionSite',
+        default: null, // Can be null if not currently assigned a primary site
+    },
     certifications: [{ // References to Certification model
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Certification',
@@ -73,4 +78,4 @@ const WorkerSchema = new mongoose.Schema({
     timestamps: true,
 });
 
-module.exports = mongoose.model('Worker', WorkerSchema);
+module.exports = mongoose.models.Worker || mongoose.model('Worker', WorkerSchema);

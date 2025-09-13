@@ -1,37 +1,54 @@
-"use client"
+// client/src/components/layout/DynamicHeader.js
+"use client";
 
-import { useState, useRef, useEffect } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
-import styled from "styled-components"
-import { FaBars, FaBell, FaUser, FaCog, FaSignOutAlt, FaSearch, FaMoon, FaSun, FaChevronDown } from "react-icons/fa"
-import { useAuth } from "../../contexts/AuthContext"
-import { useTheme } from "../../contexts/ThemeContext"
-import { useNotifications } from "../../contexts/NotificationContext"
-import NotificationPanel from "../inventory/NotificationPanel"
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import styled from "styled-components";
+import {
+  FaBars,
+  FaBell,
+  FaUser,
+  FaCog,
+  FaSignOutAlt,
+  FaSearch,
+  FaMoon,
+  FaSun,
+  FaChevronDown,
+} from "react-icons/fa";
+import { useAuth } from "../../contexts/AuthContext";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useNotifications } from "../../contexts/NotificationContext";
+import NotificationPanel from "../inventory/NotificationPanel";
 
 const HeaderContainer = styled.header`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: ${(props) => props.theme.spacing?.lg || "1.5rem"} ${(props) => props.theme.spacing?.xl || "2rem"};
+  padding: ${(props) => props.theme.spacing?.lg || "1.5rem"}
+    ${(props) => props.theme.spacing?.xl || "2rem"};
   background: ${(props) => props.theme.colors?.surface || "#ffffff"};
-  border-bottom: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
+  border-bottom: 1px solid
+    ${(props) => props.theme.colors?.border || "#e2e8f0"};
   position: sticky;
   top: 0;
-  z-index: 999;
+  z-index: 999; /* Ensure header is always on top of content, but below the sidebar overlay */
   backdrop-filter: blur(10px);
   background: rgba(255, 255, 255, 0.95);
 
   @media (max-width: ${(props) => props.theme.breakpoints?.md || "768px"}) {
     padding: ${(props) => props.theme.spacing?.md || "1rem"};
   }
-`
+`;
 
 const LeftSection = styled.div`
   display: flex;
   align-items: center;
   gap: ${(props) => props.theme.spacing?.lg || "1.5rem"};
-`
+
+  @media (max-width: ${(props) => props.theme.breakpoints?.sm || "640px"}) {
+    gap: ${(props) => props.theme.spacing?.md || "1rem"};
+  }
+`;
 
 const MenuButton = styled.button`
   display: flex;
@@ -46,6 +63,7 @@ const MenuButton = styled.button`
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 18px;
+  flex-shrink: 0; /* Prevent button from shrinking */
 
   &:hover {
     background: ${(props) => props.theme.colors?.primary || "#1b4332"};
@@ -53,27 +71,36 @@ const MenuButton = styled.button`
     transform: scale(1.05);
   }
 
+  /* This button should only be visible on screens where the sidebar is toggled (typically mobile/tablet) */
   @media (min-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
     display: none;
   }
-`
+`;
 
 const PageInfo = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${(props) => props.theme.spacing?.xs || "0.25rem"};
+  min-width: 0; /* Allow content to shrink */
 
   @media (max-width: ${(props) => props.theme.breakpoints?.sm || "640px"}) {
-    display: none;
+    display: none; /* Hide on small mobile to save space */
   }
-`
+`;
 
 const PageTitle = styled.h1`
   font-size: ${(props) => props.theme.typography?.fontSize?.xl || "1.25rem"};
   font-weight: ${(props) => props.theme.typography?.fontWeight?.bold || "700"};
   color: ${(props) => props.theme.colors?.text || "#2d3748"};
   margin: 0;
-`
+  white-space: nowrap; /* Prevent title from wrapping */
+  overflow: hidden;
+  text-overflow: ellipsis; /* Add ellipsis if too long */
+
+  @media (max-width: ${(props) => props.theme.breakpoints?.md || "768px"}) {
+    font-size: ${(props) => props.theme.typography?.fontSize?.lg || "1.125rem"};
+  }
+`;
 
 const Breadcrumb = styled.div`
   font-size: ${(props) => props.theme.typography?.fontSize?.sm || "0.875rem"};
@@ -81,7 +108,14 @@ const Breadcrumb = styled.div`
   display: flex;
   align-items: center;
   gap: ${(props) => props.theme.spacing?.xs || "0.25rem"};
-`
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  @media (max-width: ${(props) => props.theme.breakpoints?.md || "768px"}) {
+    font-size: ${(props) => props.theme.typography?.fontSize?.xs || "0.75rem"};
+  }
+`;
 
 const BreadcrumbItem = styled.span`
   &:not(:last-child)::after {
@@ -89,27 +123,32 @@ const BreadcrumbItem = styled.span`
     margin-left: ${(props) => props.theme.spacing?.xs || "0.25rem"};
     color: ${(props) => props.theme.colors?.border || "#e2e8f0"};
   }
-`
+`;
 
 const CenterSection = styled.div`
   flex: 1;
   max-width: 400px;
   margin: 0 ${(props) => props.theme.spacing?.xl || "2rem"};
 
+  /* Hide search bar on smaller screens to prioritize other elements */
   @media (max-width: ${(props) => props.theme.breakpoints?.md || "768px"}) {
     display: none;
   }
-`
+`;
 
 const SearchContainer = styled.div`
   position: relative;
   width: 100%;
-`
+`;
 
 const SearchInput = styled.input`
   width: 100%;
-  padding: ${(props) => props.theme.spacing?.sm || "0.5rem"} ${(props) => props.theme.spacing?.sm || "0.5rem"} ${(props) => props.theme.spacing?.sm || "0.5rem"} ${(props) => props.theme.spacing?.["3xl"] || "4rem"};
-  border: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
+  padding: ${(props) => props.theme.spacing?.sm || "0.5rem"}
+    ${(props) => props.theme.spacing?.sm || "0.5rem"}
+    ${(props) => props.theme.spacing?.sm || "0.5rem"}
+    ${(props) => props.theme.spacing?.["3xl"] || "4rem"};
+  border: 1px solid
+    ${(props) => props.theme.colors?.border || "#e2e8f0"};
   border-radius: ${(props) => props.theme.borderRadius?.lg || "0.75rem"};
   background: ${(props) => props.theme.colors?.surfaceLight || "#f7fafc"};
   color: ${(props) => props.theme.colors?.text || "#2d3748"};
@@ -120,13 +159,15 @@ const SearchInput = styled.input`
     outline: none;
     border-color: ${(props) => props.theme.colors?.primary || "#1b4332"};
     background: ${(props) => props.theme.colors?.surface || "#ffffff"};
-    box-shadow: ${(props) => props.theme.shadows?.glow || "0 0 20px rgba(27, 67, 50, 0.1)"};
+    box-shadow: ${(props) =>
+      props.theme.shadows?.glow || "0 0 20px rgba(27, 67, 50, 0.1)"};
   }
 
   &::placeholder {
-    color: ${(props) => props.theme.colors?.textSecondary || "#718096"};
+    color: ${(props) =>
+      props.theme.colors?.textSecondary || "#718096"};
   }
-`
+`;
 
 const SearchIcon = styled.div`
   position: absolute;
@@ -136,14 +177,19 @@ const SearchIcon = styled.div`
   color: ${(props) => props.theme.colors?.textSecondary || "#718096"};
   font-size: 16px;
   pointer-events: none;
-`
+`;
 
 const RightSection = styled.div`
   display: flex;
   align-items: center;
   gap: ${(props) => props.theme.spacing?.md || "1rem"};
   position: relative;
-`
+  flex-shrink: 0; /* Prevent shrinking to keep buttons visible */
+
+  @media (max-width: ${(props) => props.theme.breakpoints?.sm || "640px"}) {
+    gap: ${(props) => props.theme.spacing?.sm || "0.5rem"};
+  }
+`;
 
 const ActionButton = styled.button`
   display: flex;
@@ -159,13 +205,14 @@ const ActionButton = styled.button`
   transition: all 0.3s ease;
   font-size: 16px;
   position: relative;
+  flex-shrink: 0;
 
   &:hover {
     background: ${(props) => props.theme.colors?.primary || "#1b4332"};
     color: white;
     transform: scale(1.05);
   }
-`
+`;
 
 const NotificationBadge = styled.span`
   position: absolute;
@@ -181,25 +228,30 @@ const NotificationBadge = styled.span`
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  border: 2px solid ${(props) => props.theme.colors?.surface || "#ffffff"};
-`
+  border: 2px solid
+    ${(props) => props.theme.colors?.surface || "#ffffff"};
+  flex-shrink: 0;
+`;
 
 const UserMenu = styled.div`
   position: relative;
-`
+`;
 
 const UserButton = styled.button`
   display: flex;
   align-items: center;
   gap: ${(props) => props.theme.spacing?.sm || "0.5rem"};
-  padding: ${(props) => props.theme.spacing?.sm || "0.5rem"} ${(props) => props.theme.spacing?.md || "1rem"};
+  padding: ${(props) => props.theme.spacing?.sm || "0.5rem"}
+    ${(props) => props.theme.spacing?.md || "1rem"};
   border: none;
   background: ${(props) => props.theme.colors?.surfaceLight || "#f7fafc"};
   color: ${(props) => props.theme.colors?.text || "#2d3748"};
   border-radius: ${(props) => props.theme.borderRadius?.lg || "0.75rem"};
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: ${(props) => props.theme.typography?.fontSize?.sm || "0.875rem"};
+  font-size: ${(props) =>
+    props.theme.typography?.fontSize?.sm || "0.875rem"};
+  flex-shrink: 0;
 
   &:hover {
     background: ${(props) => props.theme.colors?.primary || "#1b4332"};
@@ -207,27 +259,36 @@ const UserButton = styled.button`
   }
 
   @media (max-width: ${(props) => props.theme.breakpoints?.sm || "640px"}) {
-    padding: ${(props) => props.theme.spacing?.sm || "0.5rem"};
+    padding: ${(props) => props.theme.spacing?.xs || "0.25rem"}; /* Reduced padding */
+    width: 40px; /* Fixed width to make it square */
+    justify-content: center;
     
     span {
+      display: none; /* Hide name on very small screens */
+    }
+    svg { /* Hide chevron icon to save space */
       display: none;
     }
   }
-`
+`;
 
 const UserAvatar = styled.div`
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: ${(props) => props.theme.gradients?.accent || "linear-gradient(135deg, #40916c 0%, #2d5016 100%)"};
+  background: ${(props) =>
+    props.theme.gradients?.accent ||
+    "linear-gradient(135deg, #40916c 0%, #2d5016 100%)"};
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-weight: ${(props) => props.theme.typography?.fontWeight?.bold || "700"};
-  font-size: ${(props) => props.theme.typography?.fontSize?.sm || "0.875rem"};
+  font-weight: ${(props) =>
+    props.theme.typography?.fontWeight?.bold || "700"};
+  font-size: ${(props) =>
+    props.theme.typography?.fontSize?.sm || "0.875rem"};
   flex-shrink: 0;
-`
+`;
 
 const DropdownMenu = styled.div`
   position: absolute;
@@ -235,65 +296,76 @@ const DropdownMenu = styled.div`
   right: 0;
   margin-top: ${(props) => props.theme.spacing?.sm || "0.5rem"};
   background: ${(props) => props.theme.colors?.surface || "#ffffff"};
-  border: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
+  border: 1px solid
+    ${(props) => props.theme.colors?.border || "#e2e8f0"};
   border-radius: ${(props) => props.theme.borderRadius?.lg || "0.75rem"};
-  box-shadow: ${(props) => props.theme.shadows?.xl || "0 20px 25px -5px rgba(0, 0, 0, 0.1)"};
+  box-shadow: ${(props) =>
+    props.theme.shadows?.xl ||
+    "0 20px 25px -5px rgba(0, 0, 0, 0.1)"};
   min-width: 200px;
   z-index: 1000;
   opacity: ${(props) => (props.$show ? 1 : 0)};
   visibility: ${(props) => (props.$show ? "visible" : "hidden")};
   transform: translateY(${(props) => (props.$show ? "0" : "-10px")});
   transition: all 0.3s ease;
-`
+`;
+
+const UserInfoBlock = styled.div`
+  padding: ${(props) => props.theme.spacing?.lg || "1.5rem"};
+  border-bottom: 1px solid
+    ${(props) => props.theme.colors?.border || "#e2e8f0"};
+  text-align: center;
+`;
+
+const UserDisplayName = styled.div`
+  font-weight: ${(props) =>
+    props.theme.typography?.fontWeight?.semibold || "600"};
+  color: ${(props) => props.theme.colors?.text || "#2d3748"};
+  margin-bottom: ${(props) => props.theme.spacing?.xs || "0.25rem"};
+`;
+
+const UserDisplayRole = styled.div`
+  font-size: ${(props) =>
+    props.theme.typography?.fontSize?.sm || "0.875rem"};
+  color: ${(props) =>
+    props.theme.colors?.textSecondary || "#718096"};
+  text-transform: capitalize;
+`;
 
 const DropdownItem = styled.button`
   width: 100%;
   display: flex;
   align-items: center;
   gap: ${(props) => props.theme.spacing?.md || "1rem"};
-  padding: ${(props) => props.theme.spacing?.md || "1rem"} ${(props) => props.theme.spacing?.lg || "1.5rem"};
+  padding: ${(props) => props.theme.spacing?.md || "1rem"}
+    ${(props) => props.theme.spacing?.lg || "1.5rem"};
   border: none;
   background: none;
   color: ${(props) => props.theme.colors?.text || "#2d3748"};
   text-align: left;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: ${(props) => props.theme.typography?.fontSize?.sm || "0.875rem"};
+  font-size: ${(props) =>
+    props.theme.typography?.fontSize?.sm || "0.875rem"};
 
   &:hover {
-    background: ${(props) => props.theme.colors?.surfaceLight || "#f7fafc"};
+    background: ${(props) =>
+      props.theme.colors?.surfaceLight || "#f7fafc"};
   }
 
   &:first-child {
-    border-radius: ${(props) => props.theme.borderRadius?.lg || "0.75rem"} ${(props) => props.theme.borderRadius?.lg || "0.75rem"} 0 0;
+    border-radius: ${(props) => props.theme.borderRadius?.lg || "0.75rem"}
+      ${(props) => props.theme.borderRadius?.lg || "0.75rem"} 0 0;
   }
 
   &:last-child {
-    border-radius: 0 0 ${(props) => props.theme.borderRadius?.lg || "0.75rem"} ${(props) => props.theme.borderRadius?.lg || "0.75rem"};
+    border-radius: 0 0
+      ${(props) => props.theme.borderRadius?.lg || "0.75rem"}
+      ${(props) => props.theme.borderRadius?.lg || "0.75rem"};
   }
-`
+`;
 
-// Moved UserInfo, UserName, UserRole definitions to top-level for accessibility
-const UserInfoBlock = styled.div` /* Renamed to avoid conflict */
-  padding: ${(props) => props.theme.spacing?.lg || "1.5rem"};
-  border-bottom: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
-  text-align: center;
-`
-
-const UserDisplayName = styled.div` /* Renamed to avoid conflict */
-  font-weight: ${(props) => props.theme.typography?.fontWeight?.semibold || "600"};
-  color: ${(props) => props.theme.colors?.text || "#2d3748"};
-  margin-bottom: ${(props) => props.theme.spacing?.xs || "0.25rem"};
-`
-
-const UserDisplayRole = styled.div` /* Renamed to avoid conflict */
-  font-size: ${(props) => props.theme.typography?.fontSize?.sm || "0.875rem"};
-  color: ${(props) => props.theme.colors?.textSecondary || "#718096"};
-  text-transform: capitalize;
-`
-
-
-// Page title mapping
+// Page title mapping (unchanged, as this is data, not styling)
 const PAGE_TITLES = {
   "/dashboard": { title: "Dashboard", breadcrumb: ["Home", "Dashboard"] },
   "/inventory": { title: "Inventory Management", breadcrumb: ["Modules", "Inventory"] },
@@ -304,66 +376,78 @@ const PAGE_TITLES = {
   "/users": { title: "User Management", breadcrumb: ["Admin", "Users"] },
   "/profile": { title: "Profile Settings", breadcrumb: ["Account", "Profile"] },
   "/settings": { title: "System Settings", breadcrumb: ["Account", "Settings"] },
-}
+  "/construction": { title: "Construction Site Management", breadcrumb: ["Modules", "Construction"] }, // Added this based on image
+};
 
 const DynamicHeader = ({ onSidebarToggle, user }) => {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const { logout } = useAuth()
-  const { theme, toggleTheme } = useTheme()
-  const { unreadCount } = useNotifications()
-  const [showUserMenu, setShowUserMenu] = useState(false)
-  const [showNotificationPanel, setShowNotificationPanel] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const { unreadCount } = useNotifications();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const userMenuRef = useRef(null)
+  const userMenuRef = useRef(null);
   const notificationButtonRef = useRef(null);
   const notificationPanelRef = useRef(null);
-
 
   // Close user menu or notification panel when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       // Close user menu
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-        setShowUserMenu(false)
+        setShowUserMenu(false);
       }
       // Close notification panel
-      // Only close if click is outside the button AND outside the panel itself
-      if (notificationButtonRef.current && !notificationButtonRef.current.contains(event.target) &&
-          notificationPanelRef.current && !notificationPanelRef.current.contains(event.target)) {
+      if (
+        notificationButtonRef.current &&
+        !notificationButtonRef.current.contains(event.target) &&
+        notificationPanelRef.current &&
+        !notificationPanelRef.current.contains(event.target)
+      ) {
         setShowNotificationPanel(false);
       }
-    }
+    };
 
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
-
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Get current page info
   const getCurrentPageInfo = () => {
-    const path = location.pathname
-    return PAGE_TITLES[path] || { title: "Management System", breadcrumb: ["Home"] }
-  }
+    const path = location.pathname;
+    // Handle dynamic routes like /construction/site-id
+    for (const key in PAGE_TITLES) {
+      if (path.startsWith(key)) {
+        return PAGE_TITLES[key];
+      }
+    }
+    return PAGE_TITLES[path] || { title: "Management System", breadcrumb: ["Home"] };
+  };
 
-  const pageInfo = getCurrentPageInfo()
+  const pageInfo = getCurrentPageInfo();
 
   const handleSearch = (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (searchQuery.trim()) {
-      console.log("Searching for:", searchQuery)
+      console.log("Searching for:", searchQuery);
+      // Implement actual search logic here, e.g., navigate to a search results page
+      // navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
     }
-  }
+  };
 
   const handleLogout = () => {
-    logout()
-    navigate("/login")
-  }
+    logout();
+    navigate("/login");
+  };
 
   const getInitials = (firstName, lastName) => {
-    return `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`.toUpperCase()
-  }
+    return `${firstName?.charAt(0) || ""}${
+      lastName?.charAt(0) || ""
+    }`.toUpperCase();
+  };
 
   return (
     <HeaderContainer>
@@ -399,17 +483,24 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
       </CenterSection>
 
       <RightSection>
-        <ActionButton onClick={toggleTheme} title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}>
+        <ActionButton
+          onClick={toggleTheme}
+          title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+        >
           {theme === "light" ? <FaMoon /> : <FaSun />}
         </ActionButton>
 
-        <ActionButton 
-            ref={notificationButtonRef}
-            onClick={() => setShowNotificationPanel(!showNotificationPanel)} 
-            title="Notifications"
+        <ActionButton
+          ref={notificationButtonRef}
+          onClick={() => setShowNotificationPanel(!showNotificationPanel)}
+          title="Notifications"
         >
           <FaBell />
-          {unreadCount > 0 && <NotificationBadge>{unreadCount > 9 ? '9+' : unreadCount}</NotificationBadge>}
+          {unreadCount > 0 && (
+            <NotificationBadge>
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </NotificationBadge>
+          )}
         </ActionButton>
 
         <UserMenu ref={userMenuRef}>
@@ -420,19 +511,29 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
           </UserButton>
 
           <DropdownMenu $show={showUserMenu}>
-            <UserInfoBlock> {/* Use the renamed component */}
-              <UserDisplayName> {/* Use the renamed component */}
+            <UserInfoBlock>
+              <UserDisplayName>
                 {user?.firstName} {user?.lastName}
               </UserDisplayName>
-              <UserDisplayRole>{user?.role}</UserDisplayRole> {/* Use the renamed component */}
+              <UserDisplayRole>{user?.role}</UserDisplayRole>
             </UserInfoBlock>
 
-            <DropdownItem onClick={() => { setShowUserMenu(false); navigate("/profile"); }}>
+            <DropdownItem
+              onClick={() => {
+                setShowUserMenu(false);
+                navigate("/profile");
+              }}
+            >
               <FaUser />
               Profile Settings
             </DropdownItem>
 
-            <DropdownItem onClick={() => { setShowUserMenu(false); navigate("/settings"); }}>
+            <DropdownItem
+              onClick={() => {
+                setShowUserMenu(false);
+                navigate("/settings");
+              }}
+            >
               <FaCog />
               System Settings
             </DropdownItem>
@@ -447,14 +548,14 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
 
       {/* Render NotificationPanel, passing refs for correct outside click detection */}
       {showNotificationPanel && (
-        <NotificationPanel 
-          onClose={() => setShowNotificationPanel(false)} 
+        <NotificationPanel
+          onClose={() => setShowNotificationPanel(false)}
           notificationPanelRef={notificationPanelRef} // Pass ref to panel
           anchorEl={notificationButtonRef.current} // Pass button element for positioning
         />
       )}
     </HeaderContainer>
-  )
-}
+  );
+};
 
-export default DynamicHeader
+export default DynamicHeader;

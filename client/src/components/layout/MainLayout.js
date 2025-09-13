@@ -1,5 +1,4 @@
-// --- FIX: Add "use client" at the very top ---
-// This is necessary because the component uses React hooks (useState, useEffect, etc.)
+// client/src/components/layout/MainLayout.js
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,6 +13,8 @@ const LayoutContainer = styled.div`
   display: flex;
   min-height: 100vh;
   background: ${(props) => props.theme.colors?.surfaceLight || "#f7fafc"};
+  width: 100%; /* Ensure it takes full width */
+  position: relative; /* Needed for the overlay to position correctly relative to this */
 `;
 
 const SidebarWrapper = styled.div`
@@ -21,33 +22,41 @@ const SidebarWrapper = styled.div`
   left: 0;
   top: 0;
   height: 100vh;
-  z-index: 1000;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000; /* Ensure sidebar is above main content and overlay */
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.3s ease-out;
+
+  width: ${(props) => (props.$isOpen ? "240px" : "60px")};
 
   @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
+    width: 240px;
     transform: translateX(${(props) => (props.$isOpen ? "0" : "-100%")});
+    transition: transform 0.3s ease-out;
   }
 `;
 
 const MainContent = styled.main`
   flex: 1;
-  // Adjust margin based on whether the sidebar is open AND if it's not a mobile view
-  margin-left: ${(props) => (props.$sidebarOpen && !props.$isMobile ? "280px" : "0")};
-  // On larger screens, have a smaller margin when sidebar is closed
-  @media (min-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
-    margin-left: ${(props) => (props.$sidebarOpen ? "280px" : "72px")};
-  }
-  
-  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  width: 100%;
+
+  @media (min-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
+    margin-left: ${(props) => (props.$sidebarOpen ? "240px" : "60px")};
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
+    margin-left: 0;
+    transition: none;
+  }
 `;
 
-const HeaderWrapper = styled.header`
+const HeaderWrapper = styled.div`
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 99;
   background: ${(props) => props.theme.colors?.surface || "#ffffff"};
   border-bottom: 1px solid ${(props) => props.theme.colors?.border || "#e2e8f0"};
   box-shadow: ${(props) => props.theme.shadows?.sm || "0 1px 2px 0 rgba(0, 0, 0, 0.05)"};
@@ -55,9 +64,15 @@ const HeaderWrapper = styled.header`
 
 const ContentArea = styled.div`
   flex: 1;
-  padding: 2rem; // Add some padding around the content
-  @media (max-width: 768px) {
-    padding: 1rem;
+  padding: ${(props) => props.theme.spacing?.xl || "2rem"};
+  overflow-y: auto; /* Keep vertical scrolling for content area */
+  /* REMOVED: overflow-x: hidden; to allow global horizontal scroll to work */
+
+  @media (max-width: ${(props) => props.theme.breakpoints?.md || "768px"}) {
+    padding: ${(props) => props.theme.spacing?.lg || "1.5rem"};
+  }
+  @media (max-width: ${(props) => props.theme.breakpoints?.sm || "640px"}) {
+    padding: ${(props) => props.theme.spacing?.md || "1rem"};
   }
 `;
 
@@ -69,11 +84,14 @@ const Overlay = styled.div`
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   z-index: 999;
-  display: none; // Hide by default
-
-  @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
-    display: ${(props) => (props.$show ? "block" : "none")};
+  
+  @media (min-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
+    display: none;
   }
+  display: ${(props) => (props.$show ? "block" : "none")};
+  transition: opacity 0.3s ease;
+  opacity: ${(props) => (props.$show ? 1 : 0)};
+  pointer-events: ${(props) => (props.$show ? "auto" : "none")};
 `;
 
 const LoadingContainer = styled.div`
@@ -89,32 +107,31 @@ const MainLayout = () => {
   const { user, loading: authLoading } = useAuth();
   const location = useLocation();
   
-  // State for sidebar visibility
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  // State to track if the view is mobile
-  const [isMobile, setIsMobile] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); 
+  const [isLargeScreen, setIsLargeScreen] = useState(true); 
 
-  // Effect to check screen size and set mobile state
+  const LG_BREAKPOINT_VALUE = 1024; 
+
   useEffect(() => {
     const checkScreenSize = () => {
-      const mobile = window.innerWidth < 1024;
-      setIsMobile(mobile);
-      // Automatically close sidebar on mobile, keep open on desktop
-      setSidebarOpen(!mobile); 
+      const isCurrentLargeScreen = window.innerWidth >= LG_BREAKPOINT_VALUE;
+      setIsLargeScreen(isCurrentLargeScreen);
+      setSidebarOpen(isCurrentLargeScreen);
     };
 
     checkScreenSize();
     window.addEventListener("resize", checkScreenSize);
 
     return () => window.removeEventListener("resize", checkScreenSize);
-  }, []);
+  }, []); 
 
-  // Effect to close the sidebar on route change when in mobile view
+
   useEffect(() => {
-    if (isMobile && sidebarOpen) {
+    if (!isLargeScreen && sidebarOpen) {
       setSidebarOpen(false);
     }
-  }, [location.pathname, isMobile]);
+  }, [location.pathname, isLargeScreen, sidebarOpen]); 
+
 
   const handleSidebarToggle = () => {
     setSidebarOpen(prev => !prev);
@@ -134,15 +151,14 @@ const MainLayout = () => {
         <DynamicSidebar isOpen={sidebarOpen} onToggle={handleSidebarToggle} user={user} />
       </SidebarWrapper>
 
-      <Overlay $show={isMobile && sidebarOpen} onClick={handleSidebarToggle} />
+      <Overlay $show={!isLargeScreen && sidebarOpen} onClick={handleSidebarToggle} />
 
-      <MainContent $sidebarOpen={sidebarOpen} $isMobile={isMobile}>
+      <MainContent $sidebarOpen={sidebarOpen} $isMobile={!isLargeScreen}>
         <HeaderWrapper>
           <DynamicHeader onSidebarToggle={handleSidebarToggle} user={user} />
         </HeaderWrapper>
 
         <ContentArea>
-          {/* This Outlet is the placeholder where your page components will be rendered */}
           <Outlet />
         </ContentArea>
       </MainContent>

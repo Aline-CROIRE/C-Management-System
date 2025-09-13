@@ -1,60 +1,64 @@
-"use client"
+// client/src/App.js
+"use client"; // Ensure this is at the very top for client-side components
 
-import { useEffect } from "react"
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
-import { ThemeProvider } from "styled-components"
-import { ToastContainer } from "react-toastify"
-import "react-toastify/dist/ReactToastify.css"
-import { AuthProvider } from "./contexts/AuthContext"
-import { NotificationProvider } from "./contexts/NotificationContext"
-import { ThemeProvider as CustomThemeProvider } from "./contexts/ThemeContext"
-import GlobalStyles from "./styles/GlobalStyles"
-import ErrorBoundary from "./components/common/ErrorBoundary"
-import ProtectedRoute from "./components/auth/ProtectedRoute"
-import PublicRoute from "./components/auth/publicRoute"
-import MainLayout from "./components/layout/MainLayout"
-import Login from "./pages/auth/Login"
-import Register from "./pages/auth/Register"
-import ForgotPassword from "./pages/auth/ForgotPassword"
-import ResetPassword from "./pages/auth/ResetPassword"
-import EmailVerification from "./pages/auth/EmailVerification"
-import DynamicDashboard from "./components/dashboard/DynamicDashboard"
-import Profile from "./pages/profile"
-import Settings from "./pages/Settings"
-import InventoryModule from "./pages/modules/IMS"
-import AgricultureModule from "./pages/modules/ISA"
-import WasteModule from "./pages/modules/WasteManagement"
-import ConstructionModule from "./pages/modules/ConstructionSites"
-import AnalyticsModule from "./pages/modules/Analytics"
-import UserManagement from "./pages/modules/UserManagement"
-import NotFound from "./pages/NotFound"
-import Maintenance from "./pages/Maintenance"
-import theme from "./styles/Theme"
-import { useTheme } from "./contexts/ThemeContext"
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ThemeProvider } from "styled-components";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { AuthProvider } from "./contexts/AuthContext";
+import { NotificationProvider } from "./contexts/NotificationContext";
+import { ThemeProvider as CustomThemeProvider } from "./contexts/ThemeContext"; // Renamed to avoid clash with styled-components
+import GlobalStyles from "./styles/GlobalStyles";
+import ErrorBoundary from "./components/common/ErrorBoundary";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+import PublicRoute from "./components/auth/publicRoute";
+import MainLayout from "./components/layout/MainLayout";
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
+import EmailVerification from "./pages/auth/EmailVerification";
+import DynamicDashboard from "./components/dashboard/DynamicDashboard";
+import Profile from "./pages/profile";
+import Settings from "./pages/Settings";
+import InventoryModule from "./pages/modules/IMS";
+import AgricultureModule from "./pages/modules/ISA";
+import WasteModule from "./pages/modules/WasteManagement";
+import ConstructionModule from "./pages/modules/ConstructionSites";
+import AnalyticsModule from "./pages/modules/Analytics";
+import UserManagement from "./pages/modules/UserManagement";
+import NotFound from "./pages/NotFound";
+import Maintenance from "./pages/Maintenance";
+import defaultTheme from "./styles/Theme"; // Renamed local import to avoid clash with context
+import { useTheme } from "./contexts/ThemeContext";
 
 function App() {
-  const { currentTheme } = useTheme()
+  const { currentTheme } = useTheme(); // This hook gets the active theme from your CustomThemeProvider
 
   useEffect(() => {
     window.addEventListener("unhandledrejection", (event) => {
-      console.error("Unhandled promise rejection:", event.reason)
-    })
+      console.error("Unhandled promise rejection:", event.reason);
+    });
 
     window.addEventListener("error", (event) => {
-      console.error("Global error:", event.error)
-    })
+      console.error("Global error:", event.error);
+    });
 
     return () => {
-      window.removeEventListener("unhandledrejection", () => {})
-      window.removeEventListener("error", () => {})
-    }
-  }, [])
+      window.removeEventListener("unhandledrejection", () => {});
+      window.removeEventListener("error", () => {});
+    };
+  }, []);
 
   return (
     <ErrorBoundary>
-      <ThemeProvider theme={currentTheme || theme}>
+      {/* Use the currentTheme from context, falling back to the default if not yet loaded */}
+      <ThemeProvider theme={currentTheme || defaultTheme}>
         <GlobalStyles />
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <BrowserRouter
+          future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+        >
           <div className="App">
             <Routes>
               <Route
@@ -173,9 +177,10 @@ function App() {
         </BrowserRouter>
       </ThemeProvider>
     </ErrorBoundary>
-  )
+  );
 }
 
+// Wrapper component to ensure ThemeProvider is available for App
 function AppWrapper() {
   return (
     <CustomThemeProvider>
@@ -185,7 +190,7 @@ function AppWrapper() {
         </NotificationProvider>
       </AuthProvider>
     </CustomThemeProvider>
-  )
+  );
 }
 
 export default AppWrapper;
