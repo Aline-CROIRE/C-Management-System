@@ -1,3 +1,4 @@
+
 // client/src/components/layout/DynamicSidebar.js
 "use client";
 
@@ -20,34 +21,18 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 
 const SidebarContainer = styled.div`
-  position: fixed;
-  left: 0;
-  top: 0;
-  height: 100vh;
-  /* UPDATED: Reduced width for open and collapsed states */
-  width: ${(props) => (props.$isOpen ? "240px" : "60px")}; /* Changed from 280px/72px */
+  height: 100%; /* Changed from 100vh to fill its wrapper */
+  width: 100%; /* Fill the SidebarWrapper */
   background: ${(props) =>
     props.theme.gradients?.hero ||
     "linear-gradient(180deg, #0f2419 0%, #1b4332 50%, #2d5016 100%)"};
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s ease-out;
-  z-index: 1000; /* Ensure sidebar is above main content and overlay */
   box-shadow: ${(props) =>
     props.theme.shadows?.xl ||
     "0 20px 25px -5px rgba(27, 67, 50, 0.1)"};
   border-right: 1px solid rgba(255, 255, 255, 0.1);
-  overflow: hidden; /* Hide overflow when closed/collapsed */
-  display: flex; /* Ensure inner content lays out vertically */
+  overflow: hidden;
+  display: flex;
   flex-direction: column;
-
-  /* On screens smaller than large breakpoint (e.g., tablet/mobile) */
-  @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
-    /* UPDATED: Full open width for mobile overlay */
-    width: 240px; /* Changed from 280px */
-    transform: translateX(${(props) => (props.$isOpen ? "0" : "-100%")});
-    box-shadow: ${(props) =>
-      props.$isOpen ? props.theme.shadows?.xl : "none"}; /* Only show shadow when open */
-    transition: transform 0.3s ease-out; /* Only transition on transform for mobile overlay */
-  }
 `;
 
 const SidebarHeader = styled.div`
@@ -58,7 +43,7 @@ const SidebarHeader = styled.div`
   align-items: center;
   gap: ${(props) => props.theme.spacing?.md || "1rem"};
   position: relative;
-  flex-shrink: 0; /* Prevent header from shrinking when content scrolls */
+  flex-shrink: 0;
 `;
 
 const Logo = styled.div`
@@ -83,10 +68,9 @@ const BrandInfo = styled.div`
   transform: translateX(${(props) => (props.$isOpen ? "0" : "-20px")});
   transition: all 0.3s ease;
   overflow: hidden;
-  white-space: nowrap; /* Keep brand info on one line */
-  flex-grow: 1; /* Allow brand info to take available space */
+  white-space: nowrap;
+  flex-grow: 1;
 
-  /* Always show brand info when sidebar is fully open on mobile */
   @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
     opacity: 1;
     transform: translateX(0);
@@ -142,7 +126,6 @@ const ToggleButton = styled.button`
     transform: translateY(-50%) scale(1.1);
   }
 
-  /* Hide this button on smaller screens, as the header menu button will handle toggling */
   @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
     display: none;
   }
@@ -150,9 +133,9 @@ const ToggleButton = styled.button`
 
 const Navigation = styled.nav`
   padding: ${(props) => props.theme.spacing?.lg || "1.5rem"} 0;
-  flex: 1; /* Allow navigation to grow and shrink */
-  overflow-y: auto; /* Allow scrolling for long navigation lists */
-  overflow-x: hidden; /* Prevent horizontal scroll in nav text */
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
 `;
 
 const NavSection = styled.div`
@@ -175,7 +158,6 @@ const NavSectionTitle = styled.h3`
   overflow: hidden;
   text-overflow: ellipsis;
 
-  /* Always show section title when sidebar is fully open on mobile */
   @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
     opacity: 1;
   }
@@ -243,7 +225,6 @@ const NavLink = styled.button`
 `;
 
 const NavIcon = styled.div`
-  /* UPDATED: Slightly smaller icon size for collapsed state */
   font-size: ${(props) => (props.$isOpen ? "20px" : "18px")};
   width: ${(props) => (props.$isOpen ? "20px" : "18px")};
   height: ${(props) => (props.$isOpen ? "20px" : "18px")};
@@ -253,7 +234,7 @@ const NavIcon = styled.div`
   flex-shrink: 0;
 
   @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
-    font-size: 20px; /* Reset to default for mobile overlay */
+    font-size: 20px;
     width: 20px;
     height: 20px;
   }
@@ -266,9 +247,8 @@ const NavText = styled.span`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-grow: 1; /* Allow text to take available space */
+  flex-grow: 1;
 
-  /* Always show nav text when sidebar is fully open on mobile */
   @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
     opacity: 1;
     transform: translateX(0);
@@ -278,12 +258,10 @@ const NavText = styled.span`
 const SidebarFooter = styled.div`
   padding: ${(props) => props.theme.spacing?.lg || "1.5rem"};
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  flex-shrink: 0; /* Prevent footer from shrinking */
-  /* Ensure footer content hides when sidebar is closed on desktop */
+  flex-shrink: 0;
   opacity: ${(props) => (props.$isOpen ? 1 : 0)};
   transition: opacity 0.3s ease;
 
-  /* Always show footer when sidebar is fully open on mobile */
   @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
     opacity: 1;
   }
@@ -324,9 +302,8 @@ const UserInfo = styled.div`
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  flex-grow: 1; /* Allow user info to take available space */
+  flex-grow: 1;
 
-  /* Always show user info when sidebar is fully open on mobile */
   @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
     opacity: 1;
     transform: translateX(0);
@@ -353,8 +330,7 @@ const UserRole = styled.div`
   text-overflow: ellipsis;
 `;
 
-// Module configuration with icons and routes (unchanged)
-const MODULE_CONFIG = {
+const MODULE_CONFIG = { /* ... (unchanged) ... */
   IMS: {
     icon: <FaBoxes />,
     label: "Inventory",
@@ -393,7 +369,7 @@ const MODULE_CONFIG = {
   },
 };
 
-const DynamicSidebar = ({ isOpen, onToggle, user }) => {
+const DynamicSidebar = ({ isOpen, onToggle, user, sidebarRef }) => { // Accept sidebarRef
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
@@ -473,7 +449,6 @@ const DynamicSidebar = ({ isOpen, onToggle, user }) => {
   };
 
   const isActiveRoute = (path) => {
-    // Check for exact path or if it's a base path for a module
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   };
 
@@ -484,7 +459,7 @@ const DynamicSidebar = ({ isOpen, onToggle, user }) => {
   };
 
   return (
-    <SidebarContainer $isOpen={isOpen}>
+    <SidebarContainer ref={sidebarRef}> {/* Apply ref here */}
       <SidebarHeader>
         <Logo>
           <FaLeaf />
@@ -493,88 +468,32 @@ const DynamicSidebar = ({ isOpen, onToggle, user }) => {
           <BrandName>ManagePro</BrandName>
           <BrandSubtitle>Business Suite</BrandSubtitle>
         </BrandInfo>
-        {/* ToggleButton only for desktop to expand/collapse, hidden on mobile */}
         <ToggleButton onClick={onToggle}>
           {isOpen ? <FaChevronLeft /> : <FaChevronRight />}
         </ToggleButton>
       </SidebarHeader>
 
       <Navigation>
-        {groupedNavItems.main.length > 0 && (
-          <NavSection>
-            <NavSectionTitle $isOpen={isOpen}>Main</NavSectionTitle>
-            <NavList>
-              {groupedNavItems.main.map((item) => (
-                <NavItem key={item.id}>
-                  <NavLink
-                    $active={isActiveRoute(item.path)}
-                    onClick={() => handleNavigation(item.path)}
-                  >
-                    <NavIcon $isOpen={isOpen}>{item.icon}</NavIcon> {/* Pass isOpen to NavIcon */}
-                    <NavText $isOpen={isOpen}>{item.label}</NavText>
-                  </NavLink>
-                </NavItem>
-              ))}
-            </NavList>
-          </NavSection>
-        )}
-
-        {groupedNavItems.modules.length > 0 && (
-          <NavSection>
-            <NavSectionTitle $isOpen={isOpen}>Modules</NavSectionTitle>
-            <NavList>
-              {groupedNavItems.modules.map((item) => (
-                <NavItem key={item.id}>
-                  <NavLink
-                    $active={isActiveRoute(item.path)}
-                    onClick={() => handleNavigation(item.path)}
-                  >
-                    <NavIcon $isOpen={isOpen}>{item.icon}</NavIcon> {/* Pass isOpen to NavIcon */}
-                    <NavText $isOpen={isOpen}>{item.label}</NavText>
-                  </NavLink>
-                </NavItem>
-              ))}
-            </NavList>
-          </NavSection>
-        )}
-
-        {groupedNavItems.admin.length > 0 && (
-          <NavSection>
-            <NavSectionTitle $isOpen={isOpen}>Administration</NavSectionTitle>
-            <NavList>
-              {groupedNavItems.admin.map((item) => (
-                <NavItem key={item.id}>
-                  <NavLink
-                    $active={isActiveRoute(item.path)}
-                    onClick={() => handleNavigation(item.path)}
-                  >
-                    <NavIcon $isOpen={isOpen}>{item.icon}</NavIcon> {/* Pass isOpen to NavIcon */}
-                    <NavText $isOpen={isOpen}>{item.label}</NavText>
-                  </NavLink>
-                </NavItem>
-              ))}
-            </NavList>
-          </NavSection>
-        )}
-
-        {groupedNavItems.system.length > 0 && (
-          <NavSection>
-            <NavSectionTitle $isOpen={isOpen}>System</NavSectionTitle>
-            <NavList>
-              {groupedNavItems.system.map((item) => (
-                <NavItem key={item.id}>
-                  <NavLink
-                    $active={isActiveRoute(item.path)}
-                    onClick={() => handleNavigation(item.path)}
-                  >
-                    <NavIcon $isOpen={isOpen}>{item.icon}</NavIcon> {/* Pass isOpen to NavIcon */}
-                    <NavText $isOpen={isOpen}>{item.label}</NavText>
-                  </NavLink>
-                </NavItem>
-              ))}
-            </NavList>
-          </NavSection>
-        )}
+        {Object.keys(groupedNavItems).map(section => (
+          groupedNavItems[section].length > 0 && (
+            <NavSection key={section}>
+              <NavSectionTitle $isOpen={isOpen}>{section}</NavSectionTitle>
+              <NavList>
+                {groupedNavItems[section].map((item) => (
+                  <NavItem key={item.id}>
+                    <NavLink
+                      $active={isActiveRoute(item.path)}
+                      onClick={() => handleNavigation(item.path)}
+                    >
+                      <NavIcon $isOpen={isOpen}>{item.icon}</NavIcon>
+                      <NavText $isOpen={isOpen}>{item.label}</NavText>
+                    </NavLink>
+                  </NavItem>
+                ))}
+              </NavList>
+            </NavSection>
+          )
+        ))}
       </Navigation>
 
       <SidebarFooter $isOpen={isOpen}>

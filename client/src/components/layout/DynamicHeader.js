@@ -31,7 +31,7 @@ const HeaderContainer = styled.header`
     ${(props) => props.theme.colors?.border || "#e2e8f0"};
   position: sticky;
   top: 0;
-  z-index: 999; /* Ensure header is always on top of content, but below the sidebar overlay */
+  z-index: 999;
   backdrop-filter: blur(10px);
   background: rgba(255, 255, 255, 0.95);
 
@@ -63,7 +63,7 @@ const MenuButton = styled.button`
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 18px;
-  flex-shrink: 0; /* Prevent button from shrinking */
+  flex-shrink: 0;
 
   &:hover {
     background: ${(props) => props.theme.colors?.primary || "#1b4332"};
@@ -71,7 +71,6 @@ const MenuButton = styled.button`
     transform: scale(1.05);
   }
 
-  /* This button should only be visible on screens where the sidebar is toggled (typically mobile/tablet) */
   @media (min-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
     display: none;
   }
@@ -81,10 +80,10 @@ const PageInfo = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${(props) => props.theme.spacing?.xs || "0.25rem"};
-  min-width: 0; /* Allow content to shrink */
+  min-width: 0;
 
   @media (max-width: ${(props) => props.theme.breakpoints?.sm || "640px"}) {
-    display: none; /* Hide on small mobile to save space */
+    display: none;
   }
 `;
 
@@ -93,9 +92,9 @@ const PageTitle = styled.h1`
   font-weight: ${(props) => props.theme.typography?.fontWeight?.bold || "700"};
   color: ${(props) => props.theme.colors?.text || "#2d3748"};
   margin: 0;
-  white-space: nowrap; /* Prevent title from wrapping */
+  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* Add ellipsis if too long */
+  text-overflow: ellipsis;
 
   @media (max-width: ${(props) => props.theme.breakpoints?.md || "768px"}) {
     font-size: ${(props) => props.theme.typography?.fontSize?.lg || "1.125rem"};
@@ -130,7 +129,6 @@ const CenterSection = styled.div`
   max-width: 400px;
   margin: 0 ${(props) => props.theme.spacing?.xl || "2rem"};
 
-  /* Hide search bar on smaller screens to prioritize other elements */
   @media (max-width: ${(props) => props.theme.breakpoints?.md || "768px"}) {
     display: none;
   }
@@ -184,7 +182,7 @@ const RightSection = styled.div`
   align-items: center;
   gap: ${(props) => props.theme.spacing?.md || "1rem"};
   position: relative;
-  flex-shrink: 0; /* Prevent shrinking to keep buttons visible */
+  flex-shrink: 0;
 
   @media (max-width: ${(props) => props.theme.breakpoints?.sm || "640px"}) {
     gap: ${(props) => props.theme.spacing?.sm || "0.5rem"};
@@ -259,14 +257,14 @@ const UserButton = styled.button`
   }
 
   @media (max-width: ${(props) => props.theme.breakpoints?.sm || "640px"}) {
-    padding: ${(props) => props.theme.spacing?.xs || "0.25rem"}; /* Reduced padding */
-    width: 40px; /* Fixed width to make it square */
+    padding: ${(props) => props.theme.spacing?.xs || "0.25rem"};
+    width: 40px;
     justify-content: center;
     
     span {
-      display: none; /* Hide name on very small screens */
+      display: none;
     }
-    svg { /* Hide chevron icon to save space */
+    svg {
       display: none;
     }
   }
@@ -365,8 +363,7 @@ const DropdownItem = styled.button`
   }
 `;
 
-// Page title mapping (unchanged, as this is data, not styling)
-const PAGE_TITLES = {
+const PAGE_TITLES = { /* ... (unchanged) ... */
   "/dashboard": { title: "Dashboard", breadcrumb: ["Home", "Dashboard"] },
   "/inventory": { title: "Inventory Management", breadcrumb: ["Modules", "Inventory"] },
   "/purchase-orders": { title: "Purchase Orders", breadcrumb: ["Modules", "Purchase Orders"] },
@@ -376,10 +373,10 @@ const PAGE_TITLES = {
   "/users": { title: "User Management", breadcrumb: ["Admin", "Users"] },
   "/profile": { title: "Profile Settings", breadcrumb: ["Account", "Profile"] },
   "/settings": { title: "System Settings", breadcrumb: ["Account", "Settings"] },
-  "/construction": { title: "Construction Site Management", breadcrumb: ["Modules", "Construction"] }, // Added this based on image
+  "/construction": { title: "Construction Site Management", breadcrumb: ["Modules", "Construction"] },
 };
 
-const DynamicHeader = ({ onSidebarToggle, user }) => {
+const DynamicHeader = ({ onSidebarToggle, user, menuButtonRef }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
@@ -393,14 +390,11 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
   const notificationButtonRef = useRef(null);
   const notificationPanelRef = useRef(null);
 
-  // Close user menu or notification panel when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Close user menu
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setShowUserMenu(false);
       }
-      // Close notification panel
       if (
         notificationButtonRef.current &&
         !notificationButtonRef.current.contains(event.target) &&
@@ -415,10 +409,8 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Get current page info
   const getCurrentPageInfo = () => {
     const path = location.pathname;
-    // Handle dynamic routes like /construction/site-id
     for (const key in PAGE_TITLES) {
       if (path.startsWith(key)) {
         return PAGE_TITLES[key];
@@ -433,8 +425,6 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       console.log("Searching for:", searchQuery);
-      // Implement actual search logic here, e.g., navigate to a search results page
-      // navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
     }
   };
 
@@ -452,7 +442,8 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
   return (
     <HeaderContainer>
       <LeftSection>
-        <MenuButton onClick={onSidebarToggle}>
+        {/* CRITICAL: Ensure e.stopPropagation() is here */}
+        <MenuButton onClick={(e) => { e.stopPropagation(); onSidebarToggle(); }} ref={menuButtonRef}>
           <FaBars />
         </MenuButton>
 
@@ -546,12 +537,11 @@ const DynamicHeader = ({ onSidebarToggle, user }) => {
         </UserMenu>
       </RightSection>
 
-      {/* Render NotificationPanel, passing refs for correct outside click detection */}
       {showNotificationPanel && (
         <NotificationPanel
           onClose={() => setShowNotificationPanel(false)}
-          notificationPanelRef={notificationPanelRef} // Pass ref to panel
-          anchorEl={notificationButtonRef.current} // Pass button element for positioning
+          notificationPanelRef={notificationPanelRef}
+          anchorEl={notificationButtonRef.current}
         />
       )}
     </HeaderContainer>

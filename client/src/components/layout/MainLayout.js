@@ -1,7 +1,7 @@
 // client/src/components/layout/MainLayout.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import styled from "styled-components";
 import { useAuth } from "../../contexts/AuthContext";
@@ -13,8 +13,8 @@ const LayoutContainer = styled.div`
   display: flex;
   min-height: 100vh;
   background: ${(props) => props.theme.colors?.surfaceLight || "#f7fafc"};
-  width: 100%; /* Ensure it takes full width */
-  position: relative; /* Needed for the overlay to position correctly relative to this */
+  width: 100%;
+  position: relative;
 `;
 
 const SidebarWrapper = styled.div`
@@ -22,16 +22,16 @@ const SidebarWrapper = styled.div`
   left: 0;
   top: 0;
   height: 100vh;
-  z-index: 1000; /* Ensure sidebar is above main content and overlay */
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.3s ease-out;
+  z-index: 1000;
+  transition: transform 0.3s ease-out, width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-  width: ${(props) => (props.$isOpen ? "240px" : "60px")};
+  @media (min-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
+    width: ${(props) => (props.$isOpen ? "240px" : "60px")};
+  }
 
   @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
     width: 240px;
     transform: translateX(${(props) => (props.$isOpen ? "0" : "-100%")});
-    transition: transform 0.3s ease-out;
   }
 `;
 
@@ -65,8 +65,8 @@ const HeaderWrapper = styled.div`
 const ContentArea = styled.div`
   flex: 1;
   padding: ${(props) => props.theme.spacing?.xl || "2rem"};
-  overflow-y: auto; /* Keep vertical scrolling for content area */
-  /* REMOVED: overflow-x: hidden; to allow global horizontal scroll to work */
+  overflow-y: auto;
+  overflow-x: auto;
 
   @media (max-width: ${(props) => props.theme.breakpoints?.md || "768px"}) {
     padding: ${(props) => props.theme.spacing?.lg || "1.5rem"};
@@ -107,15 +107,20 @@ const MainLayout = () => {
   const { user, loading: authLoading } = useAuth();
   const location = useLocation();
   
-  const [sidebarOpen, setSidebarOpen] = useState(false); 
-  const [isLargeScreen, setIsLargeScreen] = useState(true); 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLargeScreen, setIsLargeScreen] = useState(true);
 
-  const LG_BREAKPOINT_VALUE = 1024; 
+  // Refs for the sidebar and the menu toggle button
+  const sidebarRef = useRef(null);
+  const menuButtonRef = useRef(null);
+
+  const LG_BREAKPOINT_VALUE = 1024;
 
   useEffect(() => {
     const checkScreenSize = () => {
       const isCurrentLargeScreen = window.innerWidth >= LG_BREAKPOINT_VALUE;
       setIsLargeScreen(isCurrentLargeScreen);
+      // On large screens, sidebar open by default. On smaller, it's closed.
       setSidebarOpen(isCurrentLargeScreen);
     };
 
@@ -123,14 +128,46 @@ const MainLayout = () => {
     window.addEventListener("resize", checkScreenSize);
 
     return () => window.removeEventListener("resize", checkScreenSize);
-  }, []); 
+  }, []);
 
-
+  // Effect to close the sidebar on route change when on a small screen
   useEffect(() => {
+    // Only close if it's currently open AND on a small screen
     if (!isLargeScreen && sidebarOpen) {
       setSidebarOpen(false);
     }
-  }, [location.pathname, isLargeScreen, sidebarOpen]); 
+  }, [location.pathname, isLargeScreen]); // Removed sidebarOpen from deps here, as the closure is implicit from sidebarOpen changing
+
+  // --- START: CRUCIAL CLICK-OUTSIDE LOGIC ---
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // If the sidebar isn't open or we're on a large screen, this listener shouldn't do anything
+      if (!sidebarOpen || isLargeScreen) {
+        return;
+      }
+
+      // Check if the click happened outside the sidebar element
+      if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
+        setSidebarOpen(false);
+      }
+    };
+
+    let timeoutId;
+    if (sidebarOpen && !isLargeScreen) {
+      // IMPORTANT: Delay attaching the listener slightly.
+      // This ensures the click event that *opened* the sidebar has fully
+      // processed and finished its bubbling phase before this listener becomes active.
+      timeoutId = setTimeout(() => {
+        document.addEventListener("mousedown", handleClickOutside, true); // Use capture phase (true)
+      }, 50); // A small delay like 50ms is usually more reliable than 0ms or requestAnimationFrame
+    }
+
+    return () => {
+      clearTimeout(timeoutId); // Clear any pending timeout
+      document.removeEventListener("mousedown", handleClickOutside, true); // Remove with capture phase
+    };
+  }, [sidebarOpen, isLargeScreen]); // Re-run this effect when sidebarOpen or isLargeScreen changes
+  // --- END: CRUCIAL CLICK-OUTSIDE LOGIC ---
 
 
   const handleSidebarToggle = () => {
@@ -148,14 +185,15 @@ const MainLayout = () => {
   return (
     <LayoutContainer>
       <SidebarWrapper $isOpen={sidebarOpen}>
-        <DynamicSidebar isOpen={sidebarOpen} onToggle={handleSidebarToggle} user={user} />
+        <DynamicSidebar isOpen={sidebarOpen} onToggle={handleSidebarToggle} user={user} sidebarRef={sidebarRef} />
       </SidebarWrapper>
 
-      <Overlay $show={!isLargeScreen && sidebarOpen} onClick={handleSidebarToggle} />
+      {/* Overlay click handler explicitly closes the sidebar */}
+      <Overlay $show={!isLargeScreen && sidebarOpen} onClick={() => setSidebarOpen(false)} />
 
-      <MainContent $sidebarOpen={sidebarOpen} $isMobile={!isLargeScreen}>
+      <MainContent $sidebarOpen={sidebarOpen}>
         <HeaderWrapper>
-          <DynamicHeader onSidebarToggle={handleSidebarToggle} user={user} />
+          <DynamicHeader onSidebarToggle={handleSidebarToggle} user={user} menuButtonRef={menuButtonRef} />
         </HeaderWrapper>
 
         <ContentArea>
