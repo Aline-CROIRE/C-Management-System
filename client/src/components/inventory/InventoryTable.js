@@ -12,7 +12,7 @@ import LoadingSpinner from "../common/LoadingSpinner";
 
 
 const getImageUrlBase = () => {
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const apiUrl = process.env.REACT_APP_API_URL || "https://c-management-system.onrender.com/api";
   return apiUrl.replace(/\/api$/, ''); 
 };
 

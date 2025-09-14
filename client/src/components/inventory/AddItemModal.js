@@ -10,7 +10,7 @@ import Select from "../common/Select";
 
 // API_BASE_URL_FOR_IMAGES is no longer strictly needed if images are removed
 // const getImageUrlBase = () => {
-//   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+//   const apiUrl = process.env.REACT_APP_API_URL || "https://c-management-system.onrender.com/api";
 //   return apiUrl.replace(/\/api$/, ''); 
 // };
 // const API_BASE_URL_FOR_IMAGES = getImageUrlBase();

@@ -109,7 +109,7 @@ GMAIL_APP_PASSWORD=your-gmail-app-password
 
 Create `client/.env`:
 \`\`\`env
-REACT_APP_API_URL=http://localhost:5000/api
+REACT_APP_API_URL=https://c-management-system.onrender.com/api
 REACT_APP_APP_NAME=Management System Pro
 \`\`\`
 
@@ -133,7 +133,7 @@ npm run dev
 
 The application will be available at:
 - Frontend: http://localhost:3000
-- Backend: http://localhost:5000
+- Backend: https://c-management-system.onrender.com
 
 ### Demo Accounts
 - **Super Admin**: superadmin@demo.com / Demo123!

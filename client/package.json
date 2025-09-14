@@ -49,5 +49,5 @@
   "devDependencies": {
     "react-scripts": "5.0.1"
   },
-  "proxy": "http://localhost:5000"
+  "proxy": "https://c-management-system.onrender.com"
 }
