@@ -7,7 +7,7 @@ import {
   FaClipboardList, FaEdit, FaEye, FaTrash,
   FaSort, FaSortUp, FaSortDown, FaCalendarAlt,
   FaChevronLeft, FaChevronRight, FaInfoCircle, FaStar, FaUserPlus, FaSitemap, FaCheckCircle, FaExclamationTriangle, FaClock,
-  FaTimes, FaUsers, FaTools // Added for allocated resources
+  FaTimes, FaUsers, FaTools
 } from "react-icons/fa";
 import Button from "../../common/Button";
 import LoadingSpinner from "../../common/LoadingSpinner";
@@ -37,7 +37,17 @@ const TableContainer = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 1400px; /* Increased min-width for new columns */
+  min-width: 1400px; /* Keep this, as it allows horizontal scroll if needed */
+
+  @media (max-width: 1024px) { /* hide-on-tablet breakpoint */
+    min-width: 1000px;
+  }
+  @media (max-width: 768px) { /* hide-on-mobile breakpoint */
+    min-width: 700px;
+  }
+  @media (max-width: 480px) { /* Further reduced */
+    min-width: 500px;
+  }
 `;
 
 const TableHeader = styled.thead`
@@ -96,7 +106,7 @@ const TableCell = styled.td`
   font-size: clamp(0.8rem, 2vw, 0.9rem);
   color: ${(props) => props.theme?.colors?.text || "#2d3748"};
   vertical-align: middle;
-  white-space: nowrap;
+  white-space: nowrap; /* Default, but TaskInfo can wrap name */
   
   &.hide-on-tablet {
     @media (max-width: 1024px) {
@@ -113,11 +123,14 @@ const TableCell = styled.td`
 const TaskInfo = styled.div`
   display: flex;
   flex-direction: column;
+  min-width: 120px; /* Ensure task name column has a minimum width before wrapping */
 `;
 
 const TaskName = styled.div`
   font-weight: 600;
   color: ${(props) => props.theme?.colors?.heading || "#1a202c"};
+  white-space: normal; /* Allow task name to wrap */
+  word-break: break-word;
 `;
 
 const TaskMeta = styled.div`
@@ -126,7 +139,8 @@ const TaskMeta = styled.div`
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  flex-wrap: wrap; /* Allow wrapping for multiple resources */
+  flex-wrap: wrap;
+  white-space: normal; /* Allow meta info to wrap if needed */
 `;
 
 const StatusBadge = styled.span`
@@ -138,6 +152,7 @@ const StatusBadge = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+  white-space: nowrap;
 
   ${({ status, theme }) => {
     switch (status) {
@@ -293,8 +308,8 @@ const TaskTable = ({
               {!hideSiteColumn && (
                 <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "site"} onClick={() => handleSort("site")}>Site {getSortIcon("site")}</TableHeaderCell>
               )}
-              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "assignedTo"} onClick={() => handleSort("assignedTo")}>Assigned To {getSortIcon("assignedTo")}</TableHeaderCell> {/* Existing `assignedTo` */}
-              <TableHeaderCell className="hide-on-tablet">Allocated Resources</TableHeaderCell> {/* NEW */}
+              <TableHeaderCell className="hide-on-tablet" $sortable $sorted={sortConfig.key === "assignedTo"} onClick={() => handleSort("assignedTo")}>Assigned To {getSortIcon("assignedTo")}</TableHeaderCell>
+              <TableHeaderCell className="hide-on-tablet">Allocated Resources</TableHeaderCell>
               <TableHeaderCell $sortable $sorted={sortConfig.key === "status"} onClick={() => handleSort("status")}>Status {getSortIcon("status")}</TableHeaderCell>
               <TableHeaderCell className="hide-on-mobile" $sortable $sorted={sortConfig.key === "priority"} onClick={() => handleSort("priority")}>Priority {getSortIcon("priority")}</TableHeaderCell>
               <TableHeaderCell $sortable $sorted={sortConfig.key === "startDate"} onClick={() => handleSort("startDate")}>Start Date {getSortIcon("startDate")}</TableHeaderCell>
@@ -320,7 +335,7 @@ const TaskTable = ({
                         ? task.assignedTo.map(worker => worker.fullName).join(', ')
                         : 'Unassigned'}
                 </TableCell>
-                <TableCell className="hide-on-tablet"> {/* NEW Allocated Resources */}
+                <TableCell className="hide-on-tablet">
                     <TaskMeta>
                         {task.allocatedWorkers && task.allocatedWorkers.length > 0 && <span><FaUsers size={10} /> {task.allocatedWorkers.length} workers</span>}
                         {task.allocatedEquipment && task.allocatedEquipment.length > 0 && <span><FaTools size={10} style={{marginLeft: task.allocatedWorkers.length > 0 ? '0.5rem' : '0'}}/> {task.allocatedEquipment.length} equipment</span>}

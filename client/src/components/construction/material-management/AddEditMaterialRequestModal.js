@@ -1,10 +1,10 @@
-// client/src/components/construction/milestone-management/AddEditMilestoneModal.js
+// client/src/components/construction/material-management/AddEditMaterialRequestModal.js
 "use client";
 
 import React, { useState, useEffect } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
-import { FaTimes, FaSave, FaCalendarAlt, FaInfoCircle, FaClipboardList, FaSpinner, FaGavel } from "react-icons/fa";
+import { FaTimes, FaSave, FaShoppingCart, FaCalendarAlt, FaUserTie, FaInfoCircle, FaBoxes, FaSpinner } from "react-icons/fa";
 import Button from "../../common/Button";
 import Input from "../../common/Input";
 import Select from "../../common/Select";
@@ -63,7 +63,6 @@ const ThemedInput = styled(Input)`
   padding: 0.75rem; border: 1px solid ${(props) => props.theme?.colors?.border || '#e2e8f0'};
   border-radius: ${(props) => props.theme?.borderRadius?.md || '0.375rem'}; background: ${(props) => props.theme?.colors?.surface || '#ffffff'};
   color: ${(props) => props.theme?.colors?.text || '#2d3748'}; font-size: 0.9rem;
-  @media (max-width: 480px) { padding: 0.6rem; font-size: 0.85rem; }
 `;
 
 const ThemedSelect = styled(Select)`
@@ -71,7 +70,6 @@ const ThemedSelect = styled(Select)`
   border-radius: ${(props) => props.theme?.borderRadius?.md || '0.375rem'}; font-size: 0.9rem;
   background-color: ${(props) => props.theme?.colors?.surface || '#ffffff'};
   color: ${(props) => props.theme?.colors?.text || '#2d3748'};
-  @media (max-width: 480px) { padding: 0.6rem; font-size: 0.85rem; }
 `;
 
 const TextArea = styled.textarea`
@@ -79,7 +77,6 @@ const TextArea = styled.textarea`
   border-radius: ${(props) => props.theme?.borderRadius?.md || '0.375rem'}; resize: vertical; min-height: 80px;
   background: ${(props) => props.theme?.colors?.surface || '#ffffff'}; color: ${(props) => props.theme?.colors?.text || '#2d3748'};
   font-size: 0.9rem; font-family: inherit;
-  @media (max-width: 480px) { padding: 0.6rem; font-size: 0.85rem; min-height: 60px; }
 `;
 
 const ErrorText = styled.p`
@@ -88,60 +85,42 @@ const ErrorText = styled.p`
   margin-top: 0.25rem;
 `;
 
-
 const ModalFooter = styled.div`
   padding: 1.5rem 2rem; display: flex; justify-content: flex-end; gap: 1rem;
   border-top: 1px solid ${(props) => props.theme?.colors?.border || '#e2e8f0'}; flex-shrink: 0;
   @media (max-width: 480px) { padding: 1rem 1.25rem; gap: 0.75rem; button { flex-grow: 1; } }
 `;
 
-const AddEditMilestoneModal = ({ onClose, onSave, loading, siteId, milestoneToEdit = null }) => {
-    const isEditMode = Boolean(milestoneToEdit);
+const AddEditMaterialRequestModal = ({ onClose, onSave, loading, siteId, workers = [], siteMaterialInventory = [] }) => {
     const [formData, setFormData] = useState({
-        name: '',
-        targetDate: '',
-        actualCompletionDate: '',
-        status: 'Planned',
-        description: '',
-        criticalPath: false,
+        materialName: '',
+        quantity: '1',
+        unit: '',
+        requestedBy: '', // Worker ID
+        requiredByDate: moment().format('YYYY-MM-DD'),
+        notes: '',
     });
     const [errors, setErrors] = useState({});
 
     useEffect(() => {
-        if (isEditMode && milestoneToEdit) {
-            setFormData({
-                name: milestoneToEdit.name || '',
-                targetDate: milestoneToEdit.targetDate ? moment(milestoneToEdit.targetDate).format('YYYY-MM-DD') : '',
-                actualCompletionDate: milestoneToEdit.actualCompletionDate ? moment(milestoneToEdit.actualCompletionDate).format('YYYY-MM-DD') : '',
-                status: milestoneToEdit.status || 'Planned',
-                description: milestoneToEdit.description || '',
-                criticalPath: milestoneToEdit.criticalPath ?? false,
-            });
-        } else {
-            // Reset form for add mode
-            setFormData({
-                name: '',
-                targetDate: '',
-                actualCompletionDate: '',
-                status: 'Planned',
-                description: '',
-                criticalPath: false,
-            });
+        const matchedMaterial = siteMaterialInventory.find(item => item.materialName === formData.materialName);
+        if (matchedMaterial && formData.unit === '') {
+            setFormData(prev => ({ ...prev, unit: matchedMaterial.unit }));
         }
-    }, [milestoneToEdit, isEditMode]);
+    }, [formData.materialName, siteMaterialInventory, formData.unit]);
 
     const handleInputChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
     const validateForm = () => {
         const newErrors = {};
-        if (!formData.name) newErrors.name = "Milestone name is required.";
-        if (!formData.targetDate) newErrors.targetDate = "Target date is required.";
-        if (formData.actualCompletionDate && moment(formData.actualCompletionDate).isAfter(moment())) {
-            newErrors.actualCompletionDate = "Actual completion date cannot be in the future.";
-        }
+        if (!formData.materialName) newErrors.materialName = "Material name is required.";
+        if (parseFloat(formData.quantity) <= 0) newErrors.quantity = "Quantity must be a positive number.";
+        if (!formData.unit) newErrors.unit = "Unit is required.";
+        if (!formData.requestedBy) newErrors.requestedBy = "Requested By is required.";
+        if (!formData.requiredByDate) newErrors.requiredByDate = "Required By Date is required.";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -151,66 +130,72 @@ const AddEditMilestoneModal = ({ onClose, onSave, loading, siteId, milestoneToEd
         if (!validateForm()) return;
         
         const payload = { ...formData };
-        if (payload.actualCompletionDate === '') {
-            payload.actualCompletionDate = null; // Ensure empty string is sent as null
-        }
+        payload.quantity = Number(payload.quantity);
 
         try {
-            if (isEditMode) {
-                await onSave(siteId, milestoneToEdit._id, payload);
-            } else {
-                await onSave(siteId, payload);
-            }
+            await onSave(siteId, payload);
             onClose();
         } catch (err) {
-            console.error("Failed to save milestone:", err);
-            // Error handling is already in useConstructionManagement and api.js interceptor
+            console.error("Failed to save material request:", err);
         }
     };
 
-    const milestoneStatuses = ['Planned', 'In Progress', 'Completed', 'Delayed'];
+    const workerOptions = workers.map(worker => ({ value: worker._id, label: `${worker.fullName} (${worker.role})` }));
+    const materialNameOptions = [...new Set(siteMaterialInventory.map(item => item.materialName))]; // Unique material names
+    const allUnits = ['kg', 'liters', 'pcs', 'm', 'm²', 'm³', 'bags', 'rolls', 'boxes', 'other'];
+
 
     return ReactDOM.createPortal(
         <ModalOverlay onClick={onClose}>
             <ModalContent onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}>
                 <ModalHeader>
-                    <ModalTitle>{isEditMode ? "Edit Milestone" : "Add New Milestone"}</ModalTitle>
+                    <ModalTitle>New Material Request</ModalTitle>
                     <CloseButton type="button" onClick={onClose}><FaTimes /></CloseButton>
                 </ModalHeader>
                 <ModalBody>
                     <FormGroup>
-                        <Label htmlFor="name"><FaGavel /> Milestone Name *</Label>
-                        <ThemedInput id="name" name="name" value={formData.name} onChange={handleInputChange} required error={errors.name} />
-                        {errors.name && <ErrorText>{errors.name}</ErrorText>}
+                        <Label htmlFor="materialName"><FaBoxes /> Material Name *</Label>
+                        <ThemedInput id="materialName" name="materialName" value={formData.materialName} onChange={handleInputChange} required error={errors.materialName} list="materialNames" />
+                        <datalist id="materialNames">
+                            {materialNameOptions.map(name => <option key={name} value={name} />)}
+                        </datalist>
+                        {errors.materialName && <ErrorText>{errors.materialName}</ErrorText>}
                     </FormGroup>
                     <FormGroup>
-                        <Label htmlFor="targetDate"><FaCalendarAlt /> Target Date *</Label>
-                        <ThemedInput id="targetDate" name="targetDate" type="date" value={formData.targetDate} onChange={handleInputChange} required error={errors.targetDate} />
-                        {errors.targetDate && <ErrorText>{errors.targetDate}</ErrorText>}
+                        <Label htmlFor="quantity"><FaShoppingCart /> Quantity *</Label>
+                        <ThemedInput id="quantity" name="quantity" type="number" step="0.01" value={formData.quantity} onChange={handleInputChange} min="0.01" required error={errors.quantity} />
+                        {errors.quantity && <ErrorText>{errors.quantity}</ErrorText>}
                     </FormGroup>
                     <FormGroup>
-                        <Label htmlFor="status"><FaInfoCircle /> Status</Label>
-                        <ThemedSelect id="status" name="status" value={formData.status} onChange={handleInputChange}>
-                            {milestoneStatuses.map(status => <option key={status} value={status}>{status}</option>)}
+                        <Label htmlFor="unit"><FaBoxes /> Unit *</Label>
+                        <ThemedSelect id="unit" name="unit" value={formData.unit} onChange={handleInputChange} required error={errors.unit}>
+                            <option value="">Select Unit</option>
+                            {allUnits.map(u => <option key={u} value={u}>{u}</option>)}
                         </ThemedSelect>
+                        {errors.unit && <ErrorText>{errors.unit}</ErrorText>}
                     </FormGroup>
-                    {formData.status === 'Completed' && ( // Only show if status is completed
-                        <FormGroup>
-                            <Label htmlFor="actualCompletionDate"><FaCalendarAlt /> Actual Completion Date</Label>
-                            <ThemedInput id="actualCompletionDate" name="actualCompletionDate" type="date" value={formData.actualCompletionDate} onChange={handleInputChange} error={errors.actualCompletionDate} />
-                            {errors.actualCompletionDate && <ErrorText>{errors.actualCompletionDate}</ErrorText>}
-                        </FormGroup>
-                    )}
                     <FormGroup>
-                        <Label htmlFor="description"><FaClipboardList /> Description</Label>
-                        <TextArea id="description" name="description" value={formData.description} onChange={handleInputChange} placeholder="Brief description of the milestone..." />
+                        <Label htmlFor="requestedBy"><FaUserTie /> Requested By *</Label>
+                        <ThemedSelect id="requestedBy" name="requestedBy" value={formData.requestedBy} onChange={handleInputChange} required error={errors.requestedBy}>
+                            <option value="">Select a worker</option>
+                            {workerOptions.map(worker => <option key={worker.value} value={worker.value}>{worker.label}</option>)}
+                        </ThemedSelect>
+                        {errors.requestedBy && <ErrorText>{errors.requestedBy}</ErrorText>}
                     </FormGroup>
-                    {/* Add checkbox for critical path if desired */}
+                    <FormGroup>
+                        <Label htmlFor="requiredByDate"><FaCalendarAlt /> Required By Date *</Label>
+                        <ThemedInput id="requiredByDate" name="requiredByDate" type="date" value={formData.requiredByDate} onChange={handleInputChange} required error={errors.requiredByDate} />
+                        {errors.requiredByDate && <ErrorText>{errors.requiredByDate}</ErrorText>}
+                    </FormGroup>
+                    <FormGroup>
+                        <Label htmlFor="notes"><FaInfoCircle /> Notes</Label>
+                        <TextArea id="notes" name="notes" value={formData.notes} onChange={handleInputChange} placeholder="Any additional notes about the request..." />
+                    </FormGroup>
                 </ModalBody>
                 <ModalFooter>
                     <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
                     <Button type="submit" variant="primary" disabled={loading}>
-                        {loading ? <FaSpinner className="spinner" /> : <FaSave />} {loading ? "Saving..." : (isEditMode ? "Update Milestone" : "Save Milestone")}
+                        {loading ? <FaSpinner className="spinner" /> : <FaSave />} Save Request
                     </Button>
                 </ModalFooter>
             </ModalContent>
@@ -219,4 +204,4 @@ const AddEditMilestoneModal = ({ onClose, onSave, loading, siteId, milestoneToEd
     );
 };
 
-export default AddEditMilestoneModal;
+export default AddEditMaterialRequestModal;

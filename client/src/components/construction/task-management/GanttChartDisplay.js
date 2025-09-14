@@ -1,3 +1,4 @@
+// client/src/components/construction/GanttChartDisplay.js
 "use client";
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
@@ -12,7 +13,7 @@ const GanttChartContainer = styled.div`
   border-radius: ${(props) => props.theme?.borderRadius?.xl || "1rem"};
   box-shadow: ${(props) => props.theme?.shadows?.lg || "0 4px 6px rgba(0, 0, 0, 0.1)"};
   padding: 1rem;
-  overflow: hidden;
+  overflow: hidden; /* Ensures chart doesn't break out of container */
   min-height: 500px;
   display: flex;
   flex-direction: column;
@@ -21,16 +22,16 @@ const GanttChartContainer = styled.div`
 
   .gantt-container {
     width: 100%;
-    height: 100%;
+    height: 100%; /* Fill parent container height */
     min-height: 400px;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow-x: auto; /* Important for horizontal scrolling within the chart */
+    overflow-y: hidden; /* Gantt usually handles its own vertical scroll */
     padding: 1rem 0;
   }
 
   .gantt {
-    width: 100% !important;
-    height: auto !important;
+    width: 100% !important; /* Override inline styles from Frappe Gantt */
+    height: auto !important; /* Allow Frappe Gantt to determine its height based on tasks */
   }
 `;
 
@@ -83,9 +84,8 @@ const GanttChartDisplay = ({ tasks = [], loading = false, error = null }) => {
     cleanTasks.forEach(task => {
       const id = (task._id && typeof task._id === 'string') ? task._id : `task-gen-${Math.random().toString(36).substring(7)}`;
       
-      // Ensure name is always a non-empty string, even if original is invalid
-      let name = (task.name && typeof task.name === 'string' && task.name.trim() !== '') ? task.name.trim() : `Unnamed Task (ID: ${id.substring(0, 8)}...)`;
-      if (name.includes('Unnamed Task (ID: undefined...)') || name.trim() === '') { // Further fallback if _id itself was "undefined" string
+      let name = (task.name && typeof task.name === 'string' && task.name.trim() !== '') ? task.name.trim() : `Unnamed Task (ID: ${id.substring(0, Math.min(8, id.length))}...)`;
+      if (name.includes('Unnamed Task (ID: undefined...)') || name.trim() === '') {
           name = 'Unnamed Task';
       }
 
@@ -118,8 +118,10 @@ const GanttChartDisplay = ({ tasks = [], loading = false, error = null }) => {
       const dependencies = Array.isArray(task.dependencies)
         ? task.dependencies
             .map(dep => {
-              if (dep && typeof dep === 'object' && dep._id && typeof dep._id === 'string') return dep._id;
-              if (typeof dep === 'string' && dep.trim() !== '') return dep.trim();
+              // Handle both direct ID strings and populated objects {taskId: { _id, ... }}
+              if (dep && typeof dep === 'object' && dep.taskId && typeof dep.taskId === 'object' && dep.taskId._id && typeof dep.taskId._id === 'string') return dep.taskId._id;
+              if (dep && typeof dep === 'object' && dep.taskId && typeof dep.taskId === 'string') return dep.taskId; // If already an ID string
+              if (typeof dep === 'string' && dep.trim() !== '') return dep.trim(); // Direct dependency ID string
               return null;
             })
             .filter(Boolean)
@@ -130,11 +132,10 @@ const GanttChartDisplay = ({ tasks = [], loading = false, error = null }) => {
                          ? `status-${task.status.toLowerCase().replace(/\s/g, '-')}`
                          : 'status-unknown';
 
-      // Only include tasks if they have a valid ID AND valid start/due dates
       if (id && startDateStr && dueDateStr) {
         processedTasks.push({
           id: id,
-          name: name, // Use the defaulted name here
+          name: name,
           start: startDateStr,
           end: dueDateStr,
           progress: progress,
@@ -146,13 +147,12 @@ const GanttChartDisplay = ({ tasks = [], loading = false, error = null }) => {
         if (!id) reason.push('Missing ID');
         if (!startDateStr) reason.push('Missing/Invalid Start Date');
         if (!dueDateStr) reason.push('Missing/Invalid Due Date');
-        // If name was defaulted, also report it as a reason for original data issue
         if (!task.name || typeof task.name !== 'string' || task.name.trim() === '') reason.push('Original Name Missing/Invalid');
 
 
         invalidEntries.push({
           id: id,
-          name: task.name || 'N/A', // Original name for context in error display
+          name: task.name || 'N/A',
           reason: reason.join(', ') || 'Unknown Issue',
         });
         console.warn(`GanttChart: Task skipped due to invalid critical data:`, task);
@@ -163,18 +163,29 @@ const GanttChartDisplay = ({ tasks = [], loading = false, error = null }) => {
   }, [tasks]);
 
   useEffect(() => {
+    // Cleanup function for when component unmounts or dependencies change
+    const cleanupGantt = () => {
+      if (ganttInstance.current) {
+        // No explicit destroy method for Frappe Gantt, but nulling the ref
+        // and clearing the DOM element helps prevent memory leaks and conflicts
+        ganttInstance.current = null;
+      }
+      if (ganttRef.current) {
+        ganttRef.current.innerHTML = ''; // Clear the DOM element
+      }
+      setIsGanttInitialized(false);
+    };
+
     if (!ganttRef.current) {
-        if (ganttInstance.current) {
-            ganttInstance.current = null;
-        }
-        setIsGanttInitialized(false);
+        cleanupGantt(); // If ref is somehow null, ensure cleanup
         return;
     }
 
-    if (memoizedFrappeTasks.length > 0) {
+    if (memoizedFrappedTasks.length > 0) {
       if (!isGanttInitialized) {
-        ganttRef.current.innerHTML = '';
+        ganttRef.current.innerHTML = ''; // Clear previous content before initializing
         
+        // Deep clone to ensure Frappe Gantt doesn't mutate our memoized array
         const tasksForGantt = JSON.parse(JSON.stringify(memoizedFrappeTasks));
 
         try {
@@ -190,47 +201,33 @@ const GanttChartDisplay = ({ tasks = [], loading = false, error = null }) => {
             date_format: 'YYYY-MM-DD',
             language: 'en',
             view_mode: 'Week',
-            custom_popup_html: null,
+            custom_popup_html: null, // Customize popup if needed, or set to null for default
           });
           setIsGanttInitialized(true);
 
+          // Trigger a resize event after a short delay to ensure Gantt chart renders correctly
+          // especially if rendered in a hidden/initially small container
           setTimeout(() => {
             window.dispatchEvent(new Event('resize'));
           }, 100);
 
         } catch (err) {
             console.error("GanttChart: Error initializing Frappe Gantt instance:", err);
-            if (ganttInstance.current) {
-                ganttInstance.current = null;
-            }
-            ganttRef.current.innerHTML = '';
-            setIsGanttInitialized(false);
+            cleanupGantt(); // Ensure cleanup on initialization error
         }
 
       } else {
+        // If already initialized, just refresh with new data
         const tasksForRefresh = JSON.parse(JSON.stringify(memoizedFrappeTasks));
         ganttInstance.current.refresh(tasksForRefresh);
       }
     } else {
-      if (ganttInstance.current) {
-        ganttInstance.current = null;
-      }
-      if (ganttRef.current) {
-        ganttRef.current.innerHTML = '';
-      }
-      setIsGanttInitialized(false);
+      // If no tasks, ensure Gantt is cleaned up
+      cleanupGantt();
     }
 
-    return () => {
-      if (ganttInstance.current) {
-        ganttInstance.current = null;
-      }
-      if (ganttRef.current) {
-        ganttRef.current.innerHTML = '';
-      }
-      setIsGanttInitialized(false);
-    };
-  }, [memoizedFrappeTasks]);
+    return cleanupGantt; // Return cleanup function for useEffect
+  }, [memoizedFrappeTasks, isGanttInitialized]); // Depend on memoized tasks and initialization status
 
   if (loading && memoizedFrappeTasks.length === 0) {
     return (

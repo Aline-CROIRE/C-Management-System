@@ -7,7 +7,7 @@ import {
   FaBuilding, FaEdit, FaEye, FaTrash,
   FaSort, FaSortUp, FaSortDown, FaCode,
   FaChevronLeft, FaChevronRight, FaCheckCircle, FaExclamationTriangle, FaCalendarAlt, FaInfoCircle,
-  FaUserTie, FaUsers, FaTools // Removed FaDollarSign, FaFileInvoiceDollar as they are not used directly as icons in cells
+  FaUserTie, FaUsers, FaTools
 } from "react-icons/fa";
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
@@ -22,8 +22,8 @@ const TableWrapper = styled.div`
 `;
 
 const TableContainer = styled.div`
-  overflow-x: auto; /* This is crucial: enables horizontal scrolling if the table content is wider than its container */
-  -webkit-overflow-scrolling: touch; /* Improves scrolling on iOS */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 
   &::-webkit-scrollbar {
     height: 8px;
@@ -41,25 +41,22 @@ const TableContainer = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  /* Adjust min-width to accommodate all visible columns at different breakpoints.
-     This ensures the table has enough space even when columns are hidden,
-     but allows horizontal scroll if the screen is still too narrow. */
-  min-width: 1400px; /* Increased default min-width for all columns to fit without immediate scroll */
+  min-width: 1400px;
 
   @media (max-width: ${(props) => props.theme.breakpoints?.lg || "1024px"}) {
-    min-width: 950px; /* Reduced min-width as some columns ($hideOnTablet) are hidden */
+    min-width: 950px;
   }
 
   @media (max-width: ${(props) => props.theme.breakpoints?.md || "768px"}) {
-    min-width: 650px; /* Further reduced as more columns ($hideOnMobile) are hidden */
+    min-width: 650px;
   }
 
   @media (max-width: ${(props) => props.theme.breakpoints?.sm || "640px"}) {
-    min-width: 500px; /* Reduced for smaller screens, relies on more aggressive hiding + scroll */
+    min-width: 500px;
   }
 
-  @media (max-width: 480px) { /* Extra small mobile breakpoint */
-    min-width: 400px; /* Even tighter min-width */
+  @media (max-width: 480px) {
+    min-width: 400px;
   }
 `;
 
@@ -78,7 +75,7 @@ const TableHeaderCell = styled.th`
   border-bottom: 2px solid ${(props) => props.theme?.colors?.border || "#e2e8f0"};
   cursor: ${(props) => (props.$sortable ? "pointer" : "default")};
   user-select: none;
-  white-space: nowrap; /* Keep header cells on one line */
+  white-space: nowrap;
 
   &:hover .sort-icon {
     opacity: 1;
@@ -95,20 +92,16 @@ const TableHeaderCell = styled.th`
     font-size: 0.9rem;
   }
 
-  /* --- Conditional hiding for Table Header Cells --- */
-  /* Hide on screens smaller than 1024px (typically tablets) */
   ${(props) => props.$hideOnTablet && `
     @media (max-width: ${props.theme.breakpoints?.lg || "1024px"}) {
       display: none;
     }
   `}
-  /* Hide on screens smaller than 768px (typically mobile) */
   ${(props) => props.$hideOnMobile && `
     @media (max-width: ${props.theme.breakpoints?.md || "768px"}) {
       display: none;
     }
   `}
-  /* Hide on screens smaller than 480px (extra small mobile) */
   ${(props) => props.$hideOnXSMobile && `
     @media (max-width: 480px) {
       display: none;
@@ -133,7 +126,7 @@ const TableCell = styled.td`
   font-size: clamp(0.8rem, 2vw, 0.9rem);
   color: ${(props) => props.theme?.colors?.text || "#2d3748"};
   vertical-align: middle;
-  white-space: normal; /* Allow text to wrap by default */
+  white-space: normal;
 
   @media (max-width: 768px) {
     padding: 0.5rem 0.75rem;
@@ -141,23 +134,19 @@ const TableCell = styled.td`
   }
 
   ${(props) => props.$nowrap && `
-    white-space: nowrap; /* Force no wrap for specific content */
+    white-space: nowrap;
   `}
 
-  /* --- Conditional hiding for Table Cells --- */
-  /* Hide on screens smaller than 1024px (typically tablets) */
   ${(props) => props.$hideOnTablet && `
     @media (max-width: ${props.theme.breakpoints?.lg || "1024px"}) {
       display: none;
     }
   `}
-  /* Hide on screens smaller than 768px (typically mobile) */
   ${(props) => props.$hideOnMobile && `
     @media (max-width: ${props.theme.breakpoints?.md || "768px"}) {
       display: none;
     }
   `}
-  /* Hide on screens smaller than 480px (extra small mobile) */
   ${(props) => props.$hideOnXSMobile && `
     @media (max-width: 480px) {
       display: none;
@@ -168,14 +157,14 @@ const TableCell = styled.td`
 const SiteInfo = styled.div`
   display: flex;
   flex-direction: column;
-  min-width: 120px; /* Ensure site name column has a minimum width before wrapping */
+  min-width: 120px;
 `;
 
 const SiteName = styled.div`
   font-weight: 600;
   color: ${(props) => props.theme?.colors?.heading || "#1a202c"};
-  white-space: normal; /* Explicitly allow site name to wrap */
-  word-break: break-word; /* Further ensure long words break */
+  white-space: normal;
+  word-break: break-word;
 `;
 
 const SiteCode = styled.div`
@@ -184,7 +173,7 @@ const SiteCode = styled.div`
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  white-space: nowrap; /* Keep site code on one line */
+  white-space: nowrap;
 `;
 
 const StatusBadge = styled.span`
@@ -196,7 +185,7 @@ const StatusBadge = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  white-space: nowrap; /* Ensure status badge stays on one line */
+  white-space: nowrap;
 
   ${({ status, theme }) => {
     switch (status) {
@@ -215,8 +204,8 @@ const ActionButtonGroup = styled.div`
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  white-space: nowrap; /* Keep action buttons on one line */
-  flex-shrink: 0; /* Prevent buttons from shrinking */
+  white-space: nowrap;
+  flex-shrink: 0;
 `;
 
 const EmptyState = styled.div`
@@ -270,7 +259,6 @@ const SiteTable = ({
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
         
-        // Handle nested properties for sorting
         if (['budget', 'expenditure', 'progress', 'workersCount', 'equipmentCount'].includes(sortConfig.key)) {
             aValue = parseFloat(aValue || 0);
             bValue = parseFloat(bValue || 0);
@@ -341,7 +329,7 @@ const SiteTable = ({
               <TableHeaderCell $hideOnMobile $sortable $sorted={sortConfig.key === "projectCode"} onClick={() => handleSort("projectCode")}>Code {getSortIcon("projectCode")}</TableHeaderCell>
               <TableHeaderCell $hideOnTablet $sortable $sorted={sortConfig.key === "clientName"} onClick={() => handleSort("clientName")}>Client {getSortIcon("clientName")}</TableHeaderCell>
               <TableHeaderCell $sortable $sorted={sortConfig.key === "status"} onClick={() => handleSort("status")}>Status {getSortIcon("status")}</TableHeaderCell>
-              <TableHeaderCell $hideOnXSMobile $sortable $sorted={sortConfig.key === "progress"} onClick={() => handleSort("progress")}>Progress {getSortIcon("progress")}</TableHeaderCell> {/* Hide progress on XSMobile */}
+              <TableHeaderCell $hideOnXSMobile $sortable $sorted={sortConfig.key === "progress"} onClick={() => handleSort("progress")}>Progress {getSortIcon("progress")}</TableHeaderCell>
               <TableHeaderCell $hideOnTablet $sortable $sorted={sortConfig.key === "manager"} onClick={() => handleSort("manager")}>Manager {getSortIcon("manager")}</TableHeaderCell>
               <TableHeaderCell $hideOnMobile $sortable $sorted={sortConfig.key === "budget"} onClick={() => handleSort("budget")}>Budget {getSortIcon("budget")}</TableHeaderCell>
               <TableHeaderCell $hideOnTablet $sortable $sorted={sortConfig.key === "expenditure"} onClick={() => handleSort("expenditure")}>Expenditure {getSortIcon("expenditure")}</TableHeaderCell>
@@ -363,7 +351,7 @@ const SiteTable = ({
                 <TableCell $hideOnMobile $nowrap>{site.projectCode}</TableCell>
                 <TableCell $hideOnTablet>{site.clientName || 'N/A'}</TableCell>
                 <TableCell><StatusBadge status={site.status}>{getStatusIcon(site.status)} {site.status}</StatusBadge></TableCell>
-                <TableCell $hideOnXSMobile $nowrap>{site.progress}%</TableCell> {/* Hide progress on XSMobile */}
+                <TableCell $hideOnXSMobile $nowrap>{site.progress}%</TableCell>
                 <TableCell $hideOnTablet $nowrap><FaUserTie size={10} style={{marginRight: '0.25rem'}} />{site.manager}</TableCell>
                 <TableCell $hideOnMobile $nowrap>{formatCurrency(site.budget)}</TableCell>
                 <TableCell $hideOnTablet $nowrap>{formatCurrency(site.expenditure)}</TableCell>

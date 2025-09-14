@@ -11,8 +11,8 @@ import moment from "moment";
 import { useConstructionManagement } from "../../../hooks/useConstructionManagement";
 import LoadingSpinner from "../../common/LoadingSpinner";
 
-// NEW SUB-MODALS (COMMENTED OUT UNTIL CREATED)
-// import UploadDocumentModal from "../document-management/UploadDocumentModal";
+// --- NEW SUB-MODALS (Importing newly created placeholders) ---
+import UploadDocumentModal from "../document-management/UploadDocumentModal";
 
 
 const ModalOverlay = styled.div`
@@ -32,7 +32,7 @@ const ModalContent = styled.div`
   color: ${(props) => props.theme?.colors?.text || '#2d3748'};
   border-radius: ${(props) => props.theme?.borderRadius?.xl || '1rem'};
   width: 100%;
-  max-width: 800px; /* Increased max-width */
+  max-width: 800px;
   max-height: 90vh;
   box-shadow: ${(props) => props.theme?.shadows?.xl || '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'};
   overflow: hidden;
@@ -271,7 +271,7 @@ const ViewTaskModal = ({ task, onClose }) => {
   };
 
   // Document handlers
-  const handleUploadDocument = (refModel, refId) => { setDocumentRefContext({ refModel, refId }); setIsUploadDocumentModalOpen(true); };
+  const handleUploadDocumentClick = (refModel, refId) => { setDocumentRefContext({ refModel, refId }); setIsUploadDocumentModalOpen(true); };
   const handleDeleteDocument = async (docId, refModel, refId) => {
       if (window.confirm("Are you sure you want to delete this document?")) {
           await deleteDocument(docId, refModel, refId);
@@ -338,68 +338,71 @@ const ViewTaskModal = ({ task, onClose }) => {
             </DetailItem>
           )}
 
-            {/* NEW SECTION: Allocated Resources */}
-            {(task.allocatedWorkers?.length > 0 || task.allocatedEquipment?.length > 0 || task.requiredMaterials?.length > 0) && (
-                <SectionTitle><FaBoxes /> Allocated Resources</SectionTitle>
-            )}
-            {task.allocatedWorkers && task.allocatedWorkers.length > 0 && (
-                <DetailItem>
-                    <DetailLabel><FaUsers /> Workers</DetailLabel>
-                    <ListContainer>
-                        {task.allocatedWorkers.map(alloc => (
-                            <li key={alloc.worker?._id || alloc.worker}>
-                                <strong>{alloc.worker?.fullName || alloc.worker}</strong> ({alloc.worker?.role}) - Est. Hours: {alloc.estimatedHours} | Actual: {alloc.actualHours}
-                            </li>
-                        ))}
-                    </ListContainer>
-                </DetailItem>
-            )}
-            {task.allocatedEquipment && task.allocatedEquipment.length > 0 && (
-                <DetailItem>
-                    <DetailLabel><FaTools /> Equipment</DetailLabel>
-                    <ListContainer>
-                        {task.allocatedEquipment.map(alloc => (
-                            <li key={alloc.equipment?._id || alloc.equipment}>
-                                <strong>{alloc.equipment?.name || alloc.equipment}</strong> ({alloc.equipment?.assetTag}) - Est. Hours: {alloc.estimatedHours} | Actual: {alloc.actualHours}
-                            </li>
-                        ))}
-                    </ListContainer>
-                </DetailItem>
-            )}
-            {task.requiredMaterials && task.requiredMaterials.length > 0 && (
-                <DetailItem>
-                    <DetailLabel><FaBoxes /> Materials</DetailLabel>
-                    <ListContainer>
-                        {task.requiredMaterials.map((mat, index) => (
-                            <li key={index}>
-                                <strong>{mat.materialName}</strong>: {mat.quantity} {mat.unit} | Consumed: {mat.actualConsumption || 0}
-                            </li>
-                        ))}
-                    </ListContainer>
-                </DetailItem>
+            <SectionTitle><FaBoxes /> Allocated Resources</SectionTitle>
+            {(task.allocatedWorkers?.length > 0 || task.allocatedEquipment?.length > 0 || task.requiredMaterials?.length > 0) ? (
+              <>
+                {task.allocatedWorkers && task.allocatedWorkers.length > 0 && (
+                    <DetailItem>
+                        <DetailLabel><FaUsers /> Workers</DetailLabel>
+                        <ListContainer>
+                            {task.allocatedWorkers.map(alloc => (
+                                <li key={alloc.worker?._id || alloc.worker}>
+                                    <strong>{alloc.worker?.fullName || alloc.worker}</strong> ({alloc.worker?.role}) - Est. Hours: {alloc.estimatedHours} | Actual: {alloc.actualHours}
+                                </li>
+                            ))}
+                        </ListContainer>
+                    </DetailItem>
+                )}
+                {task.allocatedEquipment && task.allocatedEquipment.length > 0 && (
+                    <DetailItem>
+                        <DetailLabel><FaTools /> Equipment</DetailLabel>
+                        <ListContainer>
+                            {task.allocatedEquipment.map(alloc => (
+                                <li key={alloc.equipment?._id || alloc.equipment}>
+                                    <strong>{alloc.equipment?.name || alloc.equipment}</strong> ({alloc.equipment?.assetTag}) - Est. Hours: {alloc.estimatedHours} | Actual: {alloc.actualHours}
+                                </li>
+                            ))}
+                        </ListContainer>
+                    </DetailItem>
+                )}
+                {task.requiredMaterials && task.requiredMaterials.length > 0 && (
+                    <DetailItem>
+                        <DetailLabel><FaBoxes /> Materials</DetailLabel>
+                        <ListContainer>
+                            {task.requiredMaterials.map((mat, index) => (
+                                <li key={index}>
+                                    <strong>{mat.materialName}</strong>: {mat.quantity} {mat.unit} | Consumed: {mat.actualConsumption || 0}
+                                </li>
+                            ))}
+                        </ListContainer>
+                    </DetailItem>
+                )}
+              </>
+            ) : (
+                <p style={{fontStyle: 'italic', color: '#718096'}}>No resources allocated to this task.</p>
             )}
 
-            {/* NEW SECTION: Costing */}
+            <SectionTitle><FaMoneyBillWave /> Costing</SectionTitle>
             {(task.estimatedLaborCost > 0 || task.estimatedMaterialCost > 0 || task.estimatedEquipmentCost > 0 ||
-              task.actualLaborCost > 0 || task.actualMaterialCost > 0 || task.actualEquipmentCost > 0) && (
-                <SectionTitle><FaMoneyBillWave /> Costing</SectionTitle>
+              task.actualLaborCost > 0 || task.actualMaterialCost > 0 || task.actualEquipmentCost > 0) ? (
+                <DetailGrid>
+                    <DetailItem><DetailLabel><FaMoneyBillWave /> Estimated Labor</DetailLabel><DetailValue>{formatCurrency(task.estimatedLaborCost)}</DetailValue></DetailItem>
+                    <DetailItem><DetailLabel><FaMoneyBillWave /> Actual Labor</DetailLabel><DetailValue>{formatCurrency(task.actualLaborCost)}</DetailValue></DetailItem>
+                    <DetailItem><DetailLabel><FaBoxes /> Estimated Material</DetailLabel><DetailValue>{formatCurrency(task.estimatedMaterialCost)}</DetailValue></DetailItem>
+                    <DetailItem><DetailLabel><FaBoxes /> Actual Material</DetailLabel><DetailValue>{formatCurrency(task.actualMaterialCost)}</DetailValue></DetailItem>
+                    <DetailItem><DetailLabel><FaTools /> Estimated Equipment</DetailLabel><DetailValue>{formatCurrency(task.estimatedEquipmentCost)}</DetailValue></DetailItem>
+                    <DetailItem><DetailLabel><FaTools /> Actual Equipment</DetailLabel><DetailValue>{formatCurrency(task.actualEquipmentCost)}</DetailValue></DetailItem>
+                    <DetailItem><DetailLabel><FaBalanceScale /> Total Estimated Cost</DetailLabel><DetailValue>{formatCurrency((task.estimatedLaborCost || 0) + (task.estimatedMaterialCost || 0) + (task.estimatedEquipmentCost || 0))}</DetailValue></DetailItem>
+                    <DetailItem><DetailLabel><FaBalanceScale /> Total Actual Cost</DetailLabel><DetailValue>{formatCurrency((task.actualLaborCost || 0) + (task.actualMaterialCost || 0) + (task.actualEquipmentCost || 0))}</DetailValue></DetailItem>
+                </DetailGrid>
+            ) : (
+                <p style={{fontStyle: 'italic', color: '#718096'}}>No cost data available for this task.</p>
             )}
-            <DetailGrid>
-                <DetailItem><DetailLabel><FaMoneyBillWave /> Estimated Labor</DetailLabel><DetailValue>{formatCurrency(task.estimatedLaborCost)}</DetailValue></DetailItem>
-                <DetailItem><DetailLabel><FaMoneyBillWave /> Actual Labor</DetailLabel><DetailValue>{formatCurrency(task.actualLaborCost)}</DetailValue></DetailItem>
-                <DetailItem><DetailLabel><FaBoxes /> Estimated Material</DetailLabel><DetailValue>{formatCurrency(task.estimatedMaterialCost)}</DetailValue></DetailItem>
-                <DetailItem><DetailLabel><FaBoxes /> Actual Material</DetailLabel><DetailValue>{formatCurrency(task.actualMaterialCost)}</DetailValue></DetailItem>
-                <DetailItem><DetailLabel><FaTools /> Estimated Equipment</DetailLabel><DetailValue>{formatCurrency(task.estimatedEquipmentCost)}</DetailValue></DetailItem>
-                <DetailItem><DetailLabel><FaTools /> Actual Equipment</DetailLabel><DetailValue>{formatCurrency(task.actualEquipmentCost)}</DetailValue></DetailItem>
-                <DetailItem><DetailLabel><FaBalanceScale /> Total Estimated Cost</DetailLabel><DetailValue>{formatCurrency((task.estimatedLaborCost || 0) + (task.estimatedMaterialCost || 0) + (task.estimatedEquipmentCost || 0))}</DetailValue></DetailItem>
-                <DetailItem><DetailLabel><FaBalanceScale /> Total Actual Cost</DetailLabel><DetailValue>{formatCurrency((task.actualLaborCost || 0) + (task.actualMaterialCost || 0) + (task.actualEquipmentCost || 0))}</DetailValue></DetailItem>
-            </DetailGrid>
 
-            {/* NEW SECTION: Documents */}
             <SectionHeader>
                 <SectionTitle><FaPaperclip /> Documents</SectionTitle>
                 <SectionActions>
-                    <Button variant="primary" size="sm" onClick={() => handleUploadDocument('Task', task._id)}>
+                    <Button variant="primary" size="sm" onClick={() => handleUploadDocumentClick('Task', task._id)}>
                         <FaFileUpload /> Upload Document
                     </Button>
                 </SectionActions>
@@ -429,8 +432,6 @@ const ViewTaskModal = ({ task, onClose }) => {
           <Button variant="secondary" onClick={onClose}>Close</Button>
         </ModalFooter>
 
-        {/* --- MODAL RENDERING (COMMENTED OUT UNTIL FILES ARE CREATED) --- */}
-        {/*
         {isUploadDocumentModalOpen && (
             <UploadDocumentModal
                 onClose={() => setIsUploadDocumentModalOpen(false)}
@@ -440,7 +441,6 @@ const ViewTaskModal = ({ task, onClose }) => {
                 refModel={documentRefContext.refModel}
             />
         )}
-        */}
       </ModalContent>
     </ModalOverlay>,
     document.body
