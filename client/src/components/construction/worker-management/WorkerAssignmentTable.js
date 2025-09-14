@@ -4,20 +4,30 @@
 import React, { useState, useMemo } from "react";
 import styled from "styled-components";
 import {
-  FaUserCog, FaEdit, FaEye, FaTrash, FaSort, FaSortUp, FaSortDown, FaPhone, FaEnvelope, FaToolbox, FaCheckCircle, FaTimesCircle, FaInfoCircle, FaChevronLeft, FaChevronRight,
-  FaBriefcase, FaMoneyBillWave
+  FaUserCog,
+  FaEdit,
+  FaEye,
+  FaTrash,
+  FaSort,
+  FaSortUp,
+  FaSortDown,
+  FaPhone,
+  FaEnvelope,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaBriefcase,
+  FaMoneyBillWave,
 } from "react-icons/fa";
 import Button from "../../common/Button";
 import LoadingSpinner from "../../common/LoadingSpinner";
-// Assuming you have common Table and Pagination components
 import Table from "../../common/Table";
 import Pagination from "../../common/Pagination";
-
 
 const TableWrapper = styled.div`
   background: ${(props) => props.theme?.colors?.surface || "#ffffff"};
   border-radius: ${(props) => props.theme?.borderRadius?.xl || "1rem"};
-  box-shadow: ${(props) => props.theme?.shadows?.lg || "0 4px 6px rgba(0, 0, 0, 0.1)"};
+  box-shadow: ${(props) =>
+    props.theme?.shadows?.lg || "0 4px 6px rgba(0, 0, 0, 0.1)"};
   overflow: hidden;
   border: 1px solid ${(props) => props.theme?.colors?.border || "#e2e8f0"};
 `;
@@ -26,8 +36,15 @@ const EmptyState = styled.div`
   text-align: center;
   padding: 4rem 2rem;
   color: ${(props) => props.theme?.colors?.textSecondary || "#718096"};
-  .icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
-  h3 { color: ${(props) => props.theme?.colors?.text || "#2d3748"}; margin-bottom: 0.5rem; }
+  .icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+  h3 {
+    color: ${(props) => props.theme?.colors?.text || "#2d3748"};
+    margin-bottom: 0.5rem;
+  }
 `;
 
 const StatusBadge = styled.span`
@@ -40,14 +57,19 @@ const StatusBadge = styled.span`
   align-items: center;
   gap: 0.25rem;
 
-  ${({ isActive, theme }) => isActive ? 
-    `background: ${theme?.colors?.success || "#4CAF50"}20; color: ${theme?.colors?.success || "#4CAF50"};` :
-    `background: ${theme?.colors?.error || "#F44336"}20; color: ${theme?.colors?.error || "#F44336"};`
-  }
+  ${({ isActive, theme }) =>
+    isActive
+      ? `background: ${theme?.colors?.success || "#4CAF50"}20; 
+         color: ${theme?.colors?.success || "#4CAF50"};`
+      : `background: ${theme?.colors?.error || "#F44336"}20; 
+         color: ${theme?.colors?.error || "#F44336"};`}
 `;
 
-const ActionButtonGroup = styled.div` display: flex; align-items: center; gap: 0.25rem; `;
-
+const ActionButtonGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+`;
 
 const WorkerAssignmentTable = ({
   workers = [],
@@ -58,7 +80,10 @@ const WorkerAssignmentTable = ({
   onView,
   onPageChange,
 }) => {
-  const [sortConfig, setSortConfig] = useState({ key: "fullName", direction: "asc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "fullName",
+    direction: "asc",
+  });
 
   const sortedWorkers = useMemo(() => {
     let sortableItems = [...workers];
@@ -66,25 +91,23 @@ const WorkerAssignmentTable = ({
       sortableItems.sort((a, b) => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
-        
-        if (sortConfig.key === 'isActive') {
-            aValue = aValue ? 1 : 0;
-            bValue = bValue ? 1 : 0;
+
+        if (sortConfig.key === "isActive") {
+          aValue = aValue ? 1 : 0;
+          bValue = bValue ? 1 : 0;
         }
-        if (sortConfig.key === 'hourlyRate') {
-            aValue = parseFloat(aValue || 0);
-            bValue = parseFloat(bValue || 0);
+        if (sortConfig.key === "hourlyRate") {
+          aValue = parseFloat(aValue || 0);
+          bValue = parseFloat(bValue || 0);
         }
-        // Assuming role, employmentType are strings
-        if (['role', 'employmentType', 'fullName'].includes(sortConfig.key)) {
-            aValue = aValue || '';
-            bValue = bValue || '';
+        if (["role", "employmentType", "fullName"].includes(sortConfig.key)) {
+          aValue = aValue || "";
+          bValue = bValue || "";
         }
 
+        if (typeof aValue === "string") aValue = aValue.toLowerCase();
+        if (typeof bValue === "string") bValue = bValue.toLowerCase();
 
-        if (typeof aValue === 'string') aValue = aValue.toLowerCase();
-        if (typeof bValue === 'string') bValue = bValue.toLowerCase();
-        
         if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
         if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
@@ -93,21 +116,159 @@ const WorkerAssignmentTable = ({
     return sortableItems;
   }, [workers, sortConfig]);
 
+  const formatCurrency = (amount) =>
+    `Rwf ${Number(amount || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })}`;
+
+  const columns = useMemo(
+    () => [
+      {
+        header: "Full Name",
+        accessor: "fullName",
+        Cell: ({ value }) => <strong>{value}</strong>,
+        sortable: true,
+      },
+      {
+        header: "Role",
+        accessor: "role",
+        Cell: ({ value }) => value || "N/A",
+        sortable: true,
+        className: "hide-on-mobile",
+      },
+      {
+        header: "Contact",
+        accessor: "contactNumber",
+        Cell: ({ value }) =>
+          value ? (
+            <>
+              <FaPhone size={10} style={{ marginRight: "0.5em" }} />
+              {value}
+            </>
+          ) : (
+            "N/A"
+          ),
+        className: "hide-on-tablet",
+      },
+      {
+        header: "Email",
+        accessor: "email",
+        Cell: ({ value }) =>
+          value ? (
+            <>
+              <FaEnvelope size={10} style={{ marginRight: "0.5em" }} />
+              {value}
+            </>
+          ) : (
+            "N/A"
+          ),
+        className: "hide-on-tablet",
+      },
+      {
+        header: "Rate/Hr",
+        accessor: "hourlyRate",
+        Cell: ({ value }) =>
+          value ? (
+            <>
+              <FaMoneyBillWave size={10} style={{ marginRight: "0.5em" }} />
+              {formatCurrency(value)}
+            </>
+          ) : (
+            "N/A"
+          ),
+        sortable: true,
+        className: "hide-on-tablet",
+      },
+      {
+        header: "Employment Type",
+        accessor: "employmentType",
+        Cell: ({ value }) => (
+          <>
+            <FaBriefcase size={10} style={{ marginRight: "0.5em" }} />
+            {value || "N/A"}
+          </>
+        ),
+        sortable: true,
+        className: "hide-on-tablet",
+      },
+      {
+        header: "Active",
+        accessor: "isActive",
+        Cell: ({ value }) => (
+          <StatusBadge isActive={value}>
+            {value ? <FaCheckCircle /> : <FaTimesCircle />}{" "}
+            {value ? "Active" : "Inactive"}
+          </StatusBadge>
+        ),
+        sortable: true,
+      },
+      {
+        header: "Actions",
+        accessor: "actions",
+        Cell: ({ row: { original: worker } }) => (
+          <ActionButtonGroup>
+            <Button
+              size="sm"
+              variant="ghost"
+              iconOnly
+              title="View Details"
+              onClick={() => onView(worker)}
+            >
+              <FaEye />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              iconOnly
+              title="Edit Worker"
+              onClick={() => onEdit(worker)}
+            >
+              <FaEdit />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              iconOnly
+              title="Delete Worker"
+              onClick={() => onDelete(worker._id)}
+            >
+              <FaTrash style={{ color: "#c53030" }} />
+            </Button>
+          </ActionButtonGroup>
+        ),
+      },
+    ],
+    [onView, onEdit, onDelete, formatCurrency]
+  );
+
   const handleSort = (key) => {
-    setSortConfig(current => ({
+    setSortConfig((current) => ({
       key,
-      direction: current.key === key && current.direction === "asc" ? "desc" : "asc"
+      direction:
+        current.key === key && current.direction === "asc" ? "desc" : "asc",
     }));
   };
 
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return <FaSort className="sort-icon" />;
-    return sortConfig.direction === "asc" ? <FaSortUp className="sort-icon" /> : <FaSortDown className="sort-icon" />;
+    return sortConfig.direction === "asc" ? (
+      <FaSortUp className="sort-icon" />
+    ) : (
+      <FaSortDown className="sort-icon" />
+    );
   };
 
   if (loading && workers.length === 0) {
     return (
-      <TableWrapper style={{ minHeight: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <TableWrapper
+        style={{
+          minHeight: "200px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         <LoadingSpinner />
       </TableWrapper>
     );
@@ -124,103 +285,28 @@ const WorkerAssignmentTable = ({
       </TableWrapper>
     );
   }
-  
+
   const totalPages = pagination.totalPages || 1;
   const currentPage = pagination.page || 1;
-  const totalItems = pagination.total || 0;
-  const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-
-
-  const columns = useMemo(() => [
-    {
-      header: 'Full Name',
-      accessor: 'fullName',
-      Cell: ({ value }) => <strong>{value}</strong>,
-      sortable: true
-    },
-    {
-      header: 'Role',
-      accessor: 'role',
-      Cell: ({ value }) => value || 'N/A',
-      sortable: true,
-      className: 'hide-on-mobile'
-    },
-    {
-      header: 'Contact',
-      accessor: 'contactNumber',
-      Cell: ({ value }) => value ? <><FaPhone size={10} style={{marginRight: '0.5em'}}/>{value}</> : 'N/A',
-      className: 'hide-on-tablet'
-    },
-    {
-      header: 'Email',
-      accessor: 'email',
-      Cell: ({ value }) => value ? <><FaEnvelope size={10} style={{marginRight: '0.5em'}}/>{value}</> : 'N/A',
-      className: 'hide-on-tablet'
-    },
-    {
-      header: 'Rate/Hr',
-      accessor: 'hourlyRate',
-      Cell: ({ value }) => value ? <><FaMoneyBillWave size={10} style={{marginRight: '0.5em'}}/>{formatCurrency(value)}</> : 'N/A',
-      sortable: true,
-      className: 'hide-on-tablet'
-    },
-    {
-      header: 'Employment Type',
-      accessor: 'employmentType',
-      Cell: ({ value }) => <><FaBriefcase size={10} style={{marginRight: '0.5em'}}/>{value || 'N/A'}</>,
-      sortable: true,
-      className: 'hide-on-tablet'
-    },
-    {
-      header: 'Active',
-      accessor: 'isActive',
-      Cell: ({ value }) => (
-        <StatusBadge isActive={value}>
-          {value ? <FaCheckCircle /> : <FaTimesCircle />} {value ? 'Active' : 'Inactive'}
-        </StatusBadge>
-      ),
-      sortable: true
-    },
-    {
-      header: 'Actions',
-      accessor: 'actions',
-      Cell: ({ row: { original: worker } }) => (
-        <ActionButtonGroup>
-          <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(worker)}><FaEye /></Button>
-          <Button size="sm" variant="ghost" iconOnly title="Edit Worker" onClick={() => onEdit(worker)}><FaEdit /></Button>
-          <Button size="sm" variant="ghost" iconOnly title="Delete Worker" onClick={() => onDelete(worker._id)}><FaTrash style={{color: '#c53030'}}/></Button>
-        </ActionButtonGroup>
-      ),
-    },
-  ], [onView, onEdit, onDelete, formatCurrency]); // Recalculate columns if these props change
 
   return (
     <TableWrapper>
-      {/*
-        Using a simple HTML table for TaskTable and SiteTable to maintain custom
-        responsive logic. The common Table component from ../common/Table.js
-        is a generic component that needs to be adapted.
-        For WorkerAssignmentTable, I'm explicitly using a common Table as requested,
-        demonstrating how it would ideally be used.
-      */}
       <Table
-        columns={columns.map(col => ({
+        columns={columns.map((col) => ({
           ...col,
-          // Custom header rendering to include sort icons and click handlers
           headerRenderer: () => (
             <th
               key={col.accessor}
               className={col.className}
-              style={{ cursor: col.sortable ? 'pointer' : 'default' }}
+              style={{ cursor: col.sortable ? "pointer" : "default" }}
               onClick={col.sortable ? () => handleSort(col.accessor) : undefined}
             >
               {col.header} {col.sortable && getSortIcon(col.accessor)}
             </th>
-          )
+          ),
         }))}
         data={sortedWorkers}
         loading={loading}
-        // Assuming common Table handles its own styling for cells, or you pass custom Cell component
       />
       <Pagination
         currentPage={currentPage}
