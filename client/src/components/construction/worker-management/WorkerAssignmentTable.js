@@ -259,6 +259,7 @@ const WorkerAssignmentTable = ({
     );
   };
 
+  // ✅ early returns AFTER all hooks
   if (loading && workers.length === 0) {
     return (
       <TableWrapper
