@@ -43,6 +43,7 @@ app.use(
 const allowedOrigins = [
   "http://localhost:3000",
   "https://c-management-system-73dy.vercel.app",
+  "https://c-management-system-un5e.vercel.app"
 ];
 
 // Add CLIENT_URL from .env if it's not already in allowedOrigins
