@@ -1,3 +1,4 @@
+// client/src/components/construction/task-management/AddEditTaskModal.js
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -232,7 +233,7 @@ const NewWorkerForm = styled.div`
 
 const AddEditTaskModal = ({ onClose, onSave, loading, taskToEdit = null, sites = [], allTasks = [], workers = [] }) => {
     const isEditMode = Boolean(taskToEdit);
-    const { createWorker, loading: workerCreatingLoading } = useConstructionManagement(); // Removed error, toast in hook handles it
+    const { createWorker, loading: workerCreatingLoading } = useConstructionManagement();
 
     const [formData, setFormData] = useState({
         site: '',
@@ -243,7 +244,7 @@ const AddEditTaskModal = ({ onClose, onSave, loading, taskToEdit = null, sites =
         startDate: moment().format('YYYY-MM-DD'),
         dueDate: moment().add(7, 'days').format('YYYY-MM-DD'),
         actualCompletionDate: '',
-        assignedTo: [], // Array of worker IDs
+        assignedTo: [],
         progress: '0',
         parentTask: '',
         dependencies: [],
@@ -271,10 +272,10 @@ const AddEditTaskModal = ({ onClose, onSave, loading, taskToEdit = null, sites =
                 startDate: taskToEdit.startDate ? moment(taskToEdit.startDate).format('YYYY-MM-DD') : '',
                 dueDate: taskToEdit.dueDate ? moment(taskToEdit.dueDate).format('YYYY-MM-DD') : '',
                 actualCompletionDate: taskToEdit.actualCompletionDate ? moment(taskToEdit.actualCompletionDate).format('YYYY-MM-DD') : '',
-                assignedTo: taskToEdit.assignedTo?.map(worker => worker._id || worker) || [], // Ensure array of IDs
+                assignedTo: taskToEdit.assignedTo?.map(worker => worker._id || worker) || [],
                 progress: taskToEdit.progress?.toString() ?? '0',
                 parentTask: taskToEdit.parentTask?._id || '',
-                dependencies: taskToEdit.dependencies?.map(dep => dep._id || dep) || [],
+                dependencies: taskToEdit.dependencies?.map(dep => dep.taskId?._id || dep.taskId || dep) || [], // Ensure correct extraction for dependencies
                 notes: taskToEdit.notes || '',
             });
         } else {
@@ -299,10 +300,10 @@ const AddEditTaskModal = ({ onClose, onSave, loading, taskToEdit = null, sites =
                 if (value === "Completed") {
                     newFormData.progress = '100';
                     newFormData.actualCompletionDate = moment().format('YYYY-MM-DD');
-                } else if (value !== "Completed" && prev.actualCompletionDate) { // Correctly uses `prev`
+                } else if (value !== "Completed" && prev.actualCompletionDate) {
                     newFormData.actualCompletionDate = '';
                 }
-                newFormData[name] = newValue; // Update status
+                newFormData[name] = newValue;
                 return newFormData;
             }
             
@@ -362,6 +363,7 @@ const AddEditTaskModal = ({ onClose, onSave, loading, taskToEdit = null, sites =
                 }));
                 setNewWorkerData({ fullName: '', role: 'General Labor', contactNumber: '', email: '' });
                 setShowNewWorkerForm(false);
+                toast.success("New worker added and assigned!");
             } else {
                  console.error("Failed to create worker: No data._id returned by performCrudAction, or unexpected response.", createdWorkerData);
                  toast.error("Failed to create worker due to unexpected internal handling.");
@@ -382,17 +384,9 @@ const AddEditTaskModal = ({ onClose, onSave, loading, taskToEdit = null, sites =
         if (payload.parentTask === '') {
             payload.parentTask = null;
         }
-        if (!Array.isArray(payload.assignedTo)) {
-            payload.assignedTo = [];
-        } else {
-            payload.assignedTo = payload.assignedTo.map(item => item._id || item); // Ensure we send only IDs
-        }
-        if (!Array.isArray(payload.dependencies)) {
-            payload.dependencies = [];
-        } else {
-            payload.dependencies = payload.dependencies.map(item => item._id || item); // Ensure we send only IDs
-        }
-
+        // Ensure assignedTo and dependencies are arrays of IDs (not populated objects)
+        payload.assignedTo = payload.assignedTo.filter(Boolean); // Filter out any null/undefined
+        payload.dependencies = payload.dependencies.filter(Boolean).map(depId => ({ taskId: depId, type: 'FS', lag: 0 })); // Default to FS, 0 lag for new deps
 
         try {
             if (isEditMode) {
@@ -411,7 +405,7 @@ const AddEditTaskModal = ({ onClose, onSave, loading, taskToEdit = null, sites =
     const workerRoles = ['General Labor', 'Skilled Labor', 'Supervisor', 'Electrician', 'Plumber', 'Heavy Equipment Operator', 'Other'];
 
 
-    const availableTasksForSite = allTasks.filter(task => 
+    const availableTasksForSite = allTasks.filter(task =>
         task._id !== taskToEdit?._id &&
         task.site?._id === formData.site
     );

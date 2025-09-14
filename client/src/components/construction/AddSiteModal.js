@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
 import { FaTimes, FaSave, FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaDollarSign, FaUserTie, FaCode, FaChartPie, FaInfoCircle, FaClipboardList,
-         FaUsers, FaHardHat, FaLightbulb, FaPlusCircle, FaTrashAlt } from "react-icons/fa"; // Added new icons
+         FaUsers, FaHardHat, FaLightbulb, FaPlusCircle, FaTrashAlt, FaFileInvoiceDollar, FaExclamationTriangle } from "react-icons/fa";
 import Button from "../common/Button";
 import Input from "../common/Input";
 import Select from "../common/Select";
@@ -178,7 +178,7 @@ const SectionTitle = styled.h3`
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    grid-column: 1 / -1; // Span full width
+    grid-column: 1 / -1;
     border-bottom: 1px solid ${(props) => props.theme?.colors?.border || "#e2e8f0"};
     padding-bottom: 0.5rem;
 `;
@@ -204,9 +204,20 @@ const BudgetLineItem = styled.div`
         grid-template-columns: 1fr;
         button {
             width: 100%;
+            margin-top: 0.5rem;
+        }
+        & > ${FormGroup} {
+            width: 100%;
         }
     }
 `;
+
+const ErrorText = styled.p`
+  color: ${(props) => props.theme?.colors?.error || '#e53e3e'};
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+`;
+
 
 const ModalFooter = styled.div`
   padding: 1.5rem 2rem;
@@ -231,7 +242,7 @@ const AddSiteModal = ({ onClose, onSave, loading, siteToEdit = null }) => {
     const [formData, setFormData] = useState({
         name: '', projectCode: '', type: 'Commercial', location: '', startDate: '', endDate: '',
         budget: '', manager: '', description: '', notes: '', progress: '0', status: 'Planning', expenditure: '0',
-        clientName: '', contractValue: '', phase: 'Planning', riskLevel: 'Low', budgetDetails: [], // NEW FIELDS
+        clientName: '', contractValue: '', phase: 'Planning', riskLevel: 'Low', budgetDetails: [],
     });
     const [errors, setErrors] = useState({});
 
@@ -251,11 +262,11 @@ const AddSiteModal = ({ onClose, onSave, loading, siteToEdit = null }) => {
                 notes: siteToEdit.notes || '',
                 progress: siteToEdit.progress?.toString() ?? '0',
                 status: siteToEdit.status || 'Planning',
-                clientName: siteToEdit.clientName || '', // NEW
-                contractValue: siteToEdit.contractValue?.toString() ?? '0', // NEW
-                phase: siteToEdit.phase || 'Planning', // NEW
-                riskLevel: siteToEdit.riskLevel || 'Low', // NEW
-                budgetDetails: siteToEdit.budgetDetails || [], // NEW
+                clientName: siteToEdit.clientName || '',
+                contractValue: siteToEdit.contractValue?.toString() ?? '0',
+                phase: siteToEdit.phase || 'Planning',
+                riskLevel: siteToEdit.riskLevel || 'Low',
+                budgetDetails: siteToEdit.budgetDetails || [],
             });
         } else {
             setFormData({
@@ -302,10 +313,17 @@ const AddSiteModal = ({ onClose, onSave, loading, siteToEdit = null }) => {
         if (!formData.startDate) newErrors.startDate = "Start date is required.";
         if (!formData.endDate) newErrors.endDate = "End date is required.";
         if (!formData.manager) newErrors.manager = "Manager name is required.";
-        if (!formData.budget || parseFloat(formData.budget) < 0) newErrors.budget = "Valid budget is required.";
+        if (parseFloat(formData.budget) < 0) newErrors.budget = "Valid budget is required.";
         if (formData.startDate && formData.endDate && moment(formData.endDate).isBefore(moment(formData.startDate))) {
             newErrors.endDate = "End date cannot be before start date.";
         }
+        
+        formData.budgetDetails.forEach((item, index) => {
+            if (!item.category) newErrors[`budgetDetails[${index}].category`] = `Category for line item ${index + 1} is required.`;
+            if (parseFloat(item.plannedAmount) < 0 || isNaN(parseFloat(item.plannedAmount))) newErrors[`budgetDetails[${index}].plannedAmount`] = `Planned amount for line item ${index + 1} must be a non-negative number.`;
+            if (parseFloat(item.actualAmount) < 0 || isNaN(parseFloat(item.actualAmount))) newErrors[`budgetDetails[${index}].actualAmount`] = `Actual amount for line item ${index + 1} must be a non-negative number.`;
+        });
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -320,11 +338,10 @@ const AddSiteModal = ({ onClose, onSave, loading, siteToEdit = null }) => {
         payload.progress = Number(payload.progress);
         payload.contractValue = Number(payload.contractValue);
 
-        // Convert budgetDetails planned/actual amounts to numbers
         payload.budgetDetails = payload.budgetDetails.map(item => ({
             ...item,
             plannedAmount: Number(item.plannedAmount),
-            actualAmount: Number(item.actualAmount || 0), // Ensure actualAmount is number, default to 0
+            actualAmount: Number(item.actualAmount || 0),
         }));
 
         try {
@@ -336,14 +353,13 @@ const AddSiteModal = ({ onClose, onSave, loading, siteToEdit = null }) => {
             onClose();
         } catch (err) {
             console.error("Failed to save site:", err);
-            // Error handling is already in useConstructionManagement and api.js interceptor
         }
     };
 
     const siteTypes = ['Commercial', 'Residential', 'Industrial', 'Infrastructure', 'Other'];
     const siteStatuses = ['Planning', 'Active', 'On-Hold', 'Delayed', 'Completed', 'Cancelled'];
-    const phases = ['Initiation', 'Planning', 'Execution', 'Monitoring', 'Closing']; // NEW
-    const riskLevels = ['Low', 'Medium', 'High', 'Critical']; // NEW
+    const phases = ['Initiation', 'Planning', 'Execution', 'Monitoring', 'Closing'];
+    const riskLevels = ['Low', 'Medium', 'High', 'Critical'];
     const budgetCategories = ['Labor', 'Materials', 'Equipment', 'Subcontractors', 'Permits', 'Overhead', 'Other'];
 
 
@@ -357,31 +373,31 @@ const AddSiteModal = ({ onClose, onSave, loading, siteToEdit = null }) => {
                 <ModalBody>
                     <SectionTitle><FaBuilding /> Basic Site Details</SectionTitle>
                     <FormGrid>
-                        <FormGroup><Label htmlFor="name"><FaBuilding /> Site Name *</Label><ThemedInput id="name" name="name" value={formData.name} onChange={handleInputChange} required error={errors.name} /></FormGroup>
-                        <FormGroup><Label htmlFor="projectCode"><FaCode /> Project Code *</Label><ThemedInput id="projectCode" name="projectCode" value={formData.projectCode} onChange={handleInputChange} required error={errors.projectCode} /></FormGroup>
-                        <FormGroup><Label htmlFor="clientName"><FaUsers /> Client Name</Label><ThemedInput id="clientName" name="clientName" value={formData.clientName} onChange={handleInputChange} /></FormGroup> {/* NEW */}
-                        <FormGroup><Label htmlFor="contractValue"><FaDollarSign /> Contract Value</Label><ThemedInput id="contractValue" name="contractValue" type="number" step="0.01" value={formData.contractValue} onChange={handleInputChange} min="0" /></FormGroup> {/* NEW */}
+                        <FormGroup><Label htmlFor="name"><FaBuilding /> Site Name *</Label><ThemedInput id="name" name="name" value={formData.name} onChange={handleInputChange} required error={errors.name} /><ErrorText>{errors.name}</ErrorText></FormGroup>
+                        <FormGroup><Label htmlFor="projectCode"><FaCode /> Project Code *</Label><ThemedInput id="projectCode" name="projectCode" value={formData.projectCode} onChange={handleInputChange} required error={errors.projectCode} /><ErrorText>{errors.projectCode}</ErrorText></FormGroup>
+                        <FormGroup><Label htmlFor="clientName"><FaUsers /> Client Name</Label><ThemedInput id="clientName" name="clientName" value={formData.clientName} onChange={handleInputChange} /></FormGroup>
+                        <FormGroup><Label htmlFor="contractValue"><FaDollarSign /> Contract Value</Label><ThemedInput id="contractValue" name="contractValue" type="number" step="0.01" value={formData.contractValue} onChange={handleInputChange} min="0" /></FormGroup>
                         <FormGroup><Label htmlFor="type"><FaInfoCircle /> Project Type</Label><ThemedSelect id="type" name="type" value={formData.type} onChange={handleInputChange}>{siteTypes.map(type => <option key={type} value={type}>{type}</option>)}</ThemedSelect></FormGroup>
-                        <FormGroup><Label htmlFor="location"><FaMapMarkerAlt /> Location *</Label><ThemedInput id="location" name="location" value={formData.location} onChange={handleInputChange} required error={errors.location} /></FormGroup>
-                        <FormGroup><Label htmlFor="manager"><FaUserTie /> Manager *</Label><ThemedInput id="manager" name="manager" value={formData.manager} onChange={handleInputChange} required error={errors.manager} /></FormGroup>
-                        <FormGroup><Label htmlFor="riskLevel"><FaExclamationTriangle /> Risk Level</Label><ThemedSelect id="riskLevel" name="riskLevel" value={formData.riskLevel} onChange={handleInputChange}>{riskLevels.map(level => <option key={level} value={level}>{level}</option>)}</ThemedSelect></FormGroup> {/* NEW */}
+                        <FormGroup><Label htmlFor="location"><FaMapMarkerAlt /> Location *</Label><ThemedInput id="location" name="location" value={formData.location} onChange={handleInputChange} required error={errors.location} /><ErrorText>{errors.location}</ErrorText></FormGroup>
+                        <FormGroup><Label htmlFor="manager"><FaUserTie /> Manager *</Label><ThemedInput id="manager" name="manager" value={formData.manager} onChange={handleInputChange} required error={errors.manager} /><ErrorText>{errors.manager}</ErrorText></FormGroup>
+                        <FormGroup><Label htmlFor="riskLevel"><FaExclamationTriangle /> Risk Level</Label><ThemedSelect id="riskLevel" name="riskLevel" value={formData.riskLevel} onChange={handleInputChange}>{riskLevels.map(level => <option key={level} value={level}>{level}</option>)}</ThemedSelect></FormGroup>
                     </FormGrid>
                     
                     <SectionTitle><FaCalendarAlt /> Timeline & Progress</SectionTitle>
                     <FormGrid>
-                        <FormGroup><Label htmlFor="startDate"><FaCalendarAlt /> Start Date *</Label><ThemedInput id="startDate" name="startDate" type="date" value={formData.startDate} onChange={handleInputChange} required error={errors.startDate} /></FormGroup>
-                        <FormGroup><Label htmlFor="endDate"><FaCalendarAlt /> Expected End Date *</Label><ThemedInput id="endDate" name="endDate" type="date" value={formData.endDate} onChange={handleInputChange} required error={errors.endDate} /></FormGroup>
+                        <FormGroup><Label htmlFor="startDate"><FaCalendarAlt /> Start Date *</Label><ThemedInput id="startDate" name="startDate" type="date" value={formData.startDate} onChange={handleInputChange} required error={errors.startDate} /><ErrorText>{errors.startDate}</ErrorText></FormGroup>
+                        <FormGroup><Label htmlFor="endDate"><FaCalendarAlt /> Expected End Date *</Label><ThemedInput id="endDate" name="endDate" type="date" value={formData.endDate} onChange={handleInputChange} required error={errors.endDate} /><ErrorText>{errors.endDate}</ErrorText></FormGroup>
                         
-                        <FormGroup><Label htmlFor="phase"><FaChartPie /> Project Phase</Label><ThemedSelect id="phase" name="phase" value={formData.phase} onChange={handleInputChange}>{phases.map(p => <option key={p} value={p}>{p}</option>)}</ThemedSelect></FormGroup> {/* NEW */}
+                        <FormGroup><Label htmlFor="phase"><FaChartPie /> Project Phase</Label><ThemedSelect id="phase" name="phase" value={formData.phase} onChange={handleInputChange}>{phases.map(p => <option key={p} value={p}>{p}</option>)}</ThemedSelect></FormGroup>
 
-                        {isEditMode && ( // Show these fields only in edit mode
+                        {isEditMode && (
                           <>
                             <FormGroup><Label htmlFor="progress"><FaChartPie /> Progress (%)</Label><ThemedInput id="progress" name="progress" type="number" value={formData.progress} onChange={handleInputChange} min="0" max="100" /></FormGroup>
                             <FormGroup><Label htmlFor="status"><FaInfoCircle /> Status</Label><ThemedSelect id="status" name="status" value={formData.status} onChange={handleInputChange}>{siteStatuses.map(status => <option key={status} value={status}>{status}</option>)}</ThemedSelect></FormGroup>
                             <FormGroup><Label htmlFor="expenditure"><FaDollarSign /> Current Expenditure</Label><ThemedInput id="expenditure" name="expenditure" type="number" step="0.01" value={formData.expenditure} onChange={handleInputChange} min="0" /></FormGroup>
                           </>
                         )}
-                        <FormGroup><Label htmlFor="budget"><FaDollarSign /> Total Allocated Budget *</Label><ThemedInput id="budget" name="budget" type="number" step="0.01" value={formData.budget} onChange={handleInputChange} min="0" required error={errors.budget} /></FormGroup>
+                        <FormGroup><Label htmlFor="budget"><FaDollarSign /> Total Allocated Budget *</Label><ThemedInput id="budget" name="budget" type="number" step="0.01" value={formData.budget} onChange={handleInputChange} min="0" required error={errors.budget} /><ErrorText>{errors.budget}</ErrorText></FormGroup>
                     </FormGrid>
 
                     <SectionTitle><FaFileInvoiceDollar /> Budget Details</SectionTitle>
@@ -393,6 +409,7 @@ const AddSiteModal = ({ onClose, onSave, loading, siteToEdit = null }) => {
                                     <ThemedSelect id={`budgetCategory-${index}`} name={`budgetDetails[${index}].category`} value={item.category} onChange={(e) => handleBudgetDetailChange(index, 'category', e.target.value)}>
                                         {budgetCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                     </ThemedSelect>
+                                    <ErrorText>{errors[`budgetDetails[${index}].category`]}</ErrorText>
                                 </FormGroup>
                                 <FormGroup>
                                     <Label htmlFor={`budgetDesc-${index}`}>Description</Label>
@@ -401,6 +418,12 @@ const AddSiteModal = ({ onClose, onSave, loading, siteToEdit = null }) => {
                                 <FormGroup>
                                     <Label htmlFor={`plannedAmount-${index}`}>Planned Amount</Label>
                                     <ThemedInput id={`plannedAmount-${index}`} name={`budgetDetails[${index}].plannedAmount`} type="number" step="0.01" value={item.plannedAmount} onChange={(e) => handleBudgetDetailChange(index, 'plannedAmount', e.target.value)} min="0" required />
+                                    <ErrorText>{errors[`budgetDetails[${index}].plannedAmount`]}</ErrorText>
+                                </FormGroup>
+                                <FormGroup>
+                                    <Label htmlFor={`actualAmount-${index}`}>Actual Amount</Label>
+                                    <ThemedInput id={`actualAmount-${index}`} name={`budgetDetails[${index}].actualAmount`} type="number" step="0.01" value={item.actualAmount} onChange={(e) => handleBudgetDetailChange(index, 'actualAmount', e.target.value)} min="0" />
+                                    <ErrorText>{errors[`budgetDetails[${index}].actualAmount`]}</ErrorText>
                                 </FormGroup>
                                 <Button type="button" variant="danger" size="sm" iconOnly onClick={() => removeBudgetLineItem(index)} style={{alignSelf: 'flex-end'}}>
                                     <FaTrashAlt />

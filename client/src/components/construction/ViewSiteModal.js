@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
 import { FaTimes, FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaDollarSign, FaUserTie, FaCode, FaChartPie, FaUsers, FaTools, FaCheckCircle, FaExclamationTriangle, FaClipboardList, FaInfoCircle, FaTasks, FaPlus,
-         FaFileInvoiceDollar, FaHardHat, FaLightbulb, FaGavel, FaShoppingCart, FaMoneyBillWave, FaPaperclip, FaUserPlus, FaTrashAlt, FaEdit, FaEye, FaFileUpload, FaDownload } from "react-icons/fa"; // Added new icons, including FaPaperclip
+         FaFileInvoiceDollar, FaHardHat, FaLightbulb, FaGavel, FaShoppingCart, FaMoneyBillWave, FaPaperclip, FaUserPlus, FaTrashAlt, FaEdit, FaEye, FaFileUpload, FaDownload } from "react-icons/fa";
 import Button from "../common/Button";
 import moment from "moment";
 import LoadingSpinner from "../common/LoadingSpinner";
@@ -15,19 +15,18 @@ import AddEditTaskModal from "./task-management/AddEditTaskModal";
 import ViewTaskModal from "./task-management/ViewTaskModal";
 import { useConstructionManagement } from "../../hooks/useConstructionManagement";
 
-// --- NEW SUB-MODALS (Commented out until created) ---
-// import AddEditMilestoneModal from './milestone-management/AddEditMilestoneModal';
-// import AddEditChangeOrderModal from './change-order-management/AddEditChangeOrderModal';
-// import ViewChangeOrderModal from './change-order-management/ViewChangeOrderModal';
-// import AddEditSiteMaterialModal from './material-management/AddEditSiteMaterialModal';
-// import AddEditMaterialRequestModal from './material-management/AddEditMaterialRequestModal';
-// import ViewMaterialRequestModal from './material-management/ViewMaterialRequestModal';
-// import AddEditPaymentRequestModal from './financial-management/AddEditPaymentRequestModal';
-// import ViewPaymentRequestModal from './financial-management/ViewPaymentRequestModal';
-// import AddEditSafetyIncidentModal from './safety-management/AddEditSafetyIncidentModal';
-// import ViewSafetyIncidentModal from './safety-management/ViewSafetyIncidentModal';
-// import UploadDocumentModal from './document-management/UploadDocumentModal';
-// import AddEditAssignedWorkerToSiteModal from './worker-management/AddEditAssignedWorkerToSiteModal';
+import AddEditMilestoneModal from './milestone-management/AddEditMilestoneModal';
+import AddEditChangeOrderModal from './change-order-management/AddEditChangeOrderModal';
+import ViewChangeOrderModal from './change-order-management/ViewChangeOrderModal';
+import AddEditSiteMaterialModal from './material-management/AddEditSiteMaterialModal';
+import AddEditMaterialRequestModal from './material-management/AddEditMaterialRequestModal';
+import ViewMaterialRequestModal from './material-management/ViewMaterialRequestModal';
+import AddEditPaymentRequestModal from './financial-management/AddEditPaymentRequestModal';
+import ViewPaymentRequestModal from './financial-management/ViewPaymentRequestModal';
+import AddEditSafetyIncidentModal from './safety-management/AddEditSafetyIncidentModal';
+import ViewSafetyIncidentModal from './safety-management/ViewSafetyIncidentModal';
+import UploadDocumentModal from './document-management/UploadDocumentModal';
+import AddEditAssignedWorkerToSiteModal from './worker-management/AddEditAssignedWorkerToSiteModal';
 
 
 const ModalOverlay = styled.div`
@@ -47,8 +46,8 @@ const ModalContent = styled.div`
   color: ${(props) => props.theme.colors.text};
   border-radius: ${(props) => props.theme.borderRadius.xl};
   width: 100%;
-  max-width: 1000px; /* Increased max-width for more content */
-  max-height: 95vh; /* Increased max-height */
+  max-width: 1000px;
+  max-height: 95vh;
   box-shadow: ${(props) => props.theme.shadows.xl};
   overflow: hidden;
   display: flex;
@@ -169,7 +168,7 @@ const StatusBadge = styled.span`
       case "Delayed": return `background: ${theme.colors?.error || "#F44336"}20; color: ${theme.colors?.error || "#F44336"};`;
       case "Completed": return `background: ${theme.colors?.primary || "#1b4332"}20; color: ${theme.colors?.primary || "#1b4332"};`;
       case "Cancelled": return `background: ${theme.colors?.textSecondary || "#9E9E9E"}20; color: ${theme.colors?.textSecondary || "#9E9E9E"};`;
-      case "Approved": return `background: ${theme.colors?.success || "#4CAF50"}20; color: ${theme.colors?.success || "#4CAF50"};`; // For change orders, requests
+      case "Approved": return `background: ${theme.colors?.success || "#4CAF50"}20; color: ${theme.colors?.success || "#4CAF50"};`;
       case "Pending": return `background: ${theme.colors?.warning || "#FFC107"}20; color: ${theme.colors?.warning || "#FFC107"};`;
       case "Rejected": return `background: ${theme.colors?.error || "#F44336"}20; color: ${theme.colors?.error || "#F44336"};`;
       case "Implemented": return `background: ${theme.colors?.primary || "#1b4332"}20; color: ${theme.colors?.primary || "#1b4332"};`;
@@ -177,7 +176,7 @@ const StatusBadge = styled.span`
       case "Received": return `background: ${theme.colors?.success || "#4CAF50"}20; color: ${theme.colors?.success || "#4CAF50"};`;
       case "Partially Received": return `background: ${theme.colors?.warning || "#FFC107"}20; color: ${theme.colors?.warning || "#FFC107"};`;
       case "Paid": return `background: ${theme.colors?.primary || "#1b4332"}20; color: ${theme.colors?.primary || "#1b4332"};`;
-      case "Low": return `background: ${theme.colors?.info || "#2196F3"}20; color: ${theme.colors?.info || "#2196F3"};`; // For Severity/Risk
+      case "Low": return `background: ${theme.colors?.info || "#2196F3"}20; color: ${theme.colors?.info || "#2196F3"};`;
       case "Medium": return `background: ${theme.colors?.warning || "#FFC107"}20; color: ${theme.colors?.warning || "#FFC107"};`;
       case "High": return `background: ${theme.colors?.error || "#F44336"}20; color: ${theme.colors?.error || "#F44336"};`;
       case "Critical": return `background: ${theme.colors?.error || "#F44336"}20; color: ${theme.colors?.error || "#F44336"};`;
@@ -190,7 +189,7 @@ const SectionHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1.5rem; /* Added margin-top for separation */
+  margin-top: 1.5rem;
   margin-bottom: 1rem;
   flex-wrap: wrap;
   gap: 1rem;
@@ -270,76 +269,74 @@ const ViewSiteModal = ({ site, onClose }) => {
   const {
     currentSite, fetchSiteData, loading: hookLoading, error: hookError,
     tasks, createTask, updateTask, deleteTask,
-    workers, sites: allSites, // allSites needed for task modal dropdowns
+    workers, sites: allSites,
     siteMilestones, createMilestone, updateMilestone, deleteMilestone,
-    siteChangeOrders, createChangeOrder, updateChangeOrder, deleteChangeOrder, fetchSiteChangeOrders, paginationChangeOrders, changePageSiteChangeOrders,
+    siteChangeOrders, createChangeOrder, updateChangeOrder, deleteChangeOrder, fetchSiteChangeOrders,
     siteMaterialInventory, createSiteMaterial, updateSiteMaterial, deleteSiteMaterial, fetchSiteMaterialInventory,
-    siteMaterialRequests, createMaterialRequest, updateMaterialRequestStatus, deleteMaterialRequest, fetchSiteMaterialRequests, paginationMaterialRequests, changePageSiteMaterialRequests,
-    sitePaymentRequests, createPaymentRequest, updatePaymentRequestStatus, deletePaymentRequest, fetchSitePaymentRequests, paginationPaymentRequests, changePageSitePaymentRequests,
+    siteMaterialRequests, createMaterialRequest, updateMaterialRequestStatus, deleteMaterialRequest, fetchSiteMaterialRequests,
+    sitePaymentRequests, createPaymentRequest, updatePaymentRequestStatus, deletePaymentRequest, fetchSitePaymentRequests,
     siteDocuments, uploadDocument, deleteDocument, fetchSiteDocuments,
     siteAssignedWorkers, assignWorkerToSite, updateSiteWorkerAssignment, unassignWorkerFromSite,
-    siteSafetyIncidents, createSafetyIncident, updateSafetyIncident, deleteSafetyIncident, fetchSiteSafetyIncidents, paginationSafetyIncidents, changePageSiteSafetyIncidents,
+    siteSafetyIncidents, createSafetyIncident, updateSafetyIncident, deleteSafetyIncident, fetchSiteSafetyIncidents,
     siteBudgetAnalytics, fetchSiteBudgetAnalytics,
   } = useConstructionManagement();
 
-  // --- States for Modals ---
-  // Task Modals
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
   const [isViewTaskModalOpen, setIsViewTaskModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
 
-  // Milestone Modals
   const [isAddMilestoneModalOpen, setIsAddMilestoneModalOpen] = useState(false);
   const [isEditMilestoneModalOpen, setIsEditMilestoneModalOpen] = useState(false);
   const [selectedMilestone, setSelectedMilestone] = useState(null);
 
-  // Change Order Modals
   const [isAddChangeOrderModalOpen, setIsAddChangeOrderModalOpen] = useState(false);
   const [isEditChangeOrderModalOpen, setIsEditChangeOrderModalOpen] = useState(false);
   const [isViewChangeOrderModalOpen, setIsViewChangeOrderModalOpen] = useState(false);
   const [selectedChangeOrder, setSelectedChangeOrder] = useState(null);
 
-  // Site Material Inventory Modals
   const [isAddSiteMaterialModalOpen, setIsAddSiteMaterialModalOpen] = useState(false);
   const [isEditSiteMaterialModalOpen, setIsEditSiteMaterialModalOpen] = useState(false);
   const [selectedSiteMaterial, setSelectedSiteMaterial] = useState(null);
 
-  // Material Request Modals
   const [isAddMaterialRequestModalOpen, setIsAddMaterialRequestModalOpen] = useState(false);
   const [isViewMaterialRequestModalOpen, setIsViewMaterialRequestModalOpen] = useState(false);
   const [selectedMaterialRequest, setSelectedMaterialRequest] = useState(null);
 
-  // Payment Request Modals
   const [isAddPaymentRequestModalOpen, setIsAddPaymentRequestModalOpen] = useState(false);
   const [isViewPaymentRequestModalOpen, setIsViewPaymentRequestModalOpen] = useState(false);
   const [selectedPaymentRequest, setSelectedPaymentRequest] = useState(null);
 
-  // Document Modals
   const [isUploadDocumentModalOpen, setIsUploadDocumentModalOpen] = useState(false);
   const [documentRefContext, setDocumentRefContext] = useState({ refId: '', refModel: 'ConstructionSite' });
 
-  // Assigned Worker Modals (for direct site assignment)
   const [isAssignWorkerToSiteModalOpen, setIsAssignWorkerToSiteModalOpen] = useState(false);
   const [isEditAssignedWorkerToSiteModalOpen, setIsEditAssignedWorkerToSiteModalOpen] = useState(false);
   const [selectedAssignedWorkerToSite, setSelectedAssignedWorkerToSite] = useState(null);
 
-  // Safety Incident Modals
   const [isAddSafetyIncidentModalOpen, setIsAddSafetyIncidentModalOpen] = useState(false);
   const [isEditSafetyIncidentModalOpen, setIsEditSafetyIncidentModalOpen] = useState(false);
   const [isViewSafetyIncidentModalOpen, setIsViewSafetyIncidentModalOpen] = useState(false);
   const [selectedSafetyIncident, setSelectedSafetyIncident] = useState(null);
 
 
-  // Fetch site-specific data when the modal opens or site ID changes
   useEffect(() => {
     if (site?._id) {
       fetchSiteData(site._id);
+      fetchSiteChangeOrders(site._id);
+      fetchSiteMaterialInventory(site._id);
+      fetchSiteMaterialRequests(site._id);
+      fetchSitePaymentRequests(site._id);
+      fetchSiteSafetyIncidents(site._id);
+      fetchSiteDocuments(site._id);
+      fetchSiteBudgetAnalytics(site._id);
     }
-  }, [site?._id, fetchSiteData]);
+  }, [site?._id, fetchSiteData, fetchSiteChangeOrders, fetchSiteMaterialInventory, fetchSiteMaterialRequests,
+      fetchSitePaymentRequests, fetchSiteSafetyIncidents, fetchSiteDocuments, fetchSiteBudgetAnalytics]);
 
-  const displaySite = currentSite || site; // Use fetched detailed site or the initial prop
-  const isLoading = hookLoading && !currentSite; // Only show loading if no data to display yet
+
+  const displaySite = currentSite || site;
+  const isLoading = hookLoading && !currentSite;
 
   if (isLoading) {
     return (
@@ -367,7 +364,6 @@ const ViewSiteModal = ({ site, onClose }) => {
 
   if (!displaySite) return null;
 
-  // Filter tasks belonging to this site from the global tasks list
   const siteTasks = tasks.filter(task => task.site?._id === displaySite._id);
 
   const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -381,9 +377,6 @@ const ViewSiteModal = ({ site, onClose }) => {
     }
   };
 
-  // --- Handlers for Sub-Entities ---
-
-  // Task handlers
   const handleEditTask = (task) => { setSelectedTask(task); setIsEditTaskModalOpen(true); };
   const handleViewTask = (task) => { setSelectedTask(task); setIsViewTaskModalOpen(true); };
   const handleDeleteTask = async (id) => {
@@ -391,10 +384,9 @@ const ViewSiteModal = ({ site, onClose }) => {
       await deleteTask(id);
     }
   };
-  const handleCreateTask = async (taskData) => { await createTask({ ...taskData, site: displaySite._id }); };
-  const handleUpdateTask = async (id, taskData) => { await updateTask(id, taskData); };
+  const handleCreateTask = async (taskData) => { await createTask({ ...taskData, site: displaySite._id }); setIsAddTaskModalOpen(false);};
+  const handleUpdateTask = async (id, taskData) => { await updateTask(id, taskData); setIsEditTaskModalOpen(false);};
 
-  // Milestone handlers
   const handleAddMilestone = () => { setSelectedMilestone(null); setIsAddMilestoneModalOpen(true); };
   const handleEditMilestone = (milestone) => { setSelectedMilestone(milestone); setIsEditMilestoneModalOpen(true); };
   const handleDeleteMilestone = async (milestoneId) => {
@@ -408,7 +400,6 @@ const ViewSiteModal = ({ site, onClose }) => {
     setIsAddMilestoneModalOpen(false); setIsEditMilestoneModalOpen(false); setSelectedMilestone(null);
   };
 
-  // Change Order handlers
   const handleAddChangeOrder = () => { setSelectedChangeOrder(null); setIsAddChangeOrderModalOpen(true); };
   const handleEditChangeOrder = (co) => { setSelectedChangeOrder(co); setIsEditChangeOrderModalOpen(true); };
   const handleViewChangeOrder = (co) => { setSelectedChangeOrder(co); setIsViewChangeOrderModalOpen(true); };
@@ -423,7 +414,6 @@ const ViewSiteModal = ({ site, onClose }) => {
     setIsAddChangeOrderModalOpen(false); setIsEditChangeOrderModalOpen(false); setSelectedChangeOrder(null);
   };
 
-  // Site Material handlers
   const handleAddSiteMaterial = () => { setSelectedSiteMaterial(null); setIsAddSiteMaterialModalOpen(true); };
   const handleEditSiteMaterial = (material) => { setSelectedSiteMaterial(material); setIsEditSiteMaterialModalOpen(true); };
   const handleDeleteSiteMaterial = async (itemId) => {
@@ -437,7 +427,6 @@ const ViewSiteModal = ({ site, onClose }) => {
     setIsAddSiteMaterialModalOpen(false); setIsEditSiteMaterialModalOpen(false); setSelectedSiteMaterial(null);
   };
 
-  // Material Request handlers
   const handleAddMaterialRequest = () => { setSelectedMaterialRequest(null); setIsAddMaterialRequestModalOpen(true); };
   const handleViewMaterialRequest = (req) => { setSelectedMaterialRequest(req); setIsViewMaterialRequestModalOpen(true); };
   const handleDeleteMaterialRequest = async (reqId) => {
@@ -453,7 +442,6 @@ const ViewSiteModal = ({ site, onClose }) => {
       await updateMaterialRequestStatus(displaySite._id, reqId, status);
   }
 
-  // Payment Request handlers
   const handleAddPaymentRequest = () => { setSelectedPaymentRequest(null); setIsAddPaymentRequestModalOpen(true); };
   const handleViewPaymentRequest = (req) => { setSelectedPaymentRequest(req); setIsViewPaymentRequestModalOpen(true); };
   const handleDeletePaymentRequest = async (reqId) => {
@@ -469,15 +457,13 @@ const ViewSiteModal = ({ site, onClose }) => {
     await updatePaymentRequestStatus(displaySite._id, reqId, status);
   }
 
-  // Document handlers
-  const handleUploadDocument = (refModel, refId) => { setDocumentRefContext({ refModel, refId }); setIsUploadDocumentModalOpen(true); };
+  const handleUploadDocumentClick = (refModel, refId) => { setDocumentRefContext({ refModel, refId }); setIsUploadDocumentModalOpen(true); };
   const handleDeleteDocument = async (docId, refModel, refId) => {
       if (window.confirm("Are you sure you want to delete this document?")) {
           await deleteDocument(docId, refModel, refId);
       }
   };
 
-  // Assigned Worker (to site) handlers
   const handleAddAssignedWorkerToSite = () => { setSelectedAssignedWorkerToSite(null); setIsAssignWorkerToSiteModalOpen(true); };
   const handleEditAssignedWorkerToSite = (assignment) => { setSelectedAssignedWorkerToSite(assignment); setIsEditAssignedWorkerToSiteModalOpen(true); };
   const handleUnassignWorkerFromSite = async (assignmentId) => {
@@ -491,7 +477,6 @@ const ViewSiteModal = ({ site, onClose }) => {
     setIsAssignWorkerToSiteModalOpen(false); setIsEditAssignedWorkerToSiteModalOpen(false); setSelectedAssignedWorkerToSite(null);
   };
 
-  // Safety Incident handlers
   const handleAddSafetyIncident = () => { setSelectedSafetyIncident(null); setIsAddSafetyIncidentModalOpen(true); };
   const handleEditSafetyIncident = (incident) => { setSelectedSafetyIncident(incident); setIsEditSafetyIncidentModalOpen(true); };
   const handleViewSafetyIncident = (incident) => { setSelectedSafetyIncident(incident); setIsViewSafetyIncidentModalOpen(true); };
@@ -557,11 +542,11 @@ const ViewSiteModal = ({ site, onClose }) => {
                 <>
                     <SectionTitle><FaFileInvoiceDollar /> Budget Breakdown</SectionTitle>
                     <ListContainer>
-                        {displaySite.budgetDetails.map((item, index) => (
-                            <li key={item._id || index} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap'}}>
+                        {displaySite.budgetDetails.map((item) => (
+                            <li key={item._id || item.description} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap'}}>
                                 <div><strong>{item.category}:</strong> {item.description}</div>
                                 <div style={{marginLeft: 'auto'}}>
-                                    Planned: {formatCurrency(item.plannedAmount)} | Actual: {formatCurrency(item.actualAmount)} | Variance: <span style={{color: item.variance < 0 ? 'red' : 'green'}}>{formatCurrency(item.variance)}</span>
+                                    Planned: {formatCurrency(item.plannedAmount)} | Actual: {formatCurrency(item.actualAmount)} | Variance: <span style={{color: (item.plannedAmount - item.actualAmount) < 0 ? 'red' : 'green'}}>{formatCurrency(item.plannedAmount - (item.actualAmount || 0))}</span>
                                 </div>
                             </li>
                         ))}
@@ -569,12 +554,11 @@ const ViewSiteModal = ({ site, onClose }) => {
                 </>
             )}
             
-            {/* NEW SECTION: Assigned Workers to this Site (Direct Assignments) */}
             <SectionHeader>
                 <SectionTitle><FaUserPlus /> Assigned Workers (Site)</SectionTitle>
                 <SectionActions>
                     <Button variant="primary" size="sm" onClick={handleAddAssignedWorkerToSite}>
-                        <FaUserPlus /> Assign Worker
+                        <FaPlus /> Assign Worker
                     </Button>
                 </SectionActions>
             </SectionHeader>
@@ -614,11 +598,10 @@ const ViewSiteModal = ({ site, onClose }) => {
                 onEdit={handleEditTask}
                 onDelete={handleDeleteTask}
                 onView={handleViewTask}
-                onPageChange={() => {}} // No pagination for embedded table
-                hideSiteColumn={true} // Hide redundant site column
+                onPageChange={() => {}}
+                hideSiteColumn={true}
             />
 
-            {/* NEW SECTION: Milestones */}
             <SectionHeader>
                 <SectionTitle><FaGavel /> Milestones</SectionTitle>
                 <SectionActions>
@@ -649,7 +632,6 @@ const ViewSiteModal = ({ site, onClose }) => {
                 <p style={{fontStyle: 'italic', color: '#718096'}}>No milestones defined for this site.</p>
             )}
 
-            {/* NEW SECTION: Change Orders */}
             <SectionHeader>
                 <SectionTitle><FaShoppingCart /> Change Orders</SectionTitle>
                 <SectionActions>
@@ -663,7 +645,7 @@ const ViewSiteModal = ({ site, onClose }) => {
                     {siteChangeOrders.map((co) => (
                         <li key={co._id} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap'}}>
                             <div>
-                                <strong>{co.title}</strong> (Requested By: {co.requestedBy})
+                                <strong>{co.title}</strong> (Requested By: {co.requestedBy?.fullName || co.requestedBy || 'N/A'})
                                 <br />
                                 <small>Cost: {formatCurrency(co.costImpact)} | Timeline: {co.timelineImpactDays} days</small>
                             </div>
@@ -680,7 +662,6 @@ const ViewSiteModal = ({ site, onClose }) => {
                 <p style={{fontStyle: 'italic', color: '#718096'}}>No change orders for this site.</p>
             )}
 
-            {/* NEW SECTION: Site Material Inventory */}
             <SectionHeader>
                 <SectionTitle><FaTools /> Site Material Inventory</SectionTitle>
                 <SectionActions>
@@ -709,7 +690,6 @@ const ViewSiteModal = ({ site, onClose }) => {
                 <p style={{fontStyle: 'italic', color: '#718096'}}>No materials in site inventory.</p>
             )}
 
-            {/* NEW SECTION: Material Requests */}
             <SectionHeader>
                 <SectionTitle><FaShoppingCart /> Material Requests</SectionTitle>
                 <SectionActions>
@@ -739,7 +719,6 @@ const ViewSiteModal = ({ site, onClose }) => {
                 <p style={{fontStyle: 'italic', color: '#718096'}}>No material requests for this site.</p>
             )}
 
-            {/* NEW SECTION: Payment Requests */}
             <SectionHeader>
                 <SectionTitle><FaMoneyBillWave /> Payment Requests</SectionTitle>
                 <SectionActions>
@@ -769,7 +748,6 @@ const ViewSiteModal = ({ site, onClose }) => {
                 <p style={{fontStyle: 'italic', color: '#718096'}}>No payment requests for this site.</p>
             )}
 
-            {/* NEW SECTION: Safety Incidents */}
             <SectionHeader>
                 <SectionTitle><FaHardHat /> Safety Incidents</SectionTitle>
                 <SectionActions>
@@ -799,11 +777,10 @@ const ViewSiteModal = ({ site, onClose }) => {
                 <p style={{fontStyle: 'italic', color: '#718096'}}>No safety incidents reported for this site.</p>
             )}
 
-            {/* NEW SECTION: Documents */}
             <SectionHeader>
                 <SectionTitle><FaPaperclip /> Documents</SectionTitle>
                 <SectionActions>
-                    <Button variant="primary" size="sm" onClick={() => handleUploadDocument('ConstructionSite', displaySite._id)}>
+                    <Button variant="primary" size="sm" onClick={() => handleUploadDocumentClick('ConstructionSite', displaySite._id)}>
                         <FaFileUpload /> Upload Document
                     </Button>
                 </SectionActions>
@@ -832,7 +809,6 @@ const ViewSiteModal = ({ site, onClose }) => {
           <Button variant="secondary" onClick={onClose}>Close</Button>
         </ModalFooter>
 
-        {/* --- MODAL RENDERING --- */}
         {isAddTaskModalOpen && (
             <AddEditTaskModal
                 onClose={() => setIsAddTaskModalOpen(false)}
@@ -885,7 +861,7 @@ const ViewSiteModal = ({ site, onClose }) => {
                 onSave={handleSaveChangeOrder}
                 loading={hookLoading}
                 siteId={displaySite._id}
-                workers={workers} // Pass workers for 'requestedBy' dropdown
+                workers={workers}
             />
         )}
         {isEditChangeOrderModalOpen && selectedChangeOrder && (
@@ -929,8 +905,8 @@ const ViewSiteModal = ({ site, onClose }) => {
                 onSave={handleSaveMaterialRequest}
                 loading={hookLoading}
                 siteId={displaySite._id}
-                workers={workers} // Pass workers for 'requestedBy' dropdown
-                siteMaterialInventory={siteMaterialInventory} // Pass site's current materials
+                workers={workers}
+                siteMaterialInventory={siteMaterialInventory}
             />
         )}
         {isViewMaterialRequestModalOpen && selectedMaterialRequest && (
@@ -947,7 +923,7 @@ const ViewSiteModal = ({ site, onClose }) => {
                 onSave={handleSavePaymentRequest}
                 loading={hookLoading}
                 siteId={displaySite._id}
-                users={[]} // You'll need to fetch a list of users for 'requestedBy'. Placeholder for now.
+                users={[{_id: 'mock-user-id', fullName: 'Current User'}]}
             />
         )}
         {isViewPaymentRequestModalOpen && selectedPaymentRequest && (
@@ -994,7 +970,7 @@ const ViewSiteModal = ({ site, onClose }) => {
                 onSave={handleSaveSafetyIncident}
                 loading={hookLoading}
                 siteId={displaySite._id}
-                workers={workers} // Pass workers for 'reportedBy'
+                workers={workers}
             />
         )}
         {isEditSafetyIncidentModalOpen && selectedSafetyIncident && (

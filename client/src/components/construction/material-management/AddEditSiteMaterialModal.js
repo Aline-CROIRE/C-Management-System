@@ -1,10 +1,10 @@
-// client/src/components/construction/milestone-management/AddEditMilestoneModal.js
+// client/src/components/construction/material-management/AddEditSiteMaterialModal.js
 "use client";
 
 import React, { useState, useEffect } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
-import { FaTimes, FaSave, FaCalendarAlt, FaInfoCircle, FaClipboardList, FaSpinner, FaGavel } from "react-icons/fa";
+import { FaTimes, FaSave, FaTools, FaPlusCircle, FaSpinner } from "react-icons/fa";
 import Button from "../../common/Button";
 import Input from "../../common/Input";
 import Select from "../../common/Select";
@@ -20,7 +20,7 @@ const ModalOverlay = styled.div`
 const ModalContent = styled.form`
   background: ${(props) => props.theme?.colors?.surface || '#ffffff'}; color: ${(props) => props.theme?.colors?.text || '#2d3748'};
   border-radius: ${(props) => props.theme?.borderRadius?.xl || '1rem'}; box-shadow: ${(props) => props.theme?.shadows?.xl || '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'};
-  width: 100%; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
+  width: 100%; max-width: 500px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;
   animation: fadeIn 0.3s ease-out;
 
   @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
@@ -63,7 +63,6 @@ const ThemedInput = styled(Input)`
   padding: 0.75rem; border: 1px solid ${(props) => props.theme?.colors?.border || '#e2e8f0'};
   border-radius: ${(props) => props.theme?.borderRadius?.md || '0.375rem'}; background: ${(props) => props.theme?.colors?.surface || '#ffffff'};
   color: ${(props) => props.theme?.colors?.text || '#2d3748'}; font-size: 0.9rem;
-  @media (max-width: 480px) { padding: 0.6rem; font-size: 0.85rem; }
 `;
 
 const ThemedSelect = styled(Select)`
@@ -71,15 +70,6 @@ const ThemedSelect = styled(Select)`
   border-radius: ${(props) => props.theme?.borderRadius?.md || '0.375rem'}; font-size: 0.9rem;
   background-color: ${(props) => props.theme?.colors?.surface || '#ffffff'};
   color: ${(props) => props.theme?.colors?.text || '#2d3748'};
-  @media (max-width: 480px) { padding: 0.6rem; font-size: 0.85rem; }
-`;
-
-const TextArea = styled.textarea`
-  padding: 0.75rem; border: 1px solid ${(props) => props.theme?.colors?.border || '#e2e8f0'};
-  border-radius: ${(props) => props.theme?.borderRadius?.md || '0.375rem'}; resize: vertical; min-height: 80px;
-  background: ${(props) => props.theme?.colors?.surface || '#ffffff'}; color: ${(props) => props.theme?.colors?.text || '#2d3748'};
-  font-size: 0.9rem; font-family: inherit;
-  @media (max-width: 480px) { padding: 0.6rem; font-size: 0.85rem; min-height: 60px; }
 `;
 
 const ErrorText = styled.p`
@@ -88,60 +78,48 @@ const ErrorText = styled.p`
   margin-top: 0.25rem;
 `;
 
-
 const ModalFooter = styled.div`
   padding: 1.5rem 2rem; display: flex; justify-content: flex-end; gap: 1rem;
   border-top: 1px solid ${(props) => props.theme?.colors?.border || '#e2e8f0'}; flex-shrink: 0;
   @media (max-width: 480px) { padding: 1rem 1.25rem; gap: 0.75rem; button { flex-grow: 1; } }
 `;
 
-const AddEditMilestoneModal = ({ onClose, onSave, loading, siteId, milestoneToEdit = null }) => {
-    const isEditMode = Boolean(milestoneToEdit);
+const AddEditSiteMaterialModal = ({ onClose, onSave, loading, siteId, siteMaterialToEdit = null }) => {
+    const isEditMode = Boolean(siteMaterialToEdit);
     const [formData, setFormData] = useState({
-        name: '',
-        targetDate: '',
-        actualCompletionDate: '',
-        status: 'Planned',
-        description: '',
-        criticalPath: false,
+        materialName: '',
+        quantityOnHand: '0',
+        unit: '',
+        minStockLevel: '0',
     });
     const [errors, setErrors] = useState({});
 
     useEffect(() => {
-        if (isEditMode && milestoneToEdit) {
+        if (isEditMode && siteMaterialToEdit) {
             setFormData({
-                name: milestoneToEdit.name || '',
-                targetDate: milestoneToEdit.targetDate ? moment(milestoneToEdit.targetDate).format('YYYY-MM-DD') : '',
-                actualCompletionDate: milestoneToEdit.actualCompletionDate ? moment(milestoneToEdit.actualCompletionDate).format('YYYY-MM-DD') : '',
-                status: milestoneToEdit.status || 'Planned',
-                description: milestoneToEdit.description || '',
-                criticalPath: milestoneToEdit.criticalPath ?? false,
+                materialName: siteMaterialToEdit.materialName || '',
+                quantityOnHand: siteMaterialToEdit.quantityOnHand?.toString() ?? '0',
+                unit: siteMaterialToEdit.unit || '',
+                minStockLevel: siteMaterialToEdit.minStockLevel?.toString() ?? '0',
             });
         } else {
-            // Reset form for add mode
             setFormData({
-                name: '',
-                targetDate: '',
-                actualCompletionDate: '',
-                status: 'Planned',
-                description: '',
-                criticalPath: false,
+                materialName: '', quantityOnHand: '0', unit: '', minStockLevel: '0',
             });
         }
-    }, [milestoneToEdit, isEditMode]);
+    }, [siteMaterialToEdit, isEditMode]);
 
     const handleInputChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+        const { name, value } = e.target;
+        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
     const validateForm = () => {
         const newErrors = {};
-        if (!formData.name) newErrors.name = "Milestone name is required.";
-        if (!formData.targetDate) newErrors.targetDate = "Target date is required.";
-        if (formData.actualCompletionDate && moment(formData.actualCompletionDate).isAfter(moment())) {
-            newErrors.actualCompletionDate = "Actual completion date cannot be in the future.";
-        }
+        if (!formData.materialName) newErrors.materialName = "Material name is required.";
+        if (parseFloat(formData.quantityOnHand) < 0) newErrors.quantityOnHand = "Quantity on hand must be non-negative.";
+        if (!formData.unit) newErrors.unit = "Unit is required.";
+        if (parseFloat(formData.minStockLevel) < 0) newErrors.minStockLevel = "Minimum stock level must be non-negative.";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -151,66 +129,59 @@ const AddEditMilestoneModal = ({ onClose, onSave, loading, siteId, milestoneToEd
         if (!validateForm()) return;
         
         const payload = { ...formData };
-        if (payload.actualCompletionDate === '') {
-            payload.actualCompletionDate = null; // Ensure empty string is sent as null
-        }
+        payload.quantityOnHand = Number(payload.quantityOnHand);
+        payload.minStockLevel = Number(payload.minStockLevel);
 
         try {
             if (isEditMode) {
-                await onSave(siteId, milestoneToEdit._id, payload);
+                await onSave(siteId, siteMaterialToEdit._id, payload);
             } else {
-                await onSave(siteId, payload);
+                await onSave(siteId, null, payload); // Pass null for itemId on creation
             }
             onClose();
         } catch (err) {
-            console.error("Failed to save milestone:", err);
-            // Error handling is already in useConstructionManagement and api.js interceptor
+            console.error("Failed to save site material:", err);
         }
     };
 
-    const milestoneStatuses = ['Planned', 'In Progress', 'Completed', 'Delayed'];
+    const units = ['kg', 'liters', 'pcs', 'm', 'm²', 'm³', 'bags', 'rolls', 'boxes', 'other'];
 
     return ReactDOM.createPortal(
         <ModalOverlay onClick={onClose}>
             <ModalContent onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()}>
                 <ModalHeader>
-                    <ModalTitle>{isEditMode ? "Edit Milestone" : "Add New Milestone"}</ModalTitle>
+                    <ModalTitle>{isEditMode ? "Edit Site Material" : "Add New Site Material"}</ModalTitle>
                     <CloseButton type="button" onClick={onClose}><FaTimes /></CloseButton>
                 </ModalHeader>
                 <ModalBody>
                     <FormGroup>
-                        <Label htmlFor="name"><FaGavel /> Milestone Name *</Label>
-                        <ThemedInput id="name" name="name" value={formData.name} onChange={handleInputChange} required error={errors.name} />
-                        {errors.name && <ErrorText>{errors.name}</ErrorText>}
+                        <Label htmlFor="materialName"><FaTools /> Material Name *</Label>
+                        <ThemedInput id="materialName" name="materialName" value={formData.materialName} onChange={handleInputChange} required error={errors.materialName} />
+                        {errors.materialName && <ErrorText>{errors.materialName}</ErrorText>}
                     </FormGroup>
                     <FormGroup>
-                        <Label htmlFor="targetDate"><FaCalendarAlt /> Target Date *</Label>
-                        <ThemedInput id="targetDate" name="targetDate" type="date" value={formData.targetDate} onChange={handleInputChange} required error={errors.targetDate} />
-                        {errors.targetDate && <ErrorText>{errors.targetDate}</ErrorText>}
+                        <Label htmlFor="quantityOnHand"><FaPlusCircle /> Quantity On Hand *</Label>
+                        <ThemedInput id="quantityOnHand" name="quantityOnHand" type="number" step="0.01" value={formData.quantityOnHand} onChange={handleInputChange} min="0" required error={errors.quantityOnHand} />
+                        {errors.quantityOnHand && <ErrorText>{errors.quantityOnHand}</ErrorText>}
                     </FormGroup>
                     <FormGroup>
-                        <Label htmlFor="status"><FaInfoCircle /> Status</Label>
-                        <ThemedSelect id="status" name="status" value={formData.status} onChange={handleInputChange}>
-                            {milestoneStatuses.map(status => <option key={status} value={status}>{status}</option>)}
+                        <Label htmlFor="unit"><FaTools /> Unit *</Label>
+                        <ThemedSelect id="unit" name="unit" value={formData.unit} onChange={handleInputChange} required error={errors.unit}>
+                            <option value="">Select Unit</option>
+                            {units.map(u => <option key={u} value={u}>{u}</option>)}
                         </ThemedSelect>
+                        {errors.unit && <ErrorText>{errors.unit}</ErrorText>}
                     </FormGroup>
-                    {formData.status === 'Completed' && ( // Only show if status is completed
-                        <FormGroup>
-                            <Label htmlFor="actualCompletionDate"><FaCalendarAlt /> Actual Completion Date</Label>
-                            <ThemedInput id="actualCompletionDate" name="actualCompletionDate" type="date" value={formData.actualCompletionDate} onChange={handleInputChange} error={errors.actualCompletionDate} />
-                            {errors.actualCompletionDate && <ErrorText>{errors.actualCompletionDate}</ErrorText>}
-                        </FormGroup>
-                    )}
                     <FormGroup>
-                        <Label htmlFor="description"><FaClipboardList /> Description</Label>
-                        <TextArea id="description" name="description" value={formData.description} onChange={handleInputChange} placeholder="Brief description of the milestone..." />
+                        <Label htmlFor="minStockLevel"><FaTools /> Min Stock Level</Label>
+                        <ThemedInput id="minStockLevel" name="minStockLevel" type="number" step="0.01" value={formData.minStockLevel} onChange={handleInputChange} min="0" error={errors.minStockLevel} />
+                        {errors.minStockLevel && <ErrorText>{errors.minStockLevel}</ErrorText>}
                     </FormGroup>
-                    {/* Add checkbox for critical path if desired */}
                 </ModalBody>
                 <ModalFooter>
                     <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
                     <Button type="submit" variant="primary" disabled={loading}>
-                        {loading ? <FaSpinner className="spinner" /> : <FaSave />} {loading ? "Saving..." : (isEditMode ? "Update Milestone" : "Save Milestone")}
+                        {loading ? <FaSpinner className="spinner" /> : <FaSave />} {loading ? "Saving..." : (isEditMode ? "Update Material" : "Add Material")}
                     </Button>
                 </ModalFooter>
             </ModalContent>
@@ -219,4 +190,4 @@ const AddEditMilestoneModal = ({ onClose, onSave, loading, siteId, milestoneToEd
     );
 };
 
-export default AddEditMilestoneModal;
+export default AddEditSiteMaterialModal;
