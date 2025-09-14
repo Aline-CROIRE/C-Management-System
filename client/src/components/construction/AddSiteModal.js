@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
 import { FaTimes, FaSave, FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaDollarSign, FaUserTie, FaCode, FaChartPie, FaInfoCircle, FaClipboardList,
-         FaUsers, FaHardHat, FaLightbulb, FaPlusCircle, FaTrashAlt, FaFileInvoiceDollar } from "react-icons/fa"; // Added FaFileInvoiceDollar
+         FaUsers, FaHardHat, FaLightbulb, FaPlusCircle, FaTrashAlt, FaFileInvoiceDollar, FaExclamationTriangle } from "react-icons/fa";
 import Button from "../common/Button";
 import Input from "../common/Input";
 import Select from "../common/Select";
@@ -178,7 +178,7 @@ const SectionTitle = styled.h3`
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    grid-column: 1 / -1; // Span full width
+    grid-column: 1 / -1;
     border-bottom: 1px solid ${(props) => props.theme?.colors?.border || "#e2e8f0"};
     padding-bottom: 0.5rem;
 `;
@@ -204,9 +204,9 @@ const BudgetLineItem = styled.div`
         grid-template-columns: 1fr;
         button {
             width: 100%;
-            margin-top: 0.5rem; // Add spacing on smaller screens
+            margin-top: 0.5rem;
         }
-        & > ${FormGroup} { /* Target FormGroup within BudgetLineItem */
+        & > ${FormGroup} {
             width: 100%;
         }
     }
@@ -318,7 +318,6 @@ const AddSiteModal = ({ onClose, onSave, loading, siteToEdit = null }) => {
             newErrors.endDate = "End date cannot be before start date.";
         }
         
-        // Validate budget details if any
         formData.budgetDetails.forEach((item, index) => {
             if (!item.category) newErrors[`budgetDetails[${index}].category`] = `Category for line item ${index + 1} is required.`;
             if (parseFloat(item.plannedAmount) < 0 || isNaN(parseFloat(item.plannedAmount))) newErrors[`budgetDetails[${index}].plannedAmount`] = `Planned amount for line item ${index + 1} must be a non-negative number.`;
@@ -421,7 +420,7 @@ const AddSiteModal = ({ onClose, onSave, loading, siteToEdit = null }) => {
                                     <ThemedInput id={`plannedAmount-${index}`} name={`budgetDetails[${index}].plannedAmount`} type="number" step="0.01" value={item.plannedAmount} onChange={(e) => handleBudgetDetailChange(index, 'plannedAmount', e.target.value)} min="0" required />
                                     <ErrorText>{errors[`budgetDetails[${index}].plannedAmount`]}</ErrorText>
                                 </FormGroup>
-                                <FormGroup> {/* Added for actual amount in budget details */}
+                                <FormGroup>
                                     <Label htmlFor={`actualAmount-${index}`}>Actual Amount</Label>
                                     <ThemedInput id={`actualAmount-${index}`} name={`budgetDetails[${index}].actualAmount`} type="number" step="0.01" value={item.actualAmount} onChange={(e) => handleBudgetDetailChange(index, 'actualAmount', e.target.value)} min="0" />
                                     <ErrorText>{errors[`budgetDetails[${index}].actualAmount`]}</ErrorText>

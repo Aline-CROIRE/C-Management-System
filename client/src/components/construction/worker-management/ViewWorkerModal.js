@@ -5,14 +5,13 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
 import { FaTimes, FaUserCog, FaBriefcase, FaPhone, FaEnvelope, FaTools, FaInfoCircle, FaCheckCircle, FaTimesCircle,
-         FaMoneyBillWave, FaCalendarAlt, FaBuilding, FaAddressBook, FaCertificate, FaClock, FaFileAlt, FaExclamationTriangle } from "react-icons/fa";
+         FaMoneyBillWave, FaCalendarAlt, FaBuilding, FaAddressBook, FaCertificate, FaClock, FaFileAlt, FaExclamationTriangle, FaFileUpload, FaDownload, FaTrashAlt } from "react-icons/fa";
 import Button from "../../common/Button";
 import LoadingSpinner from "../../common/LoadingSpinner";
 import { useConstructionManagement } from "../../../hooks/useConstructionManagement";
 import moment from "moment";
 
-// NEW SUB-MODALS (Importing newly created placeholders, if needed. For ViewWorker, likely only UploadDocumentModal)
-// import UploadDocumentModal from '../document-management/UploadDocumentModal'; // Assuming a common UploadDocumentModal
+import UploadDocumentModal from '../document-management/UploadDocumentModal';
 
 
 const ModalOverlay = styled.div`
@@ -177,7 +176,7 @@ const SectionTitle = styled.h3`
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    grid-column: 1 / -1; // Span full width
+    grid-column: 1 / -1;
     border-bottom: 1px solid ${(props) => props.theme?.colors?.border || "#e2e8f0"};
     padding-bottom: 0.5rem;
 `;
@@ -230,20 +229,15 @@ const ModalFooter = styled.div`
 const ViewWorkerModal = ({ worker, onClose }) => {
   const { currentWorker, fetchWorkerData, loading: hookLoading, error: hookError,
           workerCertifications, workerTimesheets, workerDocuments,
-          // paginationCertifications, paginationTimesheets, // Removed pagination here as list is short
-          // changePageWorkerCertifications, changePageWorkerTimesheets // Removed pagination handlers
           uploadDocument, deleteDocument,
         } = useConstructionManagement();
 
-  // State for UploadDocumentModal
   const [isUploadDocumentModalOpen, setIsUploadDocumentModalOpen] = useState(false);
   const [documentRefContext, setDocumentRefContext] = useState({ refId: '', refModel: 'Worker' });
 
   useEffect(() => {
     if (worker?._id) {
       fetchWorkerData(worker._id);
-      // Manually trigger fetches for related paginated data if needed, or if not embedded
-      // For this example, assuming certifications, timesheets, documents are fetched by fetchWorkerData
     }
   }, [worker?._id, fetchWorkerData]);
 
@@ -279,7 +273,6 @@ const ViewWorkerModal = ({ worker, onClose }) => {
   const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   const formatDate = (dateString) => dateString ? moment(dateString).format('MMM Do, YYYY') : 'N/A';
 
-  // Document handlers
   const handleUploadDocumentClick = (refModel, refId) => { setDocumentRefContext({ refModel, refId }); setIsUploadDocumentModalOpen(true); };
   const handleDeleteDocument = async (docId, refModel, refId) => {
       if (window.confirm("Are you sure you want to delete this document?")) {
@@ -346,7 +339,6 @@ const ViewWorkerModal = ({ worker, onClose }) => {
             <SectionHeader>
                 <SectionTitle><FaCertificate /> Certifications</SectionTitle>
                 <SectionActions>
-                    {/* Add button to add new certification */}
                 </SectionActions>
             </SectionHeader>
             {workerCertifications && workerCertifications.length > 0 ? (
@@ -356,7 +348,6 @@ const ViewWorkerModal = ({ worker, onClose }) => {
                             <strong>{cert.name}</strong> from {cert.issuingBody} (Issued: {formatDate(cert.issueDate)}
                             {cert.expiryDate && `, Expires: ${formatDate(cert.expiryDate)}`})
                             {moment(cert.expiryDate).isBefore(moment()) && <FaTimesCircle style={{ color: 'red', marginLeft: '0.5rem' }} title="Expired" />}
-                            {/* Add button to view/download document if available */}
                         </li>
                     ))}
                 </ListContainer>
@@ -367,7 +358,6 @@ const ViewWorkerModal = ({ worker, onClose }) => {
             <SectionHeader>
                 <SectionTitle><FaClock /> Recent Timesheets</SectionTitle>
                 <SectionActions>
-                    {/* Add button to add new timesheet */}
                 </SectionActions>
             </SectionHeader>
             {workerTimesheets && workerTimesheets.length > 0 ? (

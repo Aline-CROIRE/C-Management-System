@@ -5,7 +5,7 @@ import React, { useState, useEffect } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
 import { FaTimes, FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaDollarSign, FaUserTie, FaCode, FaChartPie, FaUsers, FaTools, FaCheckCircle, FaExclamationTriangle, FaClipboardList, FaInfoCircle, FaTasks, FaPlus,
-         FaFileInvoiceDollar, FaHardHat, FaLightbulb, FaGavel, FaShoppingCart, FaMoneyBillWave, FaPaperclip, FaUserPlus, FaTrashAlt, FaEdit, FaEye, FaFileUpload, FaDownload } from "react-icons/fa"; // Corrected FaFaEye to FaEye
+         FaFileInvoiceDollar, FaHardHat, FaLightbulb, FaGavel, FaShoppingCart, FaMoneyBillWave, FaPaperclip, FaUserPlus, FaTrashAlt, FaEdit, FaEye, FaFileUpload, FaDownload } from "react-icons/fa";
 import Button from "../common/Button";
 import moment from "moment";
 import LoadingSpinner from "../common/LoadingSpinner";
@@ -15,8 +15,7 @@ import AddEditTaskModal from "./task-management/AddEditTaskModal";
 import ViewTaskModal from "./task-management/ViewTaskModal";
 import { useConstructionManagement } from "../../hooks/useConstructionManagement";
 
-// --- NEW SUB-MODALS (Importing newly created placeholders) ---
-import AddEditMilestoneModal from './milestone-management/AddEditeMilestoneModal';
+import AddEditMilestoneModal from './milestone-management/AddEditMilestoneModal';
 import AddEditChangeOrderModal from './change-order-management/AddEditChangeOrderModal';
 import ViewChangeOrderModal from './change-order-management/ViewChangeOrderModal';
 import AddEditSiteMaterialModal from './material-management/AddEditSiteMaterialModal';
@@ -282,7 +281,6 @@ const ViewSiteModal = ({ site, onClose }) => {
     siteBudgetAnalytics, fetchSiteBudgetAnalytics,
   } = useConstructionManagement();
 
-  // --- States for Modals ---
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
   const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
   const [isViewTaskModalOpen, setIsViewTaskModalOpen] = useState(false);
@@ -379,7 +377,6 @@ const ViewSiteModal = ({ site, onClose }) => {
     }
   };
 
-  // --- Handlers for Sub-Entities ---
   const handleEditTask = (task) => { setSelectedTask(task); setIsEditTaskModalOpen(true); };
   const handleViewTask = (task) => { setSelectedTask(task); setIsViewTaskModalOpen(true); };
   const handleDeleteTask = async (id) => {
