@@ -1,16 +1,16 @@
 // client/src/components/construction/worker-management/AddEditWorkerModal.js
 "use client";
-
 import React, { useState, useEffect } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
 import { FaTimes, FaSave, FaUserCog, FaBriefcase, FaPhone, FaEnvelope, FaTools, FaInfoCircle, FaCheckCircle, FaSpinner,
-         FaBuilding } from "react-icons/fa"; // ADDED FaBuilding icon
+         FaBuilding, FaMoneyBillWave, FaCalendarAlt, FaAddressBook } from "react-icons/fa"; // ADDED FaBuilding icon, FaMoneyBillWave, FaCalendarAlt, FaAddressBook
 import Button from "../../common/Button";
 import Input from "../../common/Input";
 import Select from "../../common/Select";
 import LoadingSpinner from "../../common/LoadingSpinner";
 import Checkbox from "../../common/Checkbox";
+import moment from "moment";
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -196,6 +196,12 @@ const SkillTag = styled.span`
   }
 `;
 
+const ErrorText = styled.p`
+  color: ${(props) => props.theme?.colors?.error || '#e53e3e'};
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+`;
+
 
 const ModalFooter = styled.div`
   padding: 1.5rem 2rem;
@@ -214,7 +220,7 @@ const ModalFooter = styled.div`
   }
 `;
 
-const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null, sites = [] }) => { // NEW: sites prop
+const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null, sites = [] }) => {
     const isEditMode = Boolean(workerToEdit);
 
     const [formData, setFormData] = useState({
@@ -225,11 +231,11 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null, sit
         skills: [],
         isActive: true,
         notes: '',
-        hourlyRate: '', // NEW
-        employmentType: 'Full-time', // NEW
-        hireDate: '', // NEW
-        emergencyContact: { name: '', phone: '', relationship: '' }, // NEW
-        currentSite: '', // NEW
+        hourlyRate: '',
+        employmentType: 'Full-time',
+        hireDate: '',
+        emergencyContact: { name: '', phone: '', relationship: '' },
+        currentSite: '',
     });
     const [errors, setErrors] = useState({});
     const [newSkill, setNewSkill] = useState('');
@@ -244,11 +250,11 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null, sit
                 skills: workerToEdit.skills || [],
                 isActive: workerToEdit.isActive ?? true,
                 notes: workerToEdit.notes || '',
-                hourlyRate: workerToEdit.hourlyRate?.toString() ?? '', // NEW
-                employmentType: workerToEdit.employmentType || 'Full-time', // NEW
-                hireDate: workerToEdit.hireDate ? moment(workerToEdit.hireDate).format('YYYY-MM-DD') : '', // NEW
-                emergencyContact: workerToEdit.emergencyContact || { name: '', phone: '', relationship: '' }, // NEW
-                currentSite: workerToEdit.currentSite?._id || '', // NEW
+                hourlyRate: workerToEdit.hourlyRate?.toString() ?? '',
+                employmentType: workerToEdit.employmentType || 'Full-time',
+                hireDate: workerToEdit.hireDate ? moment(workerToEdit.hireDate).format('YYYY-MM-DD') : '',
+                emergencyContact: workerToEdit.emergencyContact || { name: '', phone: '', relationship: '' },
+                currentSite: workerToEdit.currentSite?._id || '',
             });
         } else {
             setFormData({
@@ -316,9 +322,8 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null, sit
         const payload = { ...formData };
         payload.hourlyRate = Number(payload.hourlyRate);
 
-        // Pass previous site ID to help backend update counts
         if (isEditMode) {
-            payload._prevCurrentSite = workerToEdit.currentSite?._id || null; // NEW: Pass previous site
+            payload._prevCurrentSite = workerToEdit.currentSite?._id || null;
             await onSave(workerToEdit._id, payload);
         } else {
             await onSave(payload);
@@ -327,7 +332,7 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null, sit
     };
 
     const workerRoles = ['General Labor', 'Skilled Labor', 'Supervisor', 'Electrician', 'Plumber', 'Heavy Equipment Operator', 'Safety Officer', 'Foreman', 'Other'];
-    const employmentTypes = ['Full-time', 'Part-time', 'Contractor']; // NEW
+    const employmentTypes = ['Full-time', 'Part-time', 'Contractor'];
 
     return ReactDOM.createPortal(
         <ModalOverlay onClick={onClose}>
@@ -341,7 +346,7 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null, sit
                         <FormGroup>
                             <Label htmlFor="fullName"><FaUserCog /> Full Name *</Label>
                             <ThemedInput id="fullName" name="fullName" value={formData.fullName} onChange={handleInputChange} required error={errors.fullName} />
-                            {errors.fullName && <p style={{color: 'red', fontSize: '0.8rem'}}>{errors.fullName}</p>}
+                            {errors.fullName && <ErrorText>{errors.fullName}</ErrorText>}
                         </FormGroup>
                         <FormGroup>
                             <Label htmlFor="role"><FaBriefcase /> Role</Label>
@@ -356,25 +361,25 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null, sit
                         <FormGroup>
                             <Label htmlFor="email"><FaEnvelope /> Email</Label>
                             <ThemedInput id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} placeholder="e.g., worker@example.com" error={errors.email} />
-                            {errors.email && <p style={{color: 'red', fontSize: '0.8rem'}}>{errors.email}</p>}
+                            {errors.email && <ErrorText>{errors.email}</ErrorText>}
                         </FormGroup>
                         
-                        <FormGroup> {/* NEW */}
+                        <FormGroup>
                             <Label htmlFor="hourlyRate"><FaMoneyBillWave /> Hourly Rate</Label>
                             <ThemedInput id="hourlyRate" name="hourlyRate" type="number" step="0.01" value={formData.hourlyRate} onChange={handleInputChange} min="0" error={errors.hourlyRate} />
-                            {errors.hourlyRate && <p style={{color: 'red', fontSize: '0.8rem'}}>{errors.hourlyRate}</p>}
+                            {errors.hourlyRate && <ErrorText>{errors.hourlyRate}</ErrorText>}
                         </FormGroup>
-                        <FormGroup> {/* NEW */}
+                        <FormGroup>
                             <Label htmlFor="employmentType"><FaBriefcase /> Employment Type</Label>
                             <ThemedSelect id="employmentType" name="employmentType" value={formData.employmentType} onChange={handleInputChange}>
                                 {employmentTypes.map(type => <option key={type} value={type}>{type}</option>)}
                             </ThemedSelect>
                         </FormGroup>
-                        <FormGroup> {/* NEW */}
+                        <FormGroup>
                             <Label htmlFor="hireDate"><FaCalendarAlt /> Hire Date</Label>
                             <ThemedInput id="hireDate" name="hireDate" type="date" value={formData.hireDate} onChange={handleInputChange} />
                         </FormGroup>
-                        <FormGroup> {/* NEW */}
+                        <FormGroup>
                             <Label htmlFor="currentSite"><FaBuilding /> Primary Site</Label>
                             <ThemedSelect id="currentSite" name="currentSite" value={formData.currentSite} onChange={handleInputChange}>
                                 <option value="">None (Unassigned)</option>
@@ -382,8 +387,8 @@ const AddEditWorkerModal = ({ onClose, onSave, loading, workerToEdit = null, sit
                             </ThemedSelect>
                         </FormGroup>
 
-                        <FormGroup style={{ gridColumn: '1 / -1' }}> {/* NEW: Emergency Contact */}
-                            <Label><FaInfoCircle /> Emergency Contact</Label>
+                        <FormGroup style={{ gridColumn: '1 / -1' }}>
+                            <Label><FaAddressBook /> Emergency Contact</Label>
                             <FormGrid style={{marginTop: '0.5rem', marginBottom: '0', gap: '0.75rem'}}>
                                 <FormGroup>
                                     <Label htmlFor="emergencyContactName">Name</Label>
