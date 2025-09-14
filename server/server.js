@@ -39,29 +39,16 @@ app.use(
   })
 );
 
-// CORS Configuration
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://c-management-system-73dy.vercel.app",
-  "https://c-management-system-un5e.vercel.app"
-];
-
-// Add CLIENT_URL from .env if it's not already in allowedOrigins
-if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) {
-  allowedOrigins.push(process.env.CLIENT_URL);
-}
-
+// CORS Configuration to accept all origins with credentials
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
-      logger.warn(msg); // Log blocked origin
-      return callback(new Error(msg), false);
-    }
+    // or from any specified origin.
+    // When `credentials: true` is set, `Access-Control-Allow-Origin: *`
+    // is not allowed by browsers. Instead, the `cors` library will echo
+    // the request's 'Origin' header as 'Access-Control-Allow-Origin'
+    // if the function returns true.
+    callback(null, true);
   },
   credentials: true,
 }));
