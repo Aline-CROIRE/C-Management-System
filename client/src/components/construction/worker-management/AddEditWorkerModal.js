@@ -1,11 +1,12 @@
 // client/src/components/construction/worker-management/AddEditWorkerModal.js
 "use client";
-
 import React, { useState, useEffect } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
 import { FaTimes, FaSave, FaUserCog, FaBriefcase, FaPhone, FaEnvelope, FaTools, FaInfoCircle, FaCheckCircle, FaSpinner,
+
          FaBuilding, FaMoneyBillWave, FaCalendarAlt, FaAddressBook } from "react-icons/fa";
+
 import Button from "../../common/Button";
 import Input from "../../common/Input";
 import Select from "../../common/Select";
