@@ -1,13 +1,13 @@
 "use client";
+
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import styled, { keyframes } from "styled-components";
 import {
   FaBoxes, FaPlus, FaSearch, FaFilter, FaDownload, FaExclamationTriangle, FaFileCsv, FaFileCode,
   FaChartLine, FaTruck, FaUsers, FaDollarSign, FaSync, FaTimes, FaFileInvoiceDollar, FaUndo, FaBell,
-  FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie
+  FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie, FaClipboardList, FaArrowDown, FaExchangeAlt
 } from "react-icons/fa";
 
-// Component Imports
 import Card from "../../components/common/Card";
 import Button from "../../components/common/Button";
 import Input from "../../components/common/Input";
@@ -17,11 +17,12 @@ import ViewItemModal from "../../components/inventory/ViewItemModal";
 import FilterPanel from "../../components/inventory/FilterPanel";
 import PurchaseOrders from "../../components/inventory/PurchaseOrders";
 import SupplierManagement from "../../components/inventory/SupplierManagement";
-import Sales from "../../components/inventory/Sales";
+import Sales from "../../components/sales/Sales";
 import ReportsAnalytics from "../../components/inventory/ReportsAnalytics";
 import NotificationPanel from "../../components/inventory/NotificationPanel";
 
-// Hook Imports
+import ExpenseManagement from "../../components/expenses/ExpenseManagement";
+
 import { useInventory } from "../../hooks/useInventory";
 import { useSuppliers } from "../../hooks/useSuppliers";
 import { useCustomers } from "../../hooks/useCustomers";
@@ -30,18 +31,18 @@ import { useDebounce } from "../../hooks/useDebounce";
 import { inventoryAPI } from "../../services/api";
 
 const IMSContainer = styled.div`
-  padding: 1.5rem 2rem; /* Desktop default */
+  padding: 1.5rem 2rem;
   background: #f8f9fa;
   min-height: 100vh;
-  transition: padding 0.3s ease; /* Smooth padding changes */
+  transition: padding 0.3s ease;
 
-  @media (max-width: 1200px) { /* Larger tablets/small laptops */
+  @media (max-width: 1200px) {
     padding: 1rem 1.5rem;
   }
-  @media (max-width: 768px) { /* Tablets */
+  @media (max-width: 768px) {
     padding: 1rem;
   }
-  @media (max-width: 480px) { /* Mobile phones */
+  @media (max-width: 480px) {
     padding: 0.5rem;
   }
 `;
@@ -64,7 +65,10 @@ const HeaderContent = styled.div`
 `;
 const HeaderInfo = styled.div`
   flex: 1;
-  min-width: 150px; /* Ensure title has space even on small screens */
+  min-width: 150px;
+  @media (max-width: 480px) {
+    font-size: 0.85rem;
+  }
 `;
 const HeaderTitle = styled.h1`
   font-size: 2rem;
@@ -119,7 +123,7 @@ const NotificationBadge = styled.div`
 
 const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); /* More adaptive min-width */
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 1.5rem;
   margin-top: 2rem;
   @media (max-width: 768px) {
@@ -127,7 +131,7 @@ const StatsGrid = styled.div`
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   }
   @media (max-width: 480px) {
-    grid-template-columns: 1fr; /* Stack on very small screens */
+    grid-template-columns: 1fr;
     gap: 0.75rem;
   }
 `;
@@ -150,9 +154,9 @@ const StatCard = styled(Card)`
     box-shadow: 0 0 0 3px ${(props) => props.theme.colors.primary}30;
   }
   @media (max-width: 480px) {
-    min-height: 90px; /* Shorter on mobile */
+    min-height: 90px;
     padding: 1rem;
-    flex-direction: row; /* Layout horizontally on mobile */
+    flex-direction: row;
     align-items: center;
     justify-content: space-between;
   }
@@ -163,10 +167,10 @@ const StatHeader = styled.div`
   justify-content: space-between;
   align-items: flex-start;
   @media (max-width: 480px) {
-    flex-direction: row-reverse; /* Put icon first on mobile */
+    flex-direction: row-reverse;
     align-items: center;
     flex-grow: 1;
-    justify-content: flex-end; /* Align content to the left of icon */
+    justify-content: flex-end;
     gap: 1rem;
   }
 `;
@@ -197,6 +201,9 @@ const StatValue = styled.div`
   font-size: 1.5rem;
   font-weight: 700;
   color: #1a202c;
+  &.debt-color {
+    color: ${(props) => props.theme.colors.error};
+  }
   @media (max-width: 768px) {
     font-size: 1.3rem;
   }
@@ -219,7 +226,7 @@ const StatFooter = styled.div`
   color: #4a5568;
   margin-top: 0.5rem;
   @media (max-width: 480px) {
-    display: none; /* Hide footer on very small screens */
+    display: none;
   }
 `;
 
@@ -236,14 +243,14 @@ const ActionBar = styled.div`
     margin-bottom: 1rem;
   }
   @media (max-width: 480px) {
-    flex-direction: column; /* Stack search and buttons */
+    flex-direction: column;
     align-items: stretch;
   }
 `;
 const SearchContainer = styled.div`
   position: relative;
   flex: 1;
-  min-width: 200px; /* Reduced min-width */
+  min-width: 200px;
   max-width: 400px;
   @media (max-width: 480px) {
     min-width: unset;
@@ -263,7 +270,7 @@ const SearchIcon = styled.div`
 const SearchInput = styled(Input)`
   padding-left: 2.75rem;
   @media (max-width: 480px) {
-    padding: 0.75rem 1rem; /* Adjust padding for mobile */
+    padding: 0.75rem 1rem;
     padding-left: 2.5rem;
   }
 `;
@@ -273,9 +280,9 @@ const ActionButtons = styled.div`
   flex-wrap: wrap;
   @media (max-width: 480px) {
     width: 100%;
-    justify-content: stretch; /* Stretch buttons to fill width */
+    justify-content: stretch;
     button {
-      flex-grow: 1; /* Allow buttons to expand */
+      flex-grow: 1;
     }
   }
 `;
@@ -311,7 +318,7 @@ const TabContainer = styled.div`
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   overflow-x: auto;
   white-space: nowrap;
-  -webkit-overflow-scrolling: touch; /* Enable smooth scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
 
   @media (max-width: 480px) {
     padding: 0.25rem;
@@ -340,7 +347,7 @@ const Tab = styled.button`
     color: #343a40;
   }
   @media (max-width: 480px) {
-    min-width: 90px; /* Smaller tabs on mobile */
+    min-width: 90px;
     font-size: 0.8rem;
     padding: 0.5rem 0.75rem;
     gap: 0.5rem;
@@ -385,19 +392,27 @@ const IMS = () => {
     const [activeTab, setActiveTab] = useState("inventory");
     const [searchQuery, setSearchQuery] = useState('');
     const debouncedSearchQuery = useDebounce(searchQuery, 500);
-    const [isModalOpen, setIsModalOpen] = useState({ add: false, edit: false, view: false, filter: false, notifications: false, export: false });
+    const [isModalOpen, setIsModalOpen] = useState({ 
+        add: false, edit: false, view: false, filter: false, notifications: false, export: false,
+    });
+    const [openExpenseModalOnTabLoad, setOpenExpenseModalOnTabLoad] = useState(false); 
+
     const [selectedItem, setSelectedItem] = useState(null);
     const { unreadCount } = useNotifications();
     
     const {
         inventory, loading: inventoryLoading, stats, error: inventoryError,
-        categories, locations, units, pagination, refreshData,
+        categories, locations, units, suppliers: inventorySuppliers, pagination, refreshData,
         updateFilters, changePage, filters = {},
-        addItem, updateItem, deleteItem, createCategory, createLocation, createUnit,
+        addItem, updateItem, deleteItem, createCategory, createLocation, createUnit, createSupplier,
     } = useInventory();
     
-    const { suppliers, loading: suppliersLoading, createSupplier } = useSuppliers();
-    const { customers, loading: customersLoading, createCustomer } = useCustomers();
+    const { suppliers: managementSuppliers, loading: suppliersLoading } = useSuppliers(); 
+    const { customers, loading: customersLoading, createCustomer, refetchCustomers } = useCustomers();
+
+    const totalOutstandingCustomerDebt = useMemo(() => {
+      return customers.reduce((sum, customer) => sum + (customer.currentBalance || 0), 0);
+    }, [customers]);
 
     useEffect(() => {
         if (debouncedSearchQuery !== (filters.search || '')) {
@@ -409,7 +424,9 @@ const IMS = () => {
         setSelectedItem(item);
         setIsModalOpen(prev => ({...Object.fromEntries(Object.keys(prev).map(k => [k, false])), [modal]: !prev[modal]}));
     };
-    const closeAllModals = () => setIsModalOpen({ add: false, edit: false, view: false, filter: false, notifications: false, export: false });
+    const closeAllModals = () => setIsModalOpen({ 
+        add: false, edit: false, view: false, filter: false, notifications: false, export: false,
+    });
 
     const handleAddItem = async (payload) => {
         const success = await addItem(payload);
@@ -421,7 +438,7 @@ const IMS = () => {
         if (success) closeAllModals();
     };
     const handleDeleteItem = useCallback((itemId) => {
-        if (window.confirm("Are you sure?")) deleteItem(itemId);
+        if (window.confirm("Are you sure? This action cannot be undone.")) deleteItem(itemId);
     }, [deleteItem]);
 
     const handleApplyFilters = useCallback((appliedFilters) => {
@@ -439,8 +456,13 @@ const IMS = () => {
     const handleExport = async (format) => {
         try {
             await inventoryAPI.exportInventory(format, filters);
-        } catch (err) { /* Interceptor handles the toast */ }
+        } catch (err) { }
         setIsModalOpen(prev => ({...prev, export: false}));
+    };
+
+    const handleRecordExpense = () => {
+        setActiveTab('expenses');
+        setOpenExpenseModalOnTabLoad(true);
     };
 
     const activeFilterName = useMemo(() => {
@@ -464,15 +486,39 @@ const IMS = () => {
                                 <Button variant="ghost" size="sm" onClick={handleClearFilters}><FaUndo style={{marginRight: '0.5rem'}}/>Show All Items</Button>
                             </FilterIndicator>
                         )}
-                        <InventoryTable data={inventory} loading={inventoryLoading} pagination={pagination} onPageChange={changePage} onEdit={(item) => handleModal('edit', item)} onDelete={handleDeleteItem} onView={(item) => handleModal('view', item)} />
+                        <InventoryTable 
+                            data={inventory} 
+                            loading={inventoryLoading} 
+                            pagination={pagination} 
+                            onPageChange={changePage} 
+                            onEdit={(item) => handleModal('edit', item)} 
+                            onDelete={handleDeleteItem} 
+                            onView={(item) => handleModal('view', item)} 
+                        />
                     </>
                 );
             case "purchase-orders":
-                return <PurchaseOrders inventoryData={inventory} suppliersData={suppliers} categoriesData={categories} isDataLoading={isDataLoading} createSupplier={createSupplier} createCategory={createCategory} onAction={refreshData} />;
+                return <PurchaseOrders 
+                          inventoryData={inventory} 
+                          suppliersData={inventorySuppliers} 
+                          categoriesData={categories} 
+                          isDataLoading={isDataLoading} 
+                          createSupplier={createSupplier} 
+                          createCategory={createCategory} 
+                          onAction={refreshData} 
+                        />;
             case "sales":
-                return <Sales inventoryData={inventory} isDataLoading={inventoryLoading} onAction={refreshData} />;
+                return <Sales inventoryData={inventory} isDataLoading={isDataLoading} onAction={() => { refreshData(); refetchCustomers(); }} />;
             case "suppliers":
                 return <SupplierManagement />;
+            case "expenses":
+                return (
+                    <ExpenseManagement 
+                        onAction={refreshData} 
+                        openModalInitially={openExpenseModalOnTabLoad} 
+                        setOpenModalInitially={setOpenExpenseModalOnTabLoad} 
+                    />
+                );
             case "reports":
                 return <ReportsAnalytics />;
             default: return null;
@@ -543,7 +589,7 @@ const IMS = () => {
                     </StatCard>
                     <StatCard className={activeTab === 'suppliers' ? 'active' : ''} onClick={() => setActiveTab('suppliers')}>
                         <StatHeader>
-                            <StatContent><StatValue>{formatNumber(suppliers.length)}</StatValue><StatLabel>Total Suppliers</StatLabel></StatContent>
+                            <StatContent><StatValue>{formatNumber(managementSuppliers.length)}</StatValue><StatLabel>Total Suppliers</StatLabel></StatContent>
                             <StatIcon iconColor="#319795"><FaHandshake /></StatIcon>
                         </StatHeader>
                         <StatFooter>Partners in procurement</StatFooter>
@@ -554,6 +600,13 @@ const IMS = () => {
                             <StatIcon iconColor="#4299e1"><FaUserTie /></StatIcon>
                         </StatHeader>
                         <StatFooter>Your valuable clients</StatFooter>
+                    </StatCard>
+                    <StatCard className={activeTab === 'sales' ? 'active' : ''} onClick={() => { setActiveTab('sales'); }}>
+                        <StatHeader>
+                            <StatContent><StatValue className="debt-color">{formatCurrency(totalOutstandingCustomerDebt)}</StatValue><StatLabel>Total Customer Debt</StatLabel></StatContent>
+                            <StatIcon iconColor="#c53030"><FaDollarSign /></StatIcon>
+                        </StatHeader>
+                        <StatFooter>Across all customer accounts</StatFooter>
                     </StatCard>
                 </StatsGrid>
             </HeaderSection>
@@ -575,6 +628,7 @@ const IMS = () => {
                         )}
                     </div>
                     <Button variant="primary" onClick={() => handleModal('add')}><FaPlus /> Add New Item</Button>
+                    <Button variant="warning" onClick={handleRecordExpense}><FaMoneyBillWave /> Record Expense</Button>
                 </ActionButtons>
             </ActionBar>
 
@@ -583,15 +637,17 @@ const IMS = () => {
                 <Tab active={activeTab === "purchase-orders"} onClick={() => setActiveTab("purchase-orders")}><FaTruck /> Purchase Orders</Tab>
                 <Tab active={activeTab === "suppliers"} onClick={() => setActiveTab("suppliers")}><FaUsers /> Suppliers</Tab>
                 <Tab active={activeTab === "sales"} onClick={() => setActiveTab("sales")}><FaFileInvoiceDollar /> Sales</Tab>
+                <Tab active={activeTab === "expenses"} onClick={() => setActiveTab("expenses")}><FaMoneyBillWave /> Expenses</Tab>
                 <Tab active={activeTab === "reports"} onClick={() => setActiveTab("reports")}><FaChartLine /> Reports</Tab>
             </TabContainer>
             <ContentArea>{renderContent()}</ContentArea>
 
-            {isModalOpen.add && <AddItemModal onClose={closeAllModals} onSave={handleAddItem} categories={categories} locations={locations} units={units} suppliers={suppliers} createCategory={createCategory} createLocation={createLocation} createUnit={createUnit} createSupplier={createSupplier} loading={inventoryLoading || suppliersLoading} />}
-            {isModalOpen.edit && selectedItem && <AddItemModal itemToEdit={selectedItem} onClose={closeAllModals} onSave={(payload) => handleUpdateItem(payload)} categories={categories} locations={locations} units={units} suppliers={suppliers} createCategory={createCategory} createLocation={createLocation} createUnit={createUnit} createSupplier={createSupplier} loading={inventoryLoading || suppliersLoading} />}
+            {isModalOpen.add && <AddItemModal onClose={closeAllModals} onSave={handleAddItem} categories={categories} locations={locations} units={units} suppliers={inventorySuppliers} createCategory={createCategory} createLocation={createLocation} createUnit={createUnit} createSupplier={createSupplier} loading={inventoryLoading || suppliersLoading} />}
+            {isModalOpen.edit && selectedItem && <AddItemModal itemToEdit={selectedItem} onClose={closeAllModals} onSave={(payload) => handleUpdateItem(payload)} categories={categories} locations={locations} units={units} suppliers={inventorySuppliers} createCategory={createCategory} createLocation={createLocation} createUnit={createUnit} createSupplier={createSupplier} loading={inventoryLoading || suppliersLoading} />}
             {isModalOpen.view && selectedItem && <ViewItemModal item={selectedItem} onClose={closeAllModals} />}
             {isModalOpen.filter && <FilterPanel onClose={closeAllModals} onApply={handleApplyFilters} onClear={handleClearFilters} categories={categories} locations={locations} initialFilters={filters} />}
             {isModalOpen.notifications && <NotificationPanel onClose={closeAllModals} />}
+            
         </IMSContainer>
     );
 };

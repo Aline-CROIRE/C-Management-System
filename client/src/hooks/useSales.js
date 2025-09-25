@@ -1,13 +1,15 @@
-// hooks/useSales.js
+// src/hooks/useSales.js
+"use client";
 import { useState, useCallback, useEffect } from 'react';
 import { salesAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
-export const useSales = (filters) => {
+export const useSales = (initialFilters = {}) => {
     const [sales, setSales] = useState([]);
-    const [pagination, setPagination] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
+    const [filters, setFilters] = useState(initialFilters);
 
     const fetchSales = useCallback(async () => {
         setLoading(true);
@@ -15,70 +17,98 @@ export const useSales = (filters) => {
         try {
             const response = await salesAPI.getAll(filters);
             if (response.success) {
-                setSales(response.data || []);
-                setPagination(response.pagination || null);
+                setSales(response.data);
+                setPagination(response.pagination);
             } else {
                 throw new Error(response.message || 'Failed to fetch sales.');
             }
         } catch (err) {
             setError(err.message);
-            toast.error(err.message || "Failed to load sales.");
+            toast.error(err.message || 'Error fetching sales.');
         } finally {
             setLoading(false);
         }
-    }, [JSON.stringify(filters)]);
+    }, [filters]);
 
     useEffect(() => {
+        // Ensure initial filters are applied only once or when they deeply change
+        if (JSON.stringify(filters) !== JSON.stringify(initialFilters)) {
+            setFilters(initialFilters);
+        }
         fetchSales();
-    }, [fetchSales]);
+    }, [fetchSales, initialFilters]);
+
 
     const createSale = useCallback(async (saleData) => {
         setLoading(true);
         try {
             const response = await salesAPI.create(saleData);
-            await fetchSales();
-            toast.success("Sale recorded successfully!");
-            return response;
+            if (response.success) {
+                toast.success('Sale recorded successfully!');
+                fetchSales(); // Refresh sales list
+                return true;
+            } else {
+                throw new Error(response.message || 'Failed to record sale.');
+            }
         } catch (err) {
             setError(err.message);
-            toast.error(err.message || "Failed to record sale.");
-            throw err;
+            toast.error(err.message || 'Error recording sale.');
+            return false;
         } finally {
             setLoading(false);
         }
     }, [fetchSales]);
 
-    const processReturn = useCallback(async (saleId, returnedItems) => {
+    const processReturn = useCallback(async (saleId, returnData) => {
         setLoading(true);
         try {
-            const response = await salesAPI.processReturn(saleId, { returnedItems });
-            await fetchSales();
-            toast.success("Items returned successfully!");
-            return response;
+            const response = await salesAPI.processReturn(saleId, returnData);
+            if (response.success) {
+                toast.success('Items returned successfully and inventory updated!');
+                fetchSales(); // Refresh sales list
+                return true;
+            } else {
+                throw new Error(response.message || 'Failed to process return.');
+            }
         } catch (err) {
             setError(err.message);
-            toast.error(err.message || "Failed to process return.");
-            throw err;
-        } finally {
-            setLoading(false);
-        }
-    }, [fetchSales]);
-    
-    const deleteSale = useCallback(async (saleId) => {
-        setLoading(true);
-        try {
-            const response = await salesAPI.delete(saleId);
-            await fetchSales();
-            toast.success("Sale deleted and inventory restocked!");
-            return response;
-        } catch (err) {
-            setError(err.message);
-            toast.error(err.message || "Failed to delete sale.");
-            throw err;
+            toast.error(err.message || 'Error processing return.');
+            return false;
         } finally {
             setLoading(false);
         }
     }, [fetchSales]);
 
-    return { sales, pagination, loading, error, createSale, deleteSale, processReturn, refetch: fetchSales };
+    const recordPayment = useCallback(async (saleId, paymentData) => { // NEW: recordPayment function
+        setLoading(true);
+        try {
+            const response = await salesAPI.recordPayment(saleId, paymentData);
+            if (response.success) {
+                toast.success('Payment recorded successfully!');
+                fetchSales(); // Refresh sales list
+                return true;
+            } else {
+                throw new Error(response.message || 'Failed to record payment.');
+            }
+        } catch (err) {
+            setError(err.message);
+            toast.error(err.message || 'Error recording payment.');
+            return false;
+        } finally {
+            setLoading(false);
+        }
+    }, [fetchSales]);
+
+    return {
+        sales,
+        loading,
+        error,
+        pagination,
+        filters,
+        setFilters,
+        createSale,
+        processReturn,
+        recordPayment, // Expose the new payment function
+        refetch: fetchSales,
+    };
 };

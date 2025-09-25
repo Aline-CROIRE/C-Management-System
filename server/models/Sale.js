@@ -5,21 +5,34 @@ const saleItemSchema = new mongoose.Schema({
     quantity: { type: Number, required: true, min: 1 },
     price: { type: Number, required: true },
     costPrice: { type: Number, required: true },
+    packagingIncluded: { type: Boolean, default: false },
+    packagingDepositCharged: { type: Number, default: 0 },
+    packagingReturned: { type: Boolean, default: false },
 }, { _id: false });
 
 const saleSchema = new mongoose.Schema({
-    user: { // <-- IMPORTANT: Add user reference
+    user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true,
         index: true,
     },
-    receiptNumber: { type: String, required: true, unique: true, index: true }, // receiptNumber should still be globally unique
-    customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' }, // Assuming customers are global or assigned to a user elsewhere
+    receiptNumber: { type: String, required: true, unique: true, index: true },
+    customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
     items: [saleItemSchema],
     subtotal: { type: Number, required: true },
     taxAmount: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
+    amountPaid: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
+    paymentStatus: {
+        type: String,
+        enum: ['Paid', 'Partial', 'Unpaid', 'Refunded'],
+        default: 'Unpaid',
+    },
     paymentMethod: {
         type: String,
         enum: ['Cash', 'Credit Card', 'Mobile Money', 'Bank Transfer'],
@@ -34,8 +47,20 @@ const saleSchema = new mongoose.Schema({
     notes: { type: String, trim: true },
 }, { timestamps: true });
 
+saleSchema.pre('save', function(next) {
+    if (this.isModified('amountPaid') || this.isModified('totalAmount')) {
+        if (this.amountPaid >= this.totalAmount) {
+            this.paymentStatus = 'Paid';
+        } else if (this.amountPaid > 0 && this.amountPaid < this.totalAmount) {
+            this.paymentStatus = 'Partial';
+        } else {
+            this.paymentStatus = 'Unpaid';
+        }
+    }
+    next();
+});
+
 saleSchema.statics.generateReceiptNumber = async function() {
-    // Receipt numbers should likely be unique across all users, not per user.
     const lastSale = await this.findOne().sort({ createdAt: -1 });
     let nextNum = 1;
     if (lastSale && lastSale.receiptNumber) {

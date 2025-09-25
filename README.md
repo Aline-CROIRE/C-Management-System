@@ -133,7 +133,7 @@ npm run dev
 
 The application will be available at:
 - Frontend: http://localhost:3000
-- Backend: http://localhost:5000
+- Backend: https://c-management-system.onrender.com
 
 ### Demo Accounts
 - **Super Admin**: superadmin@demo.com / Demo123!

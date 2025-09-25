@@ -1,16 +1,14 @@
-"use client";
-
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { inventoryAPI, metadataAPI } from "../services/api"; 
-import { useNotifications } from "../contexts/NotificationContext"; // Assuming useNotifications provides a showToast
+import { inventoryAPI, metadataAPI, supplierAPI } from "../services/api"; 
+import { useNotifications } from "../contexts/NotificationContext";
 
 export const useInventory = (initialParams = {}) => {
   const [inventory, setInventory] = useState([]);
   
   const [stats, setStats] = useState({ 
       totalItems: 0, 
-      totalValue: 0, // Total Retail Value
-      totalCostValue: 0, // NEW: Total Cost Value
+      totalValue: 0,
+      totalCostValue: 0,
       lowStockCount: 0, 
       outOfStockCount: 0, 
       onOrderCount: 0 
@@ -24,8 +22,9 @@ export const useInventory = (initialParams = {}) => {
   const [categories, setCategories] = useState([]);
   const [locations, setLocations] = useState([]);
   const [units, setUnits] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   
-  const { showToast } = useNotifications(); // Destructure showToast
+  const { showToast } = useNotifications();
 
   const fetchInventory = useCallback(async () => {
     setLoading(true);
@@ -37,7 +36,7 @@ export const useInventory = (initialParams = {}) => {
       setPagination(response.pagination || { page: 1, limit: 50, total: 0, totalPages: 1 });
     } catch (err) {
       setError(err.response?.data?.message || "Could not fetch inventory data.");
-      showToast(err.response?.data?.message || "Could not fetch inventory data.", "error"); // Show toast
+      showToast(err.response?.data?.message || "Could not fetch inventory data.", "error");
     } finally {
       setLoading(false);
     }
@@ -45,12 +44,12 @@ export const useInventory = (initialParams = {}) => {
 
   const fetchDashboardStats = useCallback(async () => {
     try {
-        const response = await inventoryAPI.getStats(); // No params needed for general stats
+        const response = await inventoryAPI.getStats();
         if(response.success) {
             setStats({
                 totalItems: response.data.totalItems || 0,
-                totalValue: response.data.totalValue || 0, // Retail value
-                totalCostValue: response.data.totalCostValue || 0, // Cost value
+                totalValue: response.data.totalValue || 0,
+                totalCostValue: response.data.totalCostValue || 0,
                 lowStockCount: response.data.lowStockCount || 0,
                 outOfStockCount: response.data.outOfStockCount || 0,
                 onOrderCount: response.data.onOrderCount || 0,
@@ -60,7 +59,7 @@ export const useInventory = (initialParams = {}) => {
         }
     } catch (err) {
         console.error("Error fetching dashboard stats", err);
-        showToast("Failed to fetch dashboard stats.", "error"); // Show toast
+        showToast("Failed to fetch dashboard stats.", "error");
     }
   }, [showToast]);
 
@@ -75,23 +74,25 @@ export const useInventory = (initialParams = {}) => {
 
   const fetchMetadata = useCallback(async () => {
     try {
-      const [categoriesRes, locationsRes, unitsRes] = await Promise.all([
-        metadataAPI.getCategories(),
-        metadataAPI.getLocations(),
+      const [categoriesRes, locationsRes, unitsRes, suppliersRes] = await Promise.all([
+        inventoryAPI.getCategories(),
+        inventoryAPI.getLocations(),
         inventoryAPI.getDistinctUnits(),
+        supplierAPI.getAll(),
       ]);
       setCategories(categoriesRes.data || []);
       setLocations(locationsRes.data || []);
       setUnits(unitsRes.data || []);
+      setSuppliers(suppliersRes.data || []);
     } catch (err) {
-      console.error("Failed to fetch metadata", err);
-      showToast("Could not load form options.", "error");
+      console.error("Failed to fetch metadata:", err);
+      showToast("Could not load form options (categories, locations, units, suppliers).", "error");
     }
   }, [showToast]);
 
   useEffect(() => {
     fetchMetadata();
-    fetchDashboardStats(); // Ensure stats are fetched on initial load too
+    fetchDashboardStats();
   }, [fetchMetadata, fetchDashboardStats]);
 
   const updateFilters = useCallback((newFilters) => {
@@ -106,37 +107,36 @@ export const useInventory = (initialParams = {}) => {
   }, [pagination.totalPages]);
   
   const crudAction = useCallback(async (action, successMessage) => {
-    setLoading(true); // Set loading for CRUD actions
+    setLoading(true);
     try {
       const response = await action();
-      if(response.success) { // Assuming all API calls return { success: true, ... }
+      if(response.success) {
         showToast(successMessage, "success");
         await refreshData();
         await fetchMetadata();
-        return true;
+        return response.data || true;
       } else {
         showToast(response.message || "Action failed.", "error");
         return false;
       }
     } catch (err) {
       setError(err.response?.data?.message || "Action failed.");
-      showToast(err.response?.data?.message || "Action failed.", "error"); // The interceptor handles toast, but this catches if response.success is false or other issues.
+      showToast(err.response?.data?.message || "Action failed.", "error");
       return false;
     } finally {
       setLoading(false);
     }
   }, [showToast, refreshData, fetchMetadata]);
 
-  // Pass payload directly as required by inventoryAPI
   const addItem = (payload) => crudAction(() => inventoryAPI.create(payload), "Item added successfully!");
   const updateItem = (id, payload) => crudAction(() => inventoryAPI.update(id, payload), "Item updated successfully!");
   const deleteItem = (id) => crudAction(() => inventoryAPI.delete(id), "Item deleted successfully!");
   
-  // For metadata creation, ensure `name` is properly formatted (e.g., { name: "New Category" })
-  const createCategory = (name) => crudAction(() => metadataAPI.createCategory({ name }), `Category "${name}" created!`);
-  const createLocation = (name) => crudAction(() => metadataAPI.createLocation({ name }), `Location "${name}" created!`);
-  const createUnit = (name) => crudAction(() => metadataAPI.createUnit({ name }), `Unit "${name}" created!`); // Assuming metadataAPI.createUnit accepts { name: "..." }
-  
+  const createCategory = (name) => crudAction(() => inventoryAPI.createCategory({ name }), `Category "${name}" created!`);
+  const createLocation = (name) => crudAction(() => inventoryAPI.createLocation({ name }), `Location "${name}" created!`);
+  const createUnit = (name) => crudAction(() => inventoryAPI.createUnit({ name }), `Unit "${name}" added to selectable list!`);
+  const createSupplier = (supplierData) => crudAction(() => supplierAPI.create(supplierData), `Supplier "${supplierData.name}" created!`);
+
   return {
     inventory,
     stats,
@@ -144,6 +144,7 @@ export const useInventory = (initialParams = {}) => {
     categories,
     locations,
     units,
+    suppliers,
     loading,
     error,
     filters,
@@ -153,6 +154,7 @@ export const useInventory = (initialParams = {}) => {
     createCategory,
     createLocation,
     createUnit,
+    createSupplier, 
     changePage,
     updateFilters,
     refreshData,

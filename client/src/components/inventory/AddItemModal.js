@@ -7,14 +7,7 @@ import { FaTimes, FaSave, FaBarcode, FaImage } from "react-icons/fa";
 import Button from "../common/Button";
 import Input from "../common/Input";
 import Select from "../common/Select";
-
-// API_BASE_URL_FOR_IMAGES is no longer strictly needed if images are removed
-// const getImageUrlBase = () => {
-//   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
-//   return apiUrl.replace(/\/api$/, ''); 
-// };
-// const API_BASE_URL_FOR_IMAGES = getImageUrlBase();
-
+import toast from 'react-hot-toast';
 
 const ModalOverlay = styled.div` position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; backdrop-filter: blur(4px); `;
 const ModalContent = styled.form` background: ${(props) => props.theme.colors.surface}; color: ${(props) => props.theme.colors.text}; border-radius: ${(props) => props.theme.borderRadius.xl}; width: 100%; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: ${(props) => props.theme.shadows.xl}; overflow: hidden; `;
@@ -31,22 +24,6 @@ const TextArea = styled.textarea` padding: 0.75rem; border: 1px solid ${(props) 
 const ImageUploadContainer = styled.div` border: 2px dashed ${(props) => props.theme.colors.border}; border-radius: ${(props) => props.theme.borderRadius.lg}; padding: 2rem; text-align: center; cursor: pointer; position: relative; transition: all 0.2s ease-in-out; &:hover { border-color: ${(props) => props.theme.colors.primary}; } `;
 const HiddenInput = styled.input` position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; `;
 const ModalFooter = styled.div` padding: 1.5rem 2rem; display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid ${(props) => props.theme.colors.border}; `;
-
-// ImagePreview is no longer needed
-// const ImagePreview = styled.div`
-//   width: 100px;
-//   height: 100px;
-//   border-radius: ${(props) => props.theme.borderRadius.md};
-//   overflow: hidden;
-//   margin: 0 auto 1rem;
-//   border: 1px solid ${(props) => props.theme.colors.border};
-//   img {
-//     width: 100%;
-//     height: 100%;
-//     object-fit: cover;
-//   }
-// `;
-
 
 const AddItemModal = ({
     onClose,
@@ -71,11 +48,10 @@ const AddItemModal = ({
 
     const [formData, setFormData] = useState({
         name: '', sku: '', category: '', location: '', unit: '', quantity: '',
-        price: '', costPrice: '', minStockLevel: '', supplier: '', description: '', expiryDate: '', // image removed
+        price: '', costPrice: '', minStockLevel: '', supplier: '', description: '', expiryDate: '', 
+        packagingType: 'None',
+        packagingDeposit: '0',
     });
-
-    // imagePreviewUrl state is no longer needed
-    // const [imagePreviewUrl, setImagePreviewUrl] = useState(null); 
 
     useEffect(() => {
         if (isEditMode && itemToEdit) {
@@ -92,13 +68,16 @@ const AddItemModal = ({
                 supplier: itemToEdit.supplier?._id || '',
                 description: itemToEdit.description || '',
                 expiryDate: itemToEdit.expiryDate ? new Date(itemToEdit.expiryDate).toISOString().split('T')[0] : '',
-                // image: null, // Image input is cleared on edit for security/simplicity
+                packagingType: itemToEdit.packagingType || 'None',
+                packagingDeposit: itemToEdit.packagingDeposit?.toString() ?? '0',
             });
          
         } else {
             setFormData({
                 name: '', sku: '', category: '', location: '', unit: '', quantity: '',
-                price: '', costPrice: '', minStockLevel: '', supplier: '', description: '', expiryDate: '', // image removed
+                price: '', costPrice: '', minStockLevel: '', supplier: '', description: '', expiryDate: '',
+                packagingType: 'None',
+                packagingDeposit: '0',
             });
          
         }
@@ -109,8 +88,6 @@ const AddItemModal = ({
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
- 
-
     const generateSKU = () => setFormData((prev) => ({ ...prev, sku: `${(prev.name.substring(0, 3) || "NEW").toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}` }));
 
     const handleSubmit = async (e) => {
@@ -119,38 +96,69 @@ const AddItemModal = ({
 
         try {
             if (formData.category === "_add_new_") {
-                if (!newCategoryName.trim()) return alert("Please enter a name for the new category.");
-                const newCat = await createCategory(newCategoryName.trim());
-                if (!newCat) return;
-                finalData.category = newCat.data._id;
+                const trimmedName = newCategoryName.trim();
+                if (!trimmedName) {
+                    toast.error("Please enter a name for the new category.");
+                    return;
+                }
+                const newCat = await createCategory(trimmedName); // This should return { _id, name }
+                if (!newCat || !newCat._id) {
+                    toast.error("Failed to create new category. It might already exist or there was a server error.");
+                    return;
+                }
+                finalData.category = newCat._id;
             }
 
             if (formData.location === "_add_new_") {
-                if (!newLocationName.trim()) return alert("Please enter a name for the new location.");
-                const newLoc = await createLocation(newLocationName.trim());
-                if (!newLoc) return;
-                finalData.location = newLoc.data._id;
+                const trimmedName = newLocationName.trim();
+                if (!trimmedName) {
+                    toast.error("Please enter a name for the new location.");
+                    return;
+                }
+                const newLoc = await createLocation(trimmedName); // This should return { _id, name }
+                if (!newLoc || !newLoc._id) {
+                    toast.error("Failed to create new location. It might already exist or there was a server error.");
+                    return;
+                }
+                finalData.location = newLoc._id;
             }
 
             if (formData.unit === "_add_new_") {
-                if (!newUnitName.trim()) return alert("Please enter a name for the new unit.");
-                await createUnit(newUnitName.trim());
-                finalData.unit = newUnitName.trim();
+                const trimmedName = newUnitName.trim();
+                if (!trimmedName) {
+                    toast.error("Please enter a name for the new unit.");
+                    return;
+                }
+                const newUnitResult = await createUnit(trimmedName); // This returns { name: '...' } or false
+                if (!newUnitResult || !newUnitResult.name) {
+                    toast.error("Failed to add new unit. It might already exist or there was a server error.");
+                    return;
+                }
+                finalData.unit = newUnitResult.name; // Assign the string name
             }
 
             if (formData.supplier === "_add_new_") {
-                if (!newSupplierName.trim()) return alert("Please enter a name for the new supplier.");
-                const newSupplier = await createSupplier({ name: newSupplierName.trim() });
-                if (!newSupplier) return;
-                finalData.supplier = newSupplier.data._id;
+                const trimmedName = newSupplierName.trim();
+                if (!trimmedName) {
+                    toast.error("Please enter a name for the new supplier.");
+                    return;
+                }
+                const newSupplier = await createSupplier({ name: trimmedName }); // This should return { _id, name }
+                if (!newSupplier || !newSupplier._id) {
+                    toast.error("Failed to create new supplier. It might already exist or there was a server error.");
+                    return;
+                }
+                finalData.supplier = newSupplier._id;
             }
+
+            finalData.quantity = Number(finalData.quantity);
+            finalData.price = Number(finalData.price);
+            finalData.costPrice = Number(finalData.costPrice);
+            finalData.minStockLevel = Number(finalData.minStockLevel);
+            finalData.packagingDeposit = Number(finalData.packagingDeposit);
 
             const itemPayload = new FormData();
             Object.keys(finalData).forEach(key => {
-                // Image handling removed
-                // if (key === 'image' && finalData.image) {
-                //     itemPayload.append('itemImage', finalData.image);
-                // } else 
                 if (finalData[key] !== null && finalData[key] !== undefined) {
                     itemPayload.append(key, finalData[key]);
                 }
@@ -160,6 +168,7 @@ const AddItemModal = ({
 
         } catch (error) {
             console.error("Failed to save item:", error);
+            toast.error(error.message || "An unexpected error occurred while saving the item.");
         }
     };
 
@@ -176,7 +185,11 @@ const AddItemModal = ({
                         <FormGroup><Label htmlFor="sku">SKU *</Label><div style={{ display: "flex", gap: "0.5rem" }}><ThemedInput id="sku" name="sku" value={formData.sku} onChange={handleInputChange} required /><Button type="button" variant="outline" onClick={generateSKU} iconOnly aria-label="Generate SKU"><FaBarcode /></Button></div></FormGroup>
                         <FormGroup>
                           <Label htmlFor="category">Category *</Label>
-                          <ThemedSelect id="category" name="category" value={formData.category} onChange={handleInputChange} required><option value="">Select...</option>{categories.map((cat) => <option key={cat._id} value={cat._id}>{cat.name}</option>)}<option value="_add_new_">-- Add New Category --</option></ThemedSelect>
+                          <ThemedSelect id="category" name="category" value={formData.category} onChange={handleInputChange} required>
+                            <option value="">Select...</option>
+                            {categories.map((cat) => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
+                            <option value="_add_new_">-- Add New Category --</option>
+                          </ThemedSelect>
                           {formData.category === "_add_new_" && (<ThemedInput type="text" placeholder="Enter new category name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} style={{ marginTop: '0.5rem' }} autoFocus />)}
                         </FormGroup>
                         <FormGroup><Label htmlFor="quantity">Quantity *</Label><ThemedInput id="quantity" name="quantity" type="number" value={formData.quantity} onChange={handleInputChange} min="0" required /></FormGroup>
@@ -184,25 +197,50 @@ const AddItemModal = ({
                         <FormGroup><Label htmlFor="costPrice">Cost Price *</Label><ThemedInput id="costPrice" name="costPrice" type="number" step="0.01" value={formData.costPrice} onChange={handleInputChange} min="0" required /></FormGroup>
                         <FormGroup>
                           <Label htmlFor="unit">Unit *</Label>
-                          <ThemedSelect id="unit" name="unit" value={formData.unit} onChange={handleInputChange} required><option value="">Select...</option>{units.map((u) => <option key={u} value={u}>{u}</option>)}<option value="_add_new_">-- Add New Unit --</option></ThemedSelect>
+                          <ThemedSelect id="unit" name="unit" value={formData.unit} onChange={handleInputChange} required>
+                            <option value="">Select...</option>
+                            {units.map((u) => <option key={u} value={u}>{u}</option>)}
+                            <option value="_add_new_">-- Add New Unit --</option>
+                          </ThemedSelect>
                           {formData.unit === "_add_new_" && (<ThemedInput type="text" placeholder="e.g., kg, box, liter" value={newUnitName} onChange={(e) => setNewUnitName(e.target.value)} style={{ marginTop: '0.5rem' }} autoFocus />)}
                         </FormGroup>
                         <FormGroup><Label htmlFor="minStockLevel">Minimum Stock Level</Label><ThemedInput id="minStockLevel" name="minStockLevel" type="number" value={formData.minStockLevel} onChange={handleInputChange} min="0" /></FormGroup>
                         <FormGroup>
                           <Label htmlFor="location">Location *</Label>
-                          <ThemedSelect id="location" name="location" value={formData.location} onChange={handleInputChange} required><option value="">Select...</option>{locations.map((loc) => <option key={loc._id} value={loc._id}>{loc.name}</option>)}<option value="_add_new_">-- Add New Location --</option></ThemedSelect>
+                          <ThemedSelect id="location" name="location" value={formData.location} onChange={handleInputChange} required>
+                            <option value="">Select...</option>
+                            {locations.map((loc) => <option key={loc._id} value={loc._id}>{loc.name}</option>)}
+                            <option value="_add_new_">-- Add New Location --</option>
+                          </ThemedSelect>
                           {formData.location === "_add_new_" && (<ThemedInput type="text" placeholder="Enter new location name" value={newLocationName} onChange={(e) => setNewLocationName(e.target.value)} style={{ marginTop: '0.5rem' }} autoFocus />)}
                         </FormGroup>
                         <FormGroup>
                           <Label htmlFor="supplier">Supplier</Label>
-                          <ThemedSelect id="supplier" name="supplier" value={formData.supplier} onChange={handleInputChange}><option value="">Select...</option>{suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}<option value="_add_new_">-- Add New Supplier --</option></ThemedSelect>
+                          <ThemedSelect id="supplier" name="supplier" value={formData.supplier} onChange={handleInputChange}>
+                            <option value="">Select...</option>
+                            {suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
+                            <option value="_add_new_">-- Add New Supplier --</option>
+                          </ThemedSelect>
                           {formData.supplier === "_add_new_" && (<ThemedInput type="text" placeholder="Enter new supplier name" value={newSupplierName} onChange={(e) => setNewSupplierName(e.target.value)} style={{ marginTop: '0.5rem' }} autoFocus />)}
                         </FormGroup>
                         <FormGroup><Label htmlFor="expiryDate">Expiry Date</Label><ThemedInput id="expiryDate" name="expiryDate" type="date" value={formData.expiryDate} onChange={handleInputChange} /></FormGroup>
+
+                        <FormGroup>
+                            <Label htmlFor="packagingType">Packaging Type</Label>
+                            <ThemedSelect id="packagingType" name="packagingType" value={formData.packagingType} onChange={handleInputChange}>
+                                <option value="None">None</option>
+                                <option value="Standard">Standard (Disposable)</option>
+                                <option value="Reusable">Reusable (Deposit)</option>
+                            </ThemedSelect>
+                        </FormGroup>
+                        {formData.packagingType === 'Reusable' && (
+                            <FormGroup>
+                                <Label htmlFor="packagingDeposit">Packaging Deposit (RWF)</Label>
+                                <ThemedInput id="packagingDeposit" name="packagingDeposit" type="number" step="0.01" value={formData.packagingDeposit} onChange={handleInputChange} min="0" />
+                            </FormGroup>
+                        )}
                     </FormGrid>
                     <FormGroup style={{ marginBottom: "1.5rem" }}><Label htmlFor="description">Notes / Description</Label><TextArea id="description" name="description" value={formData.description} onChange={handleInputChange} placeholder="Add any relevant details..." /></FormGroup>
-                    {/* Image upload section removed */}
-                    {/* <FormGroup><Label>Product Image</Label><ImageUploadContainer><HiddenInput type="file" accept="image/*" onChange={handleImageUpload} id="image-upload" /><label htmlFor="image-upload" style={{ display: 'block', cursor: 'pointer' }}><FaImage size={48} style={{ marginBottom: "1rem", opacity: 0.5 }} /><div>{formData.image ? formData.image.name : "Click or drag to upload"}</div><div style={{ fontSize: "0.875rem", marginTop: "0.5rem", opacity: 0.7 }}>Supports JPG, PNG, GIF</div></label></ImageUploadContainer></FormGroup> */}
                 </ModalBody>
                 <ModalFooter>
                     <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>Cancel</Button>
