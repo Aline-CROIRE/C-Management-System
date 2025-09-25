@@ -5,7 +5,7 @@ import styled, { keyframes } from "styled-components";
 import {
   FaBoxes, FaPlus, FaSearch, FaFilter, FaDownload, FaExclamationTriangle, FaFileCsv, FaFileCode,
   FaChartLine, FaTruck, FaUsers, FaDollarSign, FaSync, FaTimes, FaFileInvoiceDollar, FaUndo, FaBell,
-  FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie, FaClipboardList, FaArrowDown, FaExchangeAlt
+  FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie, FaClipboardList, FaArrowDown, FaExchangeAlt // FaExchangeAlt is unused in current code, but kept if user plans to use
 } from "react-icons/fa";
 
 import Card from "../../components/common/Card";
@@ -22,6 +22,8 @@ import ReportsAnalytics from "../../components/inventory/ReportsAnalytics";
 import NotificationPanel from "../../components/inventory/NotificationPanel";
 
 import ExpenseManagement from "../../components/expenses/ExpenseManagement";
+import RecordMultiInternalUseModal from "../../components/inventory/RecordMultiInternalUseModal";
+import InternalUseHistory from "../../components/inventory/InternalUseHistory";
 
 import { useInventory } from "../../hooks/useInventory";
 import { useSuppliers } from "../../hooks/useSuppliers";
@@ -29,134 +31,174 @@ import { useCustomers } from "../../hooks/useCustomers";
 import { useNotifications } from "../../contexts/NotificationContext";
 import { useDebounce } from "../../hooks/useDebounce";
 import { inventoryAPI } from "../../services/api";
+import { useInternalUse } from "../../hooks/useInternalUse";
+
+
+// Keyframes for subtle animations
+const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
+const pulse = keyframes`
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(64, 145, 108, 0.4); }
+  70% { transform: scale(1.01); box-shadow: 0 0 0 8px rgba(64, 145, 108, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(64, 145, 108, 0); }
+`;
 
 const IMSContainer = styled.div`
-  padding: 1.5rem 2rem;
-  background: #f8f9fa;
+  padding: 1.5rem 2rem; /* Desktop default */
+  background: ${(props) => props.theme.colors.background}; /* Use theme background */
   min-height: 100vh;
-  transition: padding 0.3s ease;
+  transition: all 0.3s ease; /* Smooth transitions for theme changes / padding */
 
-  @media (max-width: 1200px) {
+  @media (max-width: 1200px) { /* Larger tablets/small laptops */
     padding: 1rem 1.5rem;
   }
-  @media (max-width: 768px) {
+  @media (max-width: 768px) { /* Tablets */
     padding: 1rem;
   }
-  @media (max-width: 480px) {
-    padding: 0.5rem;
+  @media (max-width: 480px) { /* Mobile phones */
+    padding: 0.75rem; /* Slightly reduced for small screens */
   }
 `;
 
 const HeaderSection = styled.div`
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem; /* Increased spacing */
   @media (max-width: 768px) {
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
   }
 `;
 const HeaderContent = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start; /* Align to top for multi-line titles */
   flex-wrap: wrap;
-  gap: 1.5rem;
+  gap: 1.5rem; /* Spacing between blocks */
+  padding-bottom: 1rem; /* Space below header content */
+  border-bottom: 1px solid ${(props) => props.theme.colors.border}; /* Subtle separator */
+
   @media (max-width: 480px) {
+    flex-direction: column; /* Stack vertically on small mobile */
+    align-items: stretch; /* Stretch items to full width */
     gap: 1rem;
+    padding-bottom: 0.75rem;
   }
 `;
 const HeaderInfo = styled.div`
-  flex: 1;
-  min-width: 150px;
+  flex: 1; /* Allow to take available space */
+  min-width: 200px; /* Ensure title has space */
   @media (max-width: 480px) {
-    font-size: 0.85rem;
+    min-width: unset; /* Remove min-width to allow full stretch */
   }
 `;
 const HeaderTitle = styled.h1`
-  font-size: 2rem;
+  font-size: 2.2rem; /* Slightly larger */
   font-weight: 700;
   margin: 0;
-  color: #1a202c;
+  color: ${(props) => props.theme.colors.heading};
   @media (max-width: 768px) {
-    font-size: 1.75rem;
+    font-size: 1.8rem;
   }
   @media (max-width: 480px) {
     font-size: 1.5rem;
   }
 `;
 const HeaderSubtitle = styled.p`
-  font-size: 1rem;
-  color: #718096;
-  margin: 0.25rem 0 0 0;
+  font-size: 0.95rem; /* Slightly smaller for balance */
+  color: ${(props) => props.theme.colors.textSecondary};
+  margin: 0.5rem 0 0 0; /* More space below title */
   @media (max-width: 480px) {
     font-size: 0.85rem;
+    margin-top: 0.25rem;
   }
 `;
 const HeaderActions = styled.div`
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem; /* Reduced gap for more compact layout */
   align-items: center;
+  flex-wrap: wrap; /* Allow wrapping if many buttons */
+
   @media (max-width: 480px) {
-    gap: 0.5rem;
+    width: 100%; /* Take full width */
+    justify-content: stretch; /* Stretch buttons if they wrap */
+    button {
+      flex-grow: 1; /* Allow buttons to expand */
+    }
   }
 `;
 const NotificationBadge = styled.div`
   position: relative;
   cursor: pointer;
-  color: #718096;
-  &:hover { color: #1a202c; }
+  color: ${(props) => props.theme.colors.textSecondary}; /* Use theme color */
+  padding: 0.5rem; /* Make clickable area larger */
+  border-radius: ${(props) => props.theme.borderRadius.md};
+  transition: all 0.2s ease-in-out;
+  &:hover { 
+    background: ${(props) => props.theme.colors.surfaceLight}; 
+    color: ${(props) => props.theme.colors.text};
+  }
   .badge {
     position: absolute;
-    top: -6px;
-    right: -9px;
-    background-color: #e53e3e;
+    top: -4px; /* Adjusted position */
+    right: -4px; /* Adjusted position */
+    background-color: ${(props) => props.theme.colors.error}; /* Theme error color */
     color: white;
     border-radius: 50%;
-    width: 22px;
-    height: 22px;
-    font-size: 13px;
+    width: 20px; /* Slightly smaller badge */
+    height: 20px;
+    font-size: 12px;
     font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid #fff;
+    border: 1px solid ${(props) => props.theme.colors.surface}; /* Theme surface color for border */
   }
 `;
 
 const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Adjusted min-width for more columns */
+  gap: 1.5rem; /* Consistent gap */
   margin-top: 2rem;
-  @media (max-width: 768px) {
-    gap: 1rem;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+
+  @media (max-width: 1024px) { /* Smaller desktops/large tablets */
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.25rem;
   }
-  @media (max-width: 480px) {
-    grid-template-columns: 1fr;
+  @media (max-width: 768px) { /* Tablets */
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+  }
+  @media (max-width: 480px) { /* Mobile phones */
+    grid-template-columns: 1fr; /* Stack on very small screens */
     gap: 0.75rem;
   }
 `;
+
 const StatCard = styled(Card)`
-  padding: 1.25rem;
+  padding: 1.5rem; /* Increased padding */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 110px;
+  min-height: 120px; /* Taller cards */
   cursor: pointer;
   transition: all 0.2s ease-in-out;
-  border: 2px solid transparent;
+  border: 1px solid ${(props) => props.theme.colors.border}; /* Theme border */
+  border-radius: ${(props) => props.theme.borderRadius.lg}; /* Larger border radius */
+  box-shadow: ${(props) => props.theme.shadows.sm}; /* Subtle shadow */
+  background: ${(props) => props.theme.colors.surface}; /* Theme surface background */
+
   &:hover {
-    transform: translateY(-4px);
-    box-shadow: ${(props) => props.theme.shadows.lg};
+    transform: translateY(-5px); /* More pronounced lift */
+    box-shadow: ${(props) => props.theme.shadows.md}; /* Larger shadow on hover */
   }
   &.active {
     border-color: ${(props) => props.theme.colors.primary};
-    transform: translateY(-4px);
-    box-shadow: 0 0 0 3px ${(props) => props.theme.colors.primary}30;
+    box-shadow: 0 0 0 3px ${(props) => props.theme.colors.primary}30, ${(props) => props.theme.shadows.md}; /* Primary ring and larger shadow */
+    animation: ${pulse} 1s infinite alternate; /* Subtle pulse for active card */
   }
+
   @media (max-width: 480px) {
-    min-height: 90px;
-    padding: 1rem;
-    flex-direction: row;
+    min-height: 100px;
+    padding: 1.25rem;
+    flex-direction: row; /* Horizontal layout on mobile */
     align-items: center;
     justify-content: space-between;
   }
@@ -166,67 +208,76 @@ const StatHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  margin-bottom: 0.75rem; /* Space between header and footer */
+
   @media (max-width: 480px) {
-    flex-direction: row-reverse;
+    flex-direction: row-reverse; /* Icon to the right */
     align-items: center;
     flex-grow: 1;
     justify-content: flex-end;
     gap: 1rem;
+    margin-bottom: 0; /* No margin-bottom on mobile row layout */
   }
 `;
 const StatIcon = styled.div`
-  width: 40px;
-  height: 40px;
+  width: 48px; /* Larger icon */
+  height: 48px;
   flex-shrink: 0;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 18px;
+  font-size: 22px; /* Larger icon font */
   background: ${(props) => props.iconColor};
+  box-shadow: ${(props) => props.theme.shadows.sm}; /* Subtle shadow for icon */
+
   @media (max-width: 480px) {
-    width: 36px;
-    height: 36px;
-    font-size: 16px;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
   }
 `;
 const StatContent = styled.div`
   text-align: left;
-  @media (max-width: 480px) {
-    text-align: left;
-  }
+  /* Allow text to wrap naturally */
 `;
 const StatValue = styled.div`
-  font-size: 1.5rem;
+  font-size: 1.8rem; /* Larger value font */
   font-weight: 700;
-  color: #1a202c;
+  color: ${(props) => props.theme.colors.heading};
+  white-space: nowrap; /* Prevent value from wrapping */
+
   &.debt-color {
     color: ${(props) => props.theme.colors.error};
   }
   @media (max-width: 768px) {
-    font-size: 1.3rem;
+    font-size: 1.5rem;
   }
   @media (max-width: 480px) {
-    font-size: 1.2rem;
+    font-size: 1.3rem;
   }
 `;
 const StatLabel = styled.div`
-  font-size: 0.75rem;
+  font-size: 0.8rem; /* Consistent smaller label */
   text-transform: uppercase;
-  color: #718096;
+  color: ${(props) => props.theme.colors.textSecondary};
   font-weight: 600;
   letter-spacing: 0.5px;
+  margin-top: 0.25rem; /* Space between value and label */
+
   @media (max-width: 480px) {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
+    margin-top: 0;
   }
 `;
 const StatFooter = styled.div`
-  font-size: 0.8rem;
-  color: #4a5568;
-  margin-top: 0.5rem;
+  font-size: 0.85rem; /* Slightly larger footer text */
+  color: ${(props) => props.theme.colors.textLight}; /* Lighter text for footer */
+  margin-top: 0.75rem;
+
   @media (max-width: 480px) {
-    display: none;
+    display: none; /* Hide footer on very small screens to save space */
   }
 `;
 
@@ -234,28 +285,31 @@ const ActionBar = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 2.5rem;
-  margin-bottom: 1.5rem;
+  margin-top: 3rem; /* More spacing */
+  margin-bottom: 2rem;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 1rem; /* Consistent gap */
+
   @media (max-width: 768px) {
-    margin-top: 1.5rem;
-    margin-bottom: 1rem;
+    margin-top: 2rem;
+    margin-bottom: 1.5rem;
   }
   @media (max-width: 480px) {
-    flex-direction: column;
+    flex-direction: column; /* Stack vertically on mobile */
     align-items: stretch;
+    gap: 0.75rem;
   }
 `;
 const SearchContainer = styled.div`
   position: relative;
   flex: 1;
-  min-width: 200px;
-  max-width: 400px;
+  min-width: 250px; /* Minimum width for search bar */
+  max-width: 450px; /* Max width for larger screens */
+
   @media (max-width: 480px) {
     min-width: unset;
     max-width: unset;
-    width: 100%;
+    width: 100%; /* Take full width on mobile */
   }
 `;
 const SearchIcon = styled.div`
@@ -263,26 +317,32 @@ const SearchIcon = styled.div`
   left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #a0aec0;
+  color: ${(props) => props.theme.colors.textSecondary};
   z-index: 2;
   pointer-events: none;
 `;
 const SearchInput = styled(Input)`
-  padding-left: 2.75rem;
+  padding-left: 3rem; /* More space for icon */
+  border-radius: ${(props) => props.theme.borderRadius.lg}; /* Larger border radius */
+  border: 1px solid ${(props) => props.theme.colors.border};
+
   @media (max-width: 480px) {
-    padding: 0.75rem 1rem;
-    padding-left: 2.5rem;
+    padding: 0.85rem 1rem; /* Slightly larger padding */
+    padding-left: 2.85rem;
   }
 `;
 const ActionButtons = styled.div`
   display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
+  gap: 0.75rem; /* Reduced gap */
+  flex-wrap: wrap; /* Allow buttons to wrap */
+
   @media (max-width: 480px) {
     width: 100%;
     justify-content: stretch;
     button {
-      flex-grow: 1;
+      flex-grow: 1; /* Stretch buttons to fill width */
+      padding: 0.75rem; /* Consistent padding */
+      font-size: 0.9rem; /* Slightly smaller font for mobile buttons */
     }
   }
 `;
@@ -290,9 +350,10 @@ const DropdownMenu = styled.div`
   position: absolute;
   top: 110%;
   right: 0;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  background: ${(props) => props.theme.colors.surface};
+  border-radius: ${(props) => props.theme.borderRadius.md};
+  box-shadow: ${(props) => props.theme.shadows.md};
+  border: 1px solid ${(props) => props.theme.colors.border};
   z-index: 100;
   overflow: hidden;
   animation: ${keyframes`from{opacity:0; transform: translateY(-10px)} to{opacity:1; transform: translateY(0)}`} 0.2s ease;
@@ -305,35 +366,37 @@ const DropdownItem = styled.button`
   padding: 0.75rem 1rem;
   border: none;
   background: transparent;
+  color: ${(props) => props.theme.colors.text};
   text-align: left;
   cursor: pointer;
-  &:hover { background: #f8f9fa; }
+  &:hover { background: ${(props) => props.theme.colors.surfaceLight}; }
 `;
 const TabContainer = styled.div`
   display: flex;
-  background: #fff;
-  border-radius: 0.75rem;
+  background: ${(props) => props.theme.colors.surface};
+  border-radius: ${(props) => props.theme.borderRadius.lg};
   padding: 0.5rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  overflow-x: auto;
+  margin-bottom: 1.5rem;
+  box-shadow: ${(props) => props.theme.shadows.sm};
+  border: 1px solid ${(props) => props.theme.colors.border};
+  overflow-x: auto; /* Allow horizontal scrolling for many tabs */
   white-space: nowrap;
   -webkit-overflow-scrolling: touch;
 
   @media (max-width: 480px) {
     padding: 0.25rem;
-    border-radius: 0.5rem;
-    margin-bottom: 0.75rem;
+    border-radius: ${(props) => props.theme.borderRadius.md};
+    margin-bottom: 1rem;
   }
 `;
 const Tab = styled.button`
-  flex: 1;
-  min-width: 120px;
-  padding: 0.75rem 1rem;
+  flex: 1; /* Allow tabs to grow */
+  min-width: 130px; /* Minimum width for each tab */
+  padding: 0.85rem 1.2rem; /* Slightly larger padding */
   border: none;
   background: ${(props) => (props.active ? props.theme.colors.primary : "transparent")};
   color: ${(props) => (props.active ? "white" : props.theme.colors.textSecondary)};
-  border-radius: 0.5rem;
+  border-radius: ${(props) => props.theme.borderRadius.md}; /* Rounded corners for active tab */
   font-weight: 600;
   transition: all 0.3s ease;
   cursor: pointer;
@@ -343,20 +406,27 @@ const Tab = styled.button`
   gap: 0.75rem;
   white-space: nowrap;
   &:hover:not(:disabled):not(.active) {
-    background: #e9ecef;
-    color: #343a40;
+    background: ${(props) => props.theme.colors.surfaceLight}; /* Lighter hover background */
+    color: ${(props) => props.theme.colors.text};
   }
   @media (max-width: 480px) {
-    min-width: 90px;
+    min-width: 100px;
     font-size: 0.8rem;
-    padding: 0.5rem 0.75rem;
+    padding: 0.6rem 0.8rem;
     gap: 0.5rem;
   }
 `;
 const ContentArea = styled.div`
   min-height: 600px;
+  background: ${(props) => props.theme.colors.surface}; /* Use theme surface for content area */
+  border-radius: ${(props) => props.theme.borderRadius.xl};
+  box-shadow: ${(props) => props.theme.shadows.lg}; /* Consistent shadow */
+  border: 1px solid ${(props) => props.theme.colors.border}; /* Consistent border */
+  overflow: hidden; /* Ensure child content doesn't break rounded corners */
+
   @media (max-width: 768px) {
     min-height: 400px;
+    border-radius: ${(props) => props.theme.borderRadius.lg};
   }
 `;
 const spinAnimation = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
@@ -368,12 +438,13 @@ const FilterIndicator = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.5rem;
-  background-color: #e6f7ff;
-  color: #005f99;
-  border: 1px solid #91d5ff;
-  border-radius: 0.75rem;
+  background-color: ${(props) => props.theme.colors.info}10; /* Lighter info background */
+  color: ${(props) => props.theme.colors.info}; /* Info text color */
+  border: 1px solid ${(props) => props.theme.colors.info}30; /* Info border */
+  border-radius: ${(props) => props.theme.borderRadius.md};
   margin-bottom: 1.5rem;
   font-weight: 600;
+  
   @media (max-width: 480px) {
     flex-direction: column;
     align-items: flex-start;
@@ -394,6 +465,8 @@ const IMS = () => {
     const debouncedSearchQuery = useDebounce(searchQuery, 500);
     const [isModalOpen, setIsModalOpen] = useState({ 
         add: false, edit: false, view: false, filter: false, notifications: false, export: false,
+        recordExpense: false, 
+        internalUseMulti: false,
     });
     const [openExpenseModalOnTabLoad, setOpenExpenseModalOnTabLoad] = useState(false); 
 
@@ -409,6 +482,8 @@ const IMS = () => {
     
     const { suppliers: managementSuppliers, loading: suppliersLoading } = useSuppliers(); 
     const { customers, loading: customersLoading, createCustomer, refetchCustomers } = useCustomers();
+
+    const { totalValueStats: internalUseSummary } = useInternalUse({});
 
     const totalOutstandingCustomerDebt = useMemo(() => {
       return customers.reduce((sum, customer) => sum + (customer.currentBalance || 0), 0);
@@ -426,6 +501,8 @@ const IMS = () => {
     };
     const closeAllModals = () => setIsModalOpen({ 
         add: false, edit: false, view: false, filter: false, notifications: false, export: false,
+        recordExpense: false,
+        internalUseMulti: false,
     });
 
     const handleAddItem = async (payload) => {
@@ -465,13 +542,17 @@ const IMS = () => {
         setOpenExpenseModalOnTabLoad(true);
     };
 
+    const handleRecordMultiInternalUse = () => {
+        handleModal('internalUseMulti');
+    };
+
     const activeFilterName = useMemo(() => {
         const activeFilters = Object.keys(filters).filter(key => filters[key] && !['search', 'page', 'limit'].includes(key));
         if (activeFilters.length === 0) return null;
         return activeFilters.map(key => `${key.charAt(0).toUpperCase() + key.slice(1)}: ${filters[key]}`).join(', ');
     }, [filters]);
 
-    const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString()}`;
+    const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
     const formatNumber = (num) => Number(num || 0).toLocaleString();
 
     const renderContent = () => {
@@ -515,8 +596,16 @@ const IMS = () => {
                 return (
                     <ExpenseManagement 
                         onAction={refreshData} 
-                        openModalInitially={openExpenseModalOnTabLoad} 
-                        setOpenModalInitially={setOpenExpenseModalOnTabLoad} 
+                        openModalInitially={isModalOpen.recordExpense} 
+                        setOpenModalInitially={() => setIsModalOpen(prev => ({...prev, recordExpense: false}))}
+                    />
+                );
+            case "internal-use-history":
+                return (
+                    <InternalUseHistory
+                        onAction={refreshData}
+                        openModalInitially={isModalOpen.internalUseMulti} 
+                        setOpenModalInitially={() => setIsModalOpen(prev => ({...prev, internalUseMulti: false}))}
                     />
                 );
             case "reports":
@@ -608,6 +697,13 @@ const IMS = () => {
                         </StatHeader>
                         <StatFooter>Across all customer accounts</StatFooter>
                     </StatCard>
+                    <StatCard className={activeTab === 'internal-use-history' ? 'active' : ''} onClick={() => setActiveTab('internal-use-history')}>
+                        <StatHeader>
+                            <StatContent><StatValue>{formatCurrency(internalUseSummary.totalValue)}</StatValue><StatLabel>Total Value Used (Internal)</StatLabel></StatContent>
+                            <StatIcon iconColor="#6c757d"><FaClipboardList /></StatIcon>
+                        </StatHeader>
+                        <StatFooter>Items used internally by owner/staff</StatFooter>
+                    </StatCard>
                 </StatsGrid>
             </HeaderSection>
 
@@ -628,6 +724,7 @@ const IMS = () => {
                         )}
                     </div>
                     <Button variant="primary" onClick={() => handleModal('add')}><FaPlus /> Add New Item</Button>
+                    <Button variant="info" onClick={handleRecordMultiInternalUse}><FaClipboardList /> Record Internal Use</Button>
                     <Button variant="warning" onClick={handleRecordExpense}><FaMoneyBillWave /> Record Expense</Button>
                 </ActionButtons>
             </ActionBar>
@@ -638,6 +735,7 @@ const IMS = () => {
                 <Tab active={activeTab === "suppliers"} onClick={() => setActiveTab("suppliers")}><FaUsers /> Suppliers</Tab>
                 <Tab active={activeTab === "sales"} onClick={() => setActiveTab("sales")}><FaFileInvoiceDollar /> Sales</Tab>
                 <Tab active={activeTab === "expenses"} onClick={() => setActiveTab("expenses")}><FaMoneyBillWave /> Expenses</Tab>
+                <Tab active={activeTab === "internal-use-history"} onClick={() => setActiveTab("internal-use-history")}><FaClipboardList /> Internal Use History</Tab>
                 <Tab active={activeTab === "reports"} onClick={() => setActiveTab("reports")}><FaChartLine /> Reports</Tab>
             </TabContainer>
             <ContentArea>{renderContent()}</ContentArea>
@@ -648,6 +746,22 @@ const IMS = () => {
             {isModalOpen.filter && <FilterPanel onClose={closeAllModals} onApply={handleApplyFilters} onClear={handleClearFilters} categories={categories} locations={locations} initialFilters={filters} />}
             {isModalOpen.notifications && <NotificationPanel onClose={closeAllModals} />}
             
+            {isModalOpen.recordExpense && (
+                <ExpenseManagement 
+                    onAction={refreshData} 
+                    openModalInitially={isModalOpen.recordExpense} 
+                    setOpenModalInitially={() => setIsModalOpen(prev => ({...prev, recordExpense: false}))}
+                />
+            )}
+
+            {isModalOpen.internalUseMulti && (
+                <RecordMultiInternalUseModal 
+                    inventoryItems={inventory}
+                    onClose={closeAllModals} 
+                    onSave={refreshData}
+                    loading={inventoryLoading}
+                />
+            )}
         </IMSContainer>
     );
 };
