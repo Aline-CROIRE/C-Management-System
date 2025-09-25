@@ -37228,3 +37228,633 @@
   service: 'comprehensive-management-system',
   timestamp: '2025-09-14 10:59:32'
 }
+{
+  message: '::1 - - [19/Sep/2025:16:30:08 +0000] "GET /api/auth/me HTTP/1.1" 401 55 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:08'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:16 +0000] "POST /api/auth/login HTTP/1.1" 200 232 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:16'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:16 +0000] "GET /api/auth/me HTTP/1.1" 200 575 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:16'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:17 +0000] "GET /api/notifications HTTP/1.1" 200 51 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:17'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:26 +0000] "GET /api/construction/equipment?page=1&limit=10 HTTP/1.1" 200 86 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:26'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:26 +0000] "GET /api/construction/sites?page=1&limit=10 HTTP/1.1" 200 86 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:26'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:26 +0000] "GET /api/construction/tasks?page=1&limit=10 HTTP/1.1" 200 86 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:26'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:26 +0000] "GET /api/construction/workers?page=1&limit=10 HTTP/1.1" 200 86 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:26'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:26 +0000] "GET /api/metadata/locations HTTP/1.1" 200 26 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:26'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:27 +0000] "GET /api/metadata/categories HTTP/1.1" 200 33 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:27'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:27 +0000] "GET /api/inventory/units HTTP/1.1" 200 26 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:27'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:27 +0000] "GET /api/inventory?page=1&limit=50 HTTP/1.1" 200 86 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:27'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:27 +0000] "GET /api/customers HTTP/1.1" 200 26 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:27'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:27 +0000] "GET /api/suppliers HTTP/1.1" 200 26 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:27'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:28 +0000] "GET /api/inventory/stats HTTP/1.1" 200 129 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:28'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:30 +0000] "GET /api/construction/stats HTTP/1.1" 200 379 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:30'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:30:47 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:30:47'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:17 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:17'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:39 +0000] "POST /api/metadata/categories HTTP/1.1" 201 203 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:39'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:39 +0000] "GET /api/metadata/categories HTTP/1.1" 200 43 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:39'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:39 +0000] "GET /api/metadata/locations HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:39'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:40 +0000] "GET /api/inventory/units HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:40'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:40 +0000] "GET /api/inventory?page=1&limit=50 HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:40'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:41 +0000] "GET /api/inventory/stats HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:41'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:44 +0000] "POST /api/metadata/categories HTTP/1.1" 400 54 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:44'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:45 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:45'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:47 +0000] "GET /api/auth/me HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:47'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:48 +0000] "GET /api/metadata/categories HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:48'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:48 +0000] "GET /api/metadata/locations HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:48'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:48 +0000] "GET /api/inventory/units HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:48'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:48 +0000] "GET /api/inventory?page=1&limit=50 HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:48'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:48 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:48'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:48 +0000] "GET /api/suppliers HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:48'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:48 +0000] "GET /api/customers HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:48'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:31:49 +0000] "GET /api/inventory/stats HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:31:49'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:15 +0000] "GET /api/auth/me HTTP/1.1" - - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:15'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:32 +0000] "GET /api/auth/me HTTP/1.1" 200 575 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:32'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:33 +0000] "GET /api/metadata/categories HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:33'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:33 +0000] "GET /api/metadata/locations HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:33'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:33 +0000] "GET /api/inventory/units HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:33'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:33 +0000] "GET /api/suppliers HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:33'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:34 +0000] "GET /api/inventory?page=1&limit=50 HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:34'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:34 +0000] "GET /api/customers HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:34'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:34 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:34'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:35 +0000] "GET /api/inventory/stats HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:35'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:40 +0000] "GET /api/metadata/locations HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:40'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:40 +0000] "GET /api/metadata/categories HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:40'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:40 +0000] "GET /api/inventory/units HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:40'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:41 +0000] "GET /api/sales HTTP/1.1" 200 86 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:41'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:41 +0000] "GET /api/inventory?page=1&limit=50 HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:41'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:41 +0000] "GET /api/customers HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:41'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:42 +0000] "GET /api/inventory/stats HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:42'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:32:48 +0000] "POST /api/sales/analytics HTTP/1.1" 200 223 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:32:48'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:33:04 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:33:04'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:33:34 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:33:34'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:33:46 +0000] "GET /api/purchase-orders?page=1&limit=10&sort=orderDate&order=desc HTTP/1.1" 200 86 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:33:46'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:33:52 +0000] "GET /api/metadata/categories HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:33:52'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:33:52 +0000] "GET /api/metadata/locations HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:33:52'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:33:53 +0000] "GET /api/inventory/units HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:33:53'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:33:53 +0000] "GET /api/sales HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:33:53'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:33:53 +0000] "GET /api/inventory?page=1&limit=50 HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:33:53'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:33:53 +0000] "GET /api/customers HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:33:53'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:33:54 +0000] "GET /api/inventory/stats HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:33:54'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:33:58 +0000] "POST /api/sales/analytics HTTP/1.1" 200 223 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:33:58'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:34:04 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:34:04'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:34:34 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:34:34'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:35:04 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:35:04'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:35:34 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:35:34'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:35:51 +0000] "POST /api/reports/comprehensive HTTP/1.1" 200 513 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:35:51'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:35:52 +0000] "GET /api/metadata/categories HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:35:52'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:35:52 +0000] "GET /api/metadata/locations HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:35:52'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:35:52 +0000] "GET /api/inventory/units HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:35:52'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:35:52 +0000] "GET /api/sales HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:35:52'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:35:52 +0000] "GET /api/inventory?page=1&limit=50 HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:35:52'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:35:53 +0000] "GET /api/customers HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:35:53'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:35:53 +0000] "GET /api/inventory/stats HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:35:53'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:35:57 +0000] "GET /api/purchase-orders?page=1&limit=10&sort=orderDate&order=desc HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:35:57'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:36:00 +0000] "GET /api/metadata/categories HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:36:00'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:36:00 +0000] "GET /api/metadata/locations HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:36:00'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:36:00 +0000] "GET /api/inventory/units HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:36:00'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:36:01 +0000] "GET /api/inventory?page=1&limit=50 HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:36:01'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:36:01 +0000] "GET /api/sales HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:36:01'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:36:01 +0000] "GET /api/customers HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:36:01'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:36:02 +0000] "GET /api/inventory/stats HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:36:02'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:36:04 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:36:04'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:36:04 +0000] "POST /api/sales/analytics HTTP/1.1" 200 223 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:36:04'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:36:18 +0000] "POST /api/reports/comprehensive HTTP/1.1" 200 513 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:36:18'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:36:34 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:36:34'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:37:04 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:37:04'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:37:34 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:37:34'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:38:04 +0000] "GET /api/notifications HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:38:04'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:38:19 +0000] "GET /api/construction/sites?page=1&limit=10 HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:38:19'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:38:19 +0000] "GET /api/construction/workers?page=1&limit=10 HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:38:19'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:38:19 +0000] "GET /api/construction/equipment?page=1&limit=10 HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:38:19'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:38:19 +0000] "GET /api/construction/tasks?page=1&limit=10 HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:38:19'
+}
+{
+  message: '::1 - - [19/Sep/2025:16:38:23 +0000] "GET /api/construction/stats HTTP/1.1" 304 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-19 09:38:23'
+}
+{
+  message: '::1 - - [25/Sep/2025:12:33:44 +0000] "GET /api/expenses HTTP/1.1" 401 63 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 05:33:44'
+}
+{
+  message: '::1 - - [25/Sep/2025:12:33:44 +0000] "GET /favicon.ico HTTP/1.1" 404 150 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 05:33:44'
+}
+{
+  message: '::1 - - [25/Sep/2025:12:37:25 +0000] "GET /api/expenses/api/auth/me HTTP/1.1" 404 88 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 05:37:25'
+}
+{
+  message: '::1 - - [25/Sep/2025:12:37:25 +0000] "GET /api/expenses/api/auth/me HTTP/1.1" 404 88 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 05:37:25'
+}
+{
+  message: '::1 - - [25/Sep/2025:12:37:28 +0000] "POST /api/expenses/api/auth/login HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 05:37:28'
+}
+{
+  message: '::1 - - [25/Sep/2025:12:37:42 +0000] "POST /api/expenses/api/auth/login HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 05:37:42'
+}
+{
+  message: '::1 - - [25/Sep/2025:12:38:12 +0000] "POST /api/expenses/api/auth/login HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 05:38:12'
+}
+{
+  message: '::1 - - [25/Sep/2025:12:39:31 +0000] "POST /api/expenses/api/auth/register HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 05:39:31'
+}
+{
+  message: '::1 - - [25/Sep/2025:12:39:37 +0000] "POST /api/expenses/api/auth/login HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 05:39:37'
+}

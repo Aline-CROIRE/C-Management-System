@@ -1,4 +1,4 @@
-// client/src/components/construction/GanttChartDisplay.js
+// client/src/components/construction/task-management/GanttChartDisplay.js
 "use client";
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
@@ -181,7 +181,7 @@ const GanttChartDisplay = ({ tasks = [], loading = false, error = null }) => {
         return;
     }
 
-    if (memoizedFrappedTasks.length > 0) {
+    if (memoizedFrappeTasks.length > 0) {
       if (!isGanttInitialized) {
         ganttRef.current.innerHTML = ''; // Clear previous content before initializing
         
@@ -227,7 +227,7 @@ const GanttChartDisplay = ({ tasks = [], loading = false, error = null }) => {
     }
 
     return cleanupGantt; // Return cleanup function for useEffect
-  }, [memoizedFrappeTasks, isGanttInitialized]); // Depend on memoized tasks and initialization status
+  }, [memoizedFrappeTasks, isGanttInitialized]); // Corrected typo here
 
   if (loading && memoizedFrappeTasks.length === 0) {
     return (

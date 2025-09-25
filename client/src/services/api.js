@@ -3,7 +3,7 @@ import axios from "axios";
 import { toast } from "react-hot-toast";
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "https://c-management-system.onrender.com/api",
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/api/expenses/api",
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
@@ -241,4 +241,11 @@ export const constructionAPI = {
 
 };
 
+export const expensesAPI = {
+  getAll: (params) => api.get("/expenses", { params }),
+  getById: (id) => api.get(`/expenses/${id}`),
+  create: (expenseData) => api.post("/expenses", expenseData),
+  update: (id, expenseData) => api.put(`/expenses/${id}`, expenseData),
+  delete: (id) => api.delete(`/expenses/${id}`),
+};
 export default api;

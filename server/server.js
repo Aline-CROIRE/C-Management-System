@@ -23,6 +23,7 @@ const notificationRoutes = require("./routes/notifications");
 const customerRoutes = require('./routes/customers');
 const constructionRoutes = require('./routes/construction');
 const workerRoutes = require('./routes/workers');
+const expenseRoutes = require('./routes/expenseRoutes');
 
 // Import middleware and utilities
 const { verifyToken } = require("./middleware/auth");
@@ -102,6 +103,7 @@ app.use("/api/sales", verifyToken, salesRoutes);
 app.use("/api/customers", verifyToken, customerRoutes);
 app.use('/api/construction', verifyToken, constructionRoutes); 
 app.use('/api/workers', workerRoutes); 
+app.use('/api/expenses', expenseRoutes); 
 // Catch-all for undefined API routes
 app.use("/api/*", (req, res) => {
   res.status(404).json({ success: false, message: "API endpoint not found.", path: req.originalUrl });
