@@ -23,6 +23,7 @@ const customerRoutes = require('./routes/customers');
 const constructionRoutes = require('./routes/construction');
 const workerRoutes = require('./routes/workers');
 const expenseRoutes = require('./routes/expenses');
+const InternalUseRoutes = require('./routes/InternalUseRoutes');
 
 const { verifyToken } = require("./middleware/auth");
 const errorHandler = require("./middleware/errorHandler");
@@ -98,6 +99,7 @@ app.use("/api/customers", verifyToken, customerRoutes);
 app.use('/api/construction', verifyToken, constructionRoutes); 
 app.use('/api/workers', workerRoutes); 
 app.use('/api/expenses', expenseRoutes); 
+app.use('/api/internal-use', verifyToken, InternalUseRoutes);
 
 app.use("/api/*", (req, res) => {
   res.status(404).json({ success: false, message: "API endpoint not found.", path: req.originalUrl });

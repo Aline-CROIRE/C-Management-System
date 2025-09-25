@@ -168,6 +168,15 @@ export const expensesAPI = {
   delete: (id) => api.delete(`/expenses/${id}`),
 };
 
+export const internalUseAPI = {
+  getAll: (params) => api.get("/internal-use", { params }),
+  getById: (id) => api.get(`/internal-use/${id}`),
+  create: (useData) => api.post("/internal-use", useData),
+  delete: (id) => api.delete(`/internal-use/${id}`),
+  getTotalValue: (params) => api.get("/internal-use/total-value", { params }), // NEW
+};
+
+
 export const constructionAPI = {
   getSites: async (params) => await api.get('/construction/sites', { params }),
   getSiteById: async (id) => await api.get(`/construction/sites/${id}`),
@@ -253,5 +262,8 @@ export const constructionAPI = {
   generateReport: async (siteId, reportType) => await api.get(`/construction/sites/${siteId}/reports/${reportType}`, { responseType: 'blob' }),
 
 };
+
+
+
 
 export default api;
