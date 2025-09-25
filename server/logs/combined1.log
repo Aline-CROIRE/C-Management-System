@@ -37858,3 +37858,51 @@
   service: 'comprehensive-management-system',
   timestamp: '2025-09-25 05:39:37'
 }
+{
+  message: '::1 - - [25/Sep/2025:12:49:31 +0000] "POST /api/expenses/api/auth/login HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 05:49:31'
+}
+{
+  message: '::1 - - [25/Sep/2025:12:49:46 +0000] "POST /api/expenses/api/auth/login HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 05:49:46'
+}
+{
+  message: '::1 - - [25/Sep/2025:13:00:08 +0000] "POST /api/expenses/api/auth/register HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 06:00:08'
+}
+{
+  message: '::1 - - [25/Sep/2025:13:01:48 +0000] "POST /api/expenses/api/auth/register HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 06:01:48'
+}
+{
+  message: '::1 - - [25/Sep/2025:13:02:03 +0000] "POST /api/expenses/api/auth/login HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 06:02:03'
+}
+{
+  message: '::1 - - [25/Sep/2025:13:02:52 +0000] "POST /api/expenses/api/auth/register HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 06:02:52'
+}
+{
+  message: '::1 - - [25/Sep/2025:13:03:34 +0000] "POST /api/expenses/api/auth/register HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 06:03:34'
+}
+{
+  message: '::1 - - [25/Sep/2025:13:14:23 +0000] "POST /api/expenses/api/auth/login HTTP/1.1" 401 63 "http://localhost:3000/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"',
+  level: 'info',
+  service: 'comprehensive-management-system',
+  timestamp: '2025-09-25 06:14:23'
+}

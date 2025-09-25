@@ -1,15 +1,15 @@
 // src/components/expenses/ExpenseManagement.js
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { FaPlus, FaEdit, FaTrash, FaMoneyBillWave, FaFilter, FaCalendarAlt, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import Button from '../common/Button';
 import Input from '../common/Input';
-import Select from '../common/Select'; // Assuming a common Select component
+import Select from '../common/Select';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { useExpenses } from '../../hooks/useExpenses';
 import ExpenseModal from './ExpenseModal';
-import Card from '../common/Card'; // Assuming you have a Card component
+import Card from '../common/Card';
 
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 
@@ -110,14 +110,22 @@ const TableFooter = styled.div`
 const PaginationControls = styled.div` display: flex; gap: 0.5rem; `;
 
 
-const ExpenseManagement = ({ onAction, expenseToEdit = null }) => {
+const ExpenseManagement = ({ onAction, openModalInitially, setOpenModalInitially }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingExpense, setEditingExpense] = useState(null);
     const [currentFilters, setCurrentFilters] = useState({});
 
     const { expenses, loading, error, createExpense, updateExpense, deleteExpense, pagination, setFilters, refetch } = useExpenses(currentFilters);
 
-    // Categories for filter (same as in ExpenseModal, could be fetched from API)
+    // Effect to open modal if signaled by parent
+    useEffect(() => {
+        if (openModalInitially) {
+            setEditingExpense(null); // Ensure it's for a new expense
+            setIsModalOpen(true);
+            setOpenModalInitially(false); // Reset the flag in parent
+        }
+    }, [openModalInitially, setOpenModalInitially]);
+
     const expenseCategories = [
         "All Categories", "Rent", "Utilities", "Salaries", "Marketing", "Office Supplies",
         "Maintenance", "Software Subscriptions", "Travel", "Transportation", "Other"
@@ -133,14 +141,14 @@ const ExpenseManagement = ({ onAction, expenseToEdit = null }) => {
         if (success) {
             setIsModalOpen(false);
             setEditingExpense(null);
-            if(onAction) onAction(); // Notify parent for IMS refresh (e.g., dashboard stats)
+            if(onAction) onAction();
         }
     };
 
     const handleDeleteExpense = async (id) => {
         if (window.confirm("Are you sure you want to delete this expense? This action cannot be undone.")) {
             await deleteExpense(id);
-            if(onAction) onAction(); // Notify parent for IMS refresh
+            if(onAction) onAction();
         }
     };
 
@@ -154,13 +162,18 @@ const ExpenseManagement = ({ onAction, expenseToEdit = null }) => {
         setCurrentFilters(prev => ({
             ...prev,
             [name]: value === "All Categories" ? "" : value,
-            page: 1, // Reset to first page on filter change
+            page: 1,
+        }));
+        setFilters(prev => ({ // Update hook's filters as well
+            ...prev,
+            [name]: value === "All Categories" ? "" : value,
+            page: 1,
         }));
     };
 
     const handleClearFilters = () => {
       setCurrentFilters({});
-      setFilters({}); // Also clear filters in the hook
+      setFilters({});
     };
 
     const handlePageChange = (newPage) => {

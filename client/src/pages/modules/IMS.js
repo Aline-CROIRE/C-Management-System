@@ -1,3 +1,4 @@
+// src/components/inventory/IMS.js
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
@@ -391,10 +392,11 @@ const IMS = () => {
     const debouncedSearchQuery = useDebounce(searchQuery, 500);
     const [isModalOpen, setIsModalOpen] = useState({ 
         add: false, edit: false, view: false, filter: false, notifications: false, export: false,
-        recordExpense: false,
     });
+    // NEW state for triggering ExpenseModal inside ExpenseManagement
+    const [openExpenseModalOnTabLoad, setOpenExpenseModalOnTabLoad] = useState(false); 
+
     const [selectedItem, setSelectedItem] = useState(null);
-    const [selectedExpense, setSelectedExpense] = useState(null);
     const { unreadCount } = useNotifications();
     
     const {
@@ -419,7 +421,6 @@ const IMS = () => {
     };
     const closeAllModals = () => setIsModalOpen({ 
         add: false, edit: false, view: false, filter: false, notifications: false, export: false,
-        recordExpense: false,
     });
 
     const handleAddItem = async (payload) => {
@@ -454,9 +455,10 @@ const IMS = () => {
         setIsModalOpen(prev => ({...prev, export: false}));
     };
 
-    const handleRecordExpense = (expense = null) => {
-        setSelectedExpense(expense);
-        setIsModalOpen(prev => ({...Object.fromEntries(Object.keys(prev).map(k => [k, false])), recordExpense: !prev.recordExpense}));
+    // MODIFIED: handleRecordExpense to switch tab and trigger internal modal
+    const handleRecordExpense = () => {
+        setActiveTab('expenses'); // Switch to the expenses tab
+        setOpenExpenseModalOnTabLoad(true); // Signal ExpenseManagement to open its modal
     };
 
     const activeFilterName = useMemo(() => {
@@ -498,7 +500,13 @@ const IMS = () => {
             case "suppliers":
                 return <SupplierManagement />;
             case "expenses":
-                return <ExpenseManagement onAction={refreshData} expenseToEdit={selectedExpense} />;
+                return (
+                    <ExpenseManagement 
+                        onAction={refreshData} 
+                        openModalInitially={openExpenseModalOnTabLoad} // Pass the new prop
+                        setOpenModalInitially={setOpenExpenseModalOnTabLoad} // Pass setter to reset it
+                    />
+                );
             case "reports":
                 return <ReportsAnalytics />;
             default: return null;
@@ -601,7 +609,7 @@ const IMS = () => {
                         )}
                     </div>
                     <Button variant="primary" onClick={() => handleModal('add')}><FaPlus /> Add New Item</Button>
-                    <Button variant="warning" onClick={() => handleRecordExpense()}><FaMoneyBillWave /> Record Expense</Button>
+                    <Button variant="warning" onClick={handleRecordExpense}><FaMoneyBillWave /> Record Expense</Button>
                 </ActionButtons>
             </ActionBar>
 
@@ -621,12 +629,7 @@ const IMS = () => {
             {isModalOpen.filter && <FilterPanel onClose={closeAllModals} onApply={handleApplyFilters} onClear={handleClearFilters} categories={categories} locations={locations} initialFilters={filters} />}
             {isModalOpen.notifications && <NotificationPanel onClose={closeAllModals} />}
             
-            {isModalOpen.recordExpense && (
-                <ExpenseManagement 
-                    onAction={refreshData}
-                    expenseToEdit={selectedExpense}
-                />
-            )}
+            {/* ExpenseManagement is rendered as a tab, not a modal directly by IMS */}
         </IMSContainer>
     );
 };
