@@ -1,4 +1,3 @@
-// src/components/inventory/IMS.js
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
@@ -18,7 +17,7 @@ import ViewItemModal from "../../components/inventory/ViewItemModal";
 import FilterPanel from "../../components/inventory/FilterPanel";
 import PurchaseOrders from "../../components/inventory/PurchaseOrders";
 import SupplierManagement from "../../components/inventory/SupplierManagement";
-import Sales from "../../components/inventory/Sales";
+import Sales from "../../components/sales/Sales";
 import ReportsAnalytics from "../../components/inventory/ReportsAnalytics";
 import NotificationPanel from "../../components/inventory/NotificationPanel";
 
@@ -202,6 +201,9 @@ const StatValue = styled.div`
   font-size: 1.5rem;
   font-weight: 700;
   color: #1a202c;
+  &.debt-color {
+    color: ${(props) => props.theme.colors.error};
+  }
   @media (max-width: 768px) {
     font-size: 1.3rem;
   }
@@ -393,7 +395,6 @@ const IMS = () => {
     const [isModalOpen, setIsModalOpen] = useState({ 
         add: false, edit: false, view: false, filter: false, notifications: false, export: false,
     });
-    // NEW state for triggering ExpenseModal inside ExpenseManagement
     const [openExpenseModalOnTabLoad, setOpenExpenseModalOnTabLoad] = useState(false); 
 
     const [selectedItem, setSelectedItem] = useState(null);
@@ -401,13 +402,17 @@ const IMS = () => {
     
     const {
         inventory, loading: inventoryLoading, stats, error: inventoryError,
-        categories, locations, units, pagination, refreshData,
+        categories, locations, units, suppliers: inventorySuppliers, pagination, refreshData,
         updateFilters, changePage, filters = {},
-        addItem, updateItem, deleteItem, createCategory, createLocation, createUnit,
+        addItem, updateItem, deleteItem, createCategory, createLocation, createUnit, createSupplier,
     } = useInventory();
     
-    const { suppliers, loading: suppliersLoading, createSupplier } = useSuppliers();
-    const { customers, loading: customersLoading, createCustomer } = useCustomers();
+    const { suppliers: managementSuppliers, loading: suppliersLoading } = useSuppliers(); 
+    const { customers, loading: customersLoading, createCustomer, refetchCustomers } = useCustomers();
+
+    const totalOutstandingCustomerDebt = useMemo(() => {
+      return customers.reduce((sum, customer) => sum + (customer.currentBalance || 0), 0);
+    }, [customers]);
 
     useEffect(() => {
         if (debouncedSearchQuery !== (filters.search || '')) {
@@ -455,10 +460,9 @@ const IMS = () => {
         setIsModalOpen(prev => ({...prev, export: false}));
     };
 
-    // MODIFIED: handleRecordExpense to switch tab and trigger internal modal
     const handleRecordExpense = () => {
-        setActiveTab('expenses'); // Switch to the expenses tab
-        setOpenExpenseModalOnTabLoad(true); // Signal ExpenseManagement to open its modal
+        setActiveTab('expenses');
+        setOpenExpenseModalOnTabLoad(true);
     };
 
     const activeFilterName = useMemo(() => {
@@ -494,17 +498,25 @@ const IMS = () => {
                     </>
                 );
             case "purchase-orders":
-                return <PurchaseOrders inventoryData={inventory} suppliersData={suppliers} categoriesData={categories} isDataLoading={isDataLoading} createSupplier={createSupplier} createCategory={createCategory} onAction={refreshData} />;
+                return <PurchaseOrders 
+                          inventoryData={inventory} 
+                          suppliersData={inventorySuppliers} 
+                          categoriesData={categories} 
+                          isDataLoading={isDataLoading} 
+                          createSupplier={createSupplier} 
+                          createCategory={createCategory} 
+                          onAction={refreshData} 
+                        />;
             case "sales":
-                return <Sales inventoryData={inventory} isDataLoading={isDataLoading} onAction={refreshData} />;
+                return <Sales inventoryData={inventory} isDataLoading={isDataLoading} onAction={() => { refreshData(); refetchCustomers(); }} />;
             case "suppliers":
                 return <SupplierManagement />;
             case "expenses":
                 return (
                     <ExpenseManagement 
                         onAction={refreshData} 
-                        openModalInitially={openExpenseModalOnTabLoad} // Pass the new prop
-                        setOpenModalInitially={setOpenExpenseModalOnTabLoad} // Pass setter to reset it
+                        openModalInitially={openExpenseModalOnTabLoad} 
+                        setOpenModalInitially={setOpenExpenseModalOnTabLoad} 
                     />
                 );
             case "reports":
@@ -577,7 +589,7 @@ const IMS = () => {
                     </StatCard>
                     <StatCard className={activeTab === 'suppliers' ? 'active' : ''} onClick={() => setActiveTab('suppliers')}>
                         <StatHeader>
-                            <StatContent><StatValue>{formatNumber(suppliers.length)}</StatValue><StatLabel>Total Suppliers</StatLabel></StatContent>
+                            <StatContent><StatValue>{formatNumber(managementSuppliers.length)}</StatValue><StatLabel>Total Suppliers</StatLabel></StatContent>
                             <StatIcon iconColor="#319795"><FaHandshake /></StatIcon>
                         </StatHeader>
                         <StatFooter>Partners in procurement</StatFooter>
@@ -588,6 +600,13 @@ const IMS = () => {
                             <StatIcon iconColor="#4299e1"><FaUserTie /></StatIcon>
                         </StatHeader>
                         <StatFooter>Your valuable clients</StatFooter>
+                    </StatCard>
+                    <StatCard className={activeTab === 'sales' ? 'active' : ''} onClick={() => { setActiveTab('sales'); }}>
+                        <StatHeader>
+                            <StatContent><StatValue className="debt-color">{formatCurrency(totalOutstandingCustomerDebt)}</StatValue><StatLabel>Total Customer Debt</StatLabel></StatContent>
+                            <StatIcon iconColor="#c53030"><FaDollarSign /></StatIcon>
+                        </StatHeader>
+                        <StatFooter>Across all customer accounts</StatFooter>
                     </StatCard>
                 </StatsGrid>
             </HeaderSection>
@@ -623,13 +642,12 @@ const IMS = () => {
             </TabContainer>
             <ContentArea>{renderContent()}</ContentArea>
 
-            {isModalOpen.add && <AddItemModal onClose={closeAllModals} onSave={handleAddItem} categories={categories} locations={locations} units={units} suppliers={suppliers} createCategory={createCategory} createLocation={createLocation} createUnit={createUnit} createSupplier={createSupplier} loading={inventoryLoading || suppliersLoading} />}
-            {isModalOpen.edit && selectedItem && <AddItemModal itemToEdit={selectedItem} onClose={closeAllModals} onSave={(payload) => handleUpdateItem(payload)} categories={categories} locations={locations} units={units} suppliers={suppliers} createCategory={createCategory} createLocation={createLocation} createUnit={createUnit} createSupplier={createSupplier} loading={inventoryLoading || suppliersLoading} />}
+            {isModalOpen.add && <AddItemModal onClose={closeAllModals} onSave={handleAddItem} categories={categories} locations={locations} units={units} suppliers={inventorySuppliers} createCategory={createCategory} createLocation={createLocation} createUnit={createUnit} createSupplier={createSupplier} loading={inventoryLoading || suppliersLoading} />}
+            {isModalOpen.edit && selectedItem && <AddItemModal itemToEdit={selectedItem} onClose={closeAllModals} onSave={(payload) => handleUpdateItem(payload)} categories={categories} locations={locations} units={units} suppliers={inventorySuppliers} createCategory={createCategory} createLocation={createLocation} createUnit={createUnit} createSupplier={createSupplier} loading={inventoryLoading || suppliersLoading} />}
             {isModalOpen.view && selectedItem && <ViewItemModal item={selectedItem} onClose={closeAllModals} />}
             {isModalOpen.filter && <FilterPanel onClose={closeAllModals} onApply={handleApplyFilters} onClear={handleClearFilters} categories={categories} locations={locations} initialFilters={filters} />}
             {isModalOpen.notifications && <NotificationPanel onClose={closeAllModals} />}
             
-            {/* ExpenseManagement is rendered as a tab, not a modal directly by IMS */}
         </IMSContainer>
     );
 };

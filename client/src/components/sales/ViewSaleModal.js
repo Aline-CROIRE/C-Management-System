@@ -1,11 +1,13 @@
+// src/components/sales/ViewSaleModal.js
 "use client";
 import React, { useState } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { FaTimes, FaPrint, FaSpinner, FaUndo } from 'react-icons/fa';
+import { FaTimes, FaPrint, FaSpinner, FaUndo, FaMoneyBillWave, FaDollarSign } from 'react-icons/fa';
 import Button from '../common/Button';
 import { salesAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import ReturnSaleModal from './ReturnSaleModal';
+import ReturnSaleModal from '../inventory/ReturnSaleModal';
+import RecordPaymentModal from './RecordPaymentModal'; // NEW Import
 
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 const slideUp = keyframes`from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; }`;
@@ -49,10 +51,29 @@ const Td = styled.td`padding: 0.75rem 0.5rem; border-bottom: 1px solid #e2e8f0;`
 const TotalRow = styled.tr`
   td { font-weight: bold; font-size: 1.1rem; }
 `;
+const StatusBadge = styled.span`
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  ${({ status }) => {
+    switch (status) {
+      case 'Paid': return `background-color: #c6f6d5; color: #2f855a;`;
+      case 'Partial': return `background-color: #fefcbf; color: #d69e2e;`;
+      case 'Unpaid': return `background-color: #fed7d7; color: #c53030;`;
+      default: return `background-color: #e2e8f0; color: #718096;`;
+    }
+  }}
+`;
 
-const ViewSaleModal = ({ sale, onClose, onReturn }) => {
+const ViewSaleModal = ({ sale, onClose, onReturn, onRecordPaymentSuccess }) => {
     const [printLoading, setPrintLoading] = useState(false);
     const [isReturning, setIsReturning] = useState(false);
+    const [isRecordingPayment, setIsRecordingPayment] = useState(false);
 
     const handlePrint = async () => {
         setPrintLoading(true);
@@ -77,7 +98,14 @@ const ViewSaleModal = ({ sale, onClose, onReturn }) => {
         }
     };
 
+    const handlePaymentRecorded = () => {
+        setIsRecordingPayment(false);
+        onRecordPaymentSuccess(); // Notify parent to refresh sales data
+    };
+
     if (!sale) return null;
+
+    const remainingBalance = sale.totalAmount - sale.amountPaid;
 
     return (
         <>
@@ -99,6 +127,24 @@ const ViewSaleModal = ({ sale, onClose, onReturn }) => {
                                 <strong>DATE OF SALE</strong>
                                 <span>{new Date(sale.createdAt).toLocaleString()}</span>
                             </InfoItem>
+                            <InfoItem>
+                                <strong>PAYMENT METHOD</strong>
+                                <span>{sale.paymentMethod || 'N/A'}</span>
+                            </InfoItem>
+                             <InfoItem>
+                                <strong>PAYMENT STATUS</strong>
+                                <StatusBadge status={sale.paymentStatus}>{sale.paymentStatus}</StatusBadge>
+                            </InfoItem>
+                             <InfoItem>
+                                <strong>AMOUNT PAID</strong>
+                                <span>Rwf {sale.amountPaid?.toLocaleString() || '0'}</span>
+                            </InfoItem>
+                            {sale.paymentStatus !== 'Paid' && (
+                                <InfoItem>
+                                    <strong>OUTSTANDING BALANCE</strong>
+                                    <span style={{color: '#c53030', fontWeight: 'bold'}}>Rwf {remainingBalance.toLocaleString()}</span>
+                                </InfoItem>
+                            )}
                         </InfoGrid>
 
                         <h4>Items Sold</h4>
@@ -108,6 +154,7 @@ const ViewSaleModal = ({ sale, onClose, onReturn }) => {
                                     <Th>Product</Th>
                                     <Th style={{textAlign: 'right'}}>Quantity</Th>
                                     <Th style={{textAlign: 'right'}}>Unit Price</Th>
+                                    <Th style={{textAlign: 'right'}}>Packaging Deposit</Th>
                                     <Th style={{textAlign: 'right'}}>Subtotal</Th>
                                 </tr>
                             </thead>
@@ -117,11 +164,17 @@ const ViewSaleModal = ({ sale, onClose, onReturn }) => {
                                         <Td>{item.item?.name || 'N/A'}</Td>
                                         <Td style={{textAlign: 'right'}}>{item.quantity}</Td>
                                         <Td style={{textAlign: 'right'}}>Rwf {item.price.toLocaleString()}</Td>
-                                        <Td style={{textAlign: 'right'}}>Rwf {(item.quantity * item.price).toLocaleString()}</Td>
+                                        <Td style={{textAlign: 'right'}}>
+                                            {item.packagingIncluded && item.packagingDepositCharged > 0 ? 
+                                                `Rwf ${item.packagingDepositCharged.toLocaleString()}` : 'N/A'}
+                                        </Td>
+                                        <Td style={{textAlign: 'right'}}>
+                                            Rwf {(item.quantity * item.price + (item.packagingIncluded ? item.quantity * item.packagingDepositCharged : 0)).toLocaleString()}
+                                        </Td>
                                     </tr>
                                 ))}
                                 <TotalRow>
-                                    <Td colSpan="3" style={{textAlign: 'right'}}>Total Amount</Td>
+                                    <Td colSpan="4" style={{textAlign: 'right'}}>Total Amount</Td>
                                     <Td style={{textAlign: 'right'}}>Rwf {sale.totalAmount.toLocaleString()}</Td>
                                 </TotalRow>
                             </tbody>
@@ -130,6 +183,9 @@ const ViewSaleModal = ({ sale, onClose, onReturn }) => {
                     <ModalFooter>
                         {sale.status === 'Completed' && (
                             <Button variant="danger-outline" onClick={() => setIsReturning(true)}><FaUndo/> Process Return</Button>
+                        )}
+                        {sale.paymentStatus !== 'Paid' && (
+                            <Button variant="primary" onClick={() => setIsRecordingPayment(true)}><FaMoneyBillWave/> Record Payment</Button>
                         )}
                         <Button variant="secondary" onClick={handlePrint} disabled={printLoading}>
                             {printLoading ? <Spinner/> : <FaPrint />} Print
@@ -143,6 +199,14 @@ const ViewSaleModal = ({ sale, onClose, onReturn }) => {
                     sale={sale}
                     onClose={() => setIsReturning(false)}
                     onConfirm={onReturn}
+                />
+            )}
+
+            {isRecordingPayment && (
+                <RecordPaymentModal
+                    sale={sale}
+                    onClose={() => setIsRecordingPayment(false)}
+                    onPaymentSuccess={handlePaymentRecorded}
                 />
             )}
         </>

@@ -1,18 +1,19 @@
+// src/components/sales/Sales.js
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { FaPlus, FaEye, FaFileInvoiceDollar, FaChartLine, FaFilter, FaUndo } from 'react-icons/fa';
-import moment from 'moment';
+import { FaPlus, FaEye, FaFileInvoiceDollar, FaChartLine, FaFilter, FaUndo, FaMoneyBillWave } from 'react-icons/fa';
 
 import Button from '../common/Button';
 import LoadingSpinner from '../common/LoadingSpinner';
 import CreateSaleModal from './CreateSaleModal';
 import ViewSaleModal from './ViewSaleModal';
-import SalesAnalyticsDashboard from './SalesAnalyticsDashboard';
-import SalesFilterPanel from './SalesFilterPanel';
+import SalesAnalyticsDashboard from '../inventory/SalesAnalyticsDashboard';
+import SalesFilterPanel from '../inventory/SalesFilterPanel';
 import { useSales } from '../../hooks/useSales'; 
 import { useInventory } from '../../hooks/useInventory';
 import { useCustomers } from '../../hooks/useCustomers';
+import moment from 'moment'; // Make sure moment is installed
 
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 
@@ -51,6 +52,9 @@ const StatValue = styled.div`
     font-size: 2rem;
     font-weight: 700;
     color: ${props => props.theme.colors.heading};
+    &.debt-color {
+        color: ${props => props.theme.colors.error};
+    }
 `;
 const StatLabel = styled.div`
     font-size: 0.875rem;
@@ -86,6 +90,9 @@ const SalesTable = ({ sales, onView }) => (
                     <Th>Date</Th>
                     <Th>Items</Th>
                     <Th>Total Amount</Th>
+                    <Th>Paid</Th>
+                    <Th>Balance</Th>
+                    <Th>Status</Th>
                     <Th>Actions</Th>
                 </tr>
             </thead>
@@ -97,6 +104,11 @@ const SalesTable = ({ sales, onView }) => (
                         <Td>{new Date(sale.createdAt).toLocaleDateString()}</Td>
                         <Td>{sale.items.length}</Td>
                         <Td>Rwf {(sale.totalAmount || 0).toLocaleString()}</Td>
+                        <Td>Rwf {(sale.amountPaid || 0).toLocaleString()}</Td>
+                        <Td style={{color: sale.paymentStatus !== 'Paid' ? '#c53030' : undefined, fontWeight: sale.paymentStatus !== 'Paid' ? 'bold' : 'normal'}}>
+                            Rwf {(sale.totalAmount - (sale.amountPaid || 0)).toLocaleString()}
+                        </Td>
+                        <Td>{sale.paymentStatus}</Td>
                         <Td>
                             <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(sale)}><FaEye /></Button>
                         </Td>
@@ -107,7 +119,7 @@ const SalesTable = ({ sales, onView }) => (
     </TableWrapper>
 );
 
-const Sales = () => {
+const Sales = ({ inventoryData, isDataLoading, onAction }) => {
     const [activeTab, setActiveTab] = useState('transactions');
     const [isCreating, setIsCreating] = useState(false);
     const [viewingSale, setViewingSale] = useState(null);
@@ -119,17 +131,18 @@ const Sales = () => {
         endDate: moment().toDate(),
     });
 
-    const { sales, loading: salesLoading, error: salesError, createSale, processReturn } = useSales(filters);
+    const { sales, loading: salesLoading, error: salesError, createSale, processReturn, refetch: refetchSales } = useSales(filters);
     const { inventory, refetch: refetchInventory } = useInventory();
-    const { customers, createCustomer } = useCustomers();
+    const { customers, createCustomer, refetchCustomers } = useCustomers();
 
     const transactionStats = useMemo(() => {
-        if (!sales) return { totalRevenue: 0, salesCount: 0 };
+        if (!sales) return { totalRevenue: 0, salesCount: 0, totalOutstandingBalance: 0 };
         return sales.reduce((acc, sale) => {
             acc.totalRevenue += sale.totalAmount;
             acc.salesCount += 1;
+            acc.totalOutstandingBalance += (sale.totalAmount - (sale.amountPaid || 0));
             return acc;
-        }, { totalRevenue: 0, salesCount: 0 });
+        }, { totalRevenue: 0, salesCount: 0, totalOutstandingBalance: 0 });
     }, [sales]);
 
     const handleSaveSale = async (saleData) => {
@@ -137,6 +150,8 @@ const Sales = () => {
             await createSale(saleData);
             setIsCreating(false);
             refetchInventory();
+            refetchCustomers();
+            if(onAction) onAction();
         } catch(error) {
             // Error is handled by hook
         }
@@ -147,9 +162,17 @@ const Sales = () => {
             await processReturn(saleId, returnedItems);
             setViewingSale(null);
             refetchInventory();
+            refetchCustomers();
+            if(onAction) onAction();
         } catch(error) {
             // Error is handled by hook
         }
+    }
+
+    const handleRecordPaymentSuccess = () => {
+        refetchSales(); // Refresh sales to update payment status
+        refetchCustomers(); // Refresh customers to update balances
+        if(onAction) onAction(); // Trigger overall IMS refresh
     }
     
     const handleApplyFilters = (appliedFilters) => {
@@ -234,6 +257,10 @@ const Sales = () => {
                     <StatValue>{transactionStats.salesCount.toLocaleString()}</StatValue>
                     <StatLabel>Total Sales Count (Transactions Table)</StatLabel>
                 </StatCard>
+                <StatCard>
+                    <StatValue className="debt-color">Rwf {transactionStats.totalOutstandingBalance.toLocaleString()}</StatValue>
+                    <StatLabel>Total Outstanding Balance <FaMoneyBillWave style={{color: 'inherit'}}/></StatLabel>
+                </StatCard>
             </StatsGrid>
             
             <TabContainer>
@@ -264,7 +291,7 @@ const Sales = () => {
                     createCustomer={createCustomer}
                     onClose={() => setIsCreating(false)}
                     onSave={handleSaveSale}
-                    loading={salesLoading}
+                    loading={salesLoading || isDataLoading}
                 />
             )}
 
@@ -273,6 +300,7 @@ const Sales = () => {
                     sale={viewingSale}
                     onClose={() => setViewingSale(null)}
                     onReturn={handleReturn}
+                    onRecordPaymentSuccess={handleRecordPaymentSuccess}
                 />
             )}
         </SalesContainer>
