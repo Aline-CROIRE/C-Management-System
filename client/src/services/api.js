@@ -176,6 +176,13 @@ export const internalUseAPI = {
   getTotalValue: (params) => api.get("/internal-use/total-value", { params }), // NEW
 };
 
+export const stockAdjustmentAPI = {
+  getAll: (params) => api.get("/stock-adjustments", { params }),
+  getById: (id) => api.get(`/stock-adjustments/${id}`),
+  create: (adjustmentData) => api.post("/stock-adjustments", adjustmentData),
+  delete: (id) => api.delete(`/stock-adjustments/${id}`),
+  getTotalImpact: (params) => api.get("/stock-adjustments/total-impact", { params }), 
+};
 
 export const constructionAPI = {
   getSites: async (params) => await api.get('/construction/sites', { params }),
