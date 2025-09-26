@@ -1,3 +1,4 @@
+// src/components/inventory/IMS.js
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
@@ -5,7 +6,7 @@ import styled, { keyframes } from "styled-components";
 import {
   FaBoxes, FaPlus, FaSearch, FaFilter, FaDownload, FaExclamationTriangle, FaFileCsv, FaFileCode,
   FaChartLine, FaTruck, FaUsers, FaDollarSign, FaSync, FaTimes, FaFileInvoiceDollar, FaUndo, FaBell,
-  FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie, FaClipboardList, FaArrowDown, FaExchangeAlt // FaExchangeAlt is unused in current code, but kept if user plans to use
+  FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie, FaClipboardList, FaArrowDown, FaExchangeAlt
 } from "react-icons/fa";
 
 import Card from "../../components/common/Card";
@@ -24,6 +25,8 @@ import NotificationPanel from "../../components/inventory/NotificationPanel";
 import ExpenseManagement from "../../components/expenses/ExpenseManagement";
 import RecordMultiInternalUseModal from "../../components/inventory/RecordMultiInternalUseModal";
 import InternalUseHistory from "../../components/inventory/InternalUseHistory";
+import StockAdjustmentModal from "../../components/inventory/StockAdjustmentModal";
+import StockAdjustmentHistory from "../../components/inventory/StockAdjustmentHistory"; // <--- NEW IMPORT for tab content
 
 import { useInventory } from "../../hooks/useInventory";
 import { useSuppliers } from "../../hooks/useSuppliers";
@@ -32,35 +35,28 @@ import { useNotifications } from "../../contexts/NotificationContext";
 import { useDebounce } from "../../hooks/useDebounce";
 import { inventoryAPI } from "../../services/api";
 import { useInternalUse } from "../../hooks/useInternalUse";
+import { useStockAdjustments } from "../../hooks/useStockAdjustments"; // <--- NEW IMPORT for useStockAdjustments hook
 
-
-// Keyframes for subtle animations
-const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
-const pulse = keyframes`
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(64, 145, 108, 0.4); }
-  70% { transform: scale(1.01); box-shadow: 0 0 0 8px rgba(64, 145, 108, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(64, 145, 108, 0); }
-`;
 
 const IMSContainer = styled.div`
-  padding: 1.5rem 2rem; /* Desktop default */
-  background: ${(props) => props.theme.colors.background}; /* Use theme background */
+  padding: 1.5rem 2rem;
+  background: ${(props) => props.theme.colors.background};
   min-height: 100vh;
-  transition: all 0.3s ease; /* Smooth transitions for theme changes / padding */
+  transition: all 0.3s ease;
 
-  @media (max-width: 1200px) { /* Larger tablets/small laptops */
+  @media (max-width: 1200px) {
     padding: 1rem 1.5rem;
   }
-  @media (max-width: 768px) { /* Tablets */
+  @media (max-width: 768px) {
     padding: 1rem;
   }
-  @media (max-width: 480px) { /* Mobile phones */
-    padding: 0.75rem; /* Slightly reduced for small screens */
+  @media (max-width: 480px) {
+    padding: 0.75rem;
   }
 `;
 
 const HeaderSection = styled.div`
-  margin-bottom: 2.5rem; /* Increased spacing */
+  margin-bottom: 2.5rem;
   @media (max-width: 768px) {
     margin-bottom: 2rem;
   }
@@ -68,28 +64,28 @@ const HeaderSection = styled.div`
 const HeaderContent = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: flex-start; /* Align to top for multi-line titles */
+  align-items: flex-start;
   flex-wrap: wrap;
-  gap: 1.5rem; /* Spacing between blocks */
-  padding-bottom: 1rem; /* Space below header content */
-  border-bottom: 1px solid ${(props) => props.theme.colors.border}; /* Subtle separator */
+  gap: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid ${(props) => props.theme.colors.border};
 
   @media (max-width: 480px) {
-    flex-direction: column; /* Stack vertically on small mobile */
-    align-items: stretch; /* Stretch items to full width */
+    flex-direction: column;
+    align-items: stretch;
     gap: 1rem;
     padding-bottom: 0.75rem;
   }
 `;
 const HeaderInfo = styled.div`
-  flex: 1; /* Allow to take available space */
-  min-width: 200px; /* Ensure title has space */
+  flex: 1;
+  min-width: 200px;
   @media (max-width: 480px) {
-    min-width: unset; /* Remove min-width to allow full stretch */
+    min-width: unset;
   }
 `;
 const HeaderTitle = styled.h1`
-  font-size: 2.2rem; /* Slightly larger */
+  font-size: 2.2rem;
   font-weight: 700;
   margin: 0;
   color: ${(props) => props.theme.colors.heading};
@@ -101,9 +97,9 @@ const HeaderTitle = styled.h1`
   }
 `;
 const HeaderSubtitle = styled.p`
-  font-size: 0.95rem; /* Slightly smaller for balance */
+  font-size: 0.95rem;
   color: ${(props) => props.theme.colors.textSecondary};
-  margin: 0.5rem 0 0 0; /* More space below title */
+  margin: 0.5rem 0 0 0;
   @media (max-width: 480px) {
     font-size: 0.85rem;
     margin-top: 0.25rem;
@@ -111,23 +107,23 @@ const HeaderSubtitle = styled.p`
 `;
 const HeaderActions = styled.div`
   display: flex;
-  gap: 0.75rem; /* Reduced gap for more compact layout */
+  gap: 0.75rem;
   align-items: center;
-  flex-wrap: wrap; /* Allow wrapping if many buttons */
+  flex-wrap: wrap;
 
   @media (max-width: 480px) {
-    width: 100%; /* Take full width */
-    justify-content: stretch; /* Stretch buttons if they wrap */
+    width: 100%;
+    justify-content: stretch;
     button {
-      flex-grow: 1; /* Allow buttons to expand */
+      flex-grow: 1;
     }
   }
 `;
 const NotificationBadge = styled.div`
   position: relative;
   cursor: pointer;
-  color: ${(props) => props.theme.colors.textSecondary}; /* Use theme color */
-  padding: 0.5rem; /* Make clickable area larger */
+  color: ${(props) => props.theme.colors.textSecondary};
+  padding: 0.5rem;
   border-radius: ${(props) => props.theme.borderRadius.md};
   transition: all 0.2s ease-in-out;
   &:hover { 
@@ -136,69 +132,73 @@ const NotificationBadge = styled.div`
   }
   .badge {
     position: absolute;
-    top: -4px; /* Adjusted position */
-    right: -4px; /* Adjusted position */
-    background-color: ${(props) => props.theme.colors.error}; /* Theme error color */
+    top: -4px;
+    right: -4px;
+    background-color: ${(props) => props.theme.colors.error};
     color: white;
     border-radius: 50%;
-    width: 20px; /* Slightly smaller badge */
+    width: 20px;
     height: 20px;
     font-size: 12px;
     font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid ${(props) => props.theme.colors.surface}; /* Theme surface color for border */
+    border: 1px solid ${(props) => props.theme.colors.surface};
   }
 `;
 
 const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Adjusted min-width for more columns */
-  gap: 1.5rem; /* Consistent gap */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
   margin-top: 2rem;
 
-  @media (max-width: 1024px) { /* Smaller desktops/large tablets */
+  @media (max-width: 1024px) {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 1.25rem;
   }
-  @media (max-width: 768px) { /* Tablets */
+  @media (max-width: 768px) {
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 1rem;
   }
-  @media (max-width: 480px) { /* Mobile phones */
-    grid-template-columns: 1fr; /* Stack on very small screens */
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
     gap: 0.75rem;
   }
 `;
 
 const StatCard = styled(Card)`
-  padding: 1.5rem; /* Increased padding */
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 120px; /* Taller cards */
+  min-height: 120px;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
-  border: 1px solid ${(props) => props.theme.colors.border}; /* Theme border */
-  border-radius: ${(props) => props.theme.borderRadius.lg}; /* Larger border radius */
-  box-shadow: ${(props) => props.theme.shadows.sm}; /* Subtle shadow */
-  background: ${(props) => props.theme.colors.surface}; /* Theme surface background */
+  border: 1px solid ${(props) => props.theme.colors.border};
+  border-radius: ${(props) => props.theme.borderRadius.lg};
+  box-shadow: ${(props) => props.theme.shadows.sm};
+  background: ${(props) => props.theme.colors.surface};
 
   &:hover {
-    transform: translateY(-5px); /* More pronounced lift */
-    box-shadow: ${(props) => props.theme.shadows.md}; /* Larger shadow on hover */
+    transform: translateY(-5px);
+    box-shadow: ${(props) => props.theme.shadows.md};
   }
   &.active {
     border-color: ${(props) => props.theme.colors.primary};
-    box-shadow: 0 0 0 3px ${(props) => props.theme.colors.primary}30, ${(props) => props.theme.shadows.md}; /* Primary ring and larger shadow */
-    animation: ${pulse} 1s infinite alternate; /* Subtle pulse for active card */
+    box-shadow: 0 0 0 3px ${(props) => props.theme.colors.primary}30, ${(props) => props.theme.shadows.md};
+    animation: ${keyframes`
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(64, 145, 108, 0.4); }
+      70% { transform: scale(1.01); box-shadow: 0 0 0 8px rgba(64, 145, 108, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(64, 145, 108, 0); }
+    `} 1s infinite alternate;
   }
 
   @media (max-width: 480px) {
     min-height: 100px;
     padding: 1.25rem;
-    flex-direction: row; /* Horizontal layout on mobile */
+    flex-direction: row;
     align-items: center;
     justify-content: space-between;
   }
@@ -208,19 +208,19 @@ const StatHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 0.75rem; /* Space between header and footer */
+  margin-bottom: 0.75rem;
 
   @media (max-width: 480px) {
-    flex-direction: row-reverse; /* Icon to the right */
+    flex-direction: row-reverse;
     align-items: center;
     flex-grow: 1;
     justify-content: flex-end;
     gap: 1rem;
-    margin-bottom: 0; /* No margin-bottom on mobile row layout */
+    margin-bottom: 0;
   }
 `;
 const StatIcon = styled.div`
-  width: 48px; /* Larger icon */
+  width: 48px;
   height: 48px;
   flex-shrink: 0;
   border-radius: 50%;
@@ -228,9 +228,9 @@ const StatIcon = styled.div`
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 22px; /* Larger icon font */
+  font-size: 22px;
   background: ${(props) => props.iconColor};
-  box-shadow: ${(props) => props.theme.shadows.sm}; /* Subtle shadow for icon */
+  box-shadow: ${(props) => props.theme.shadows.sm};
 
   @media (max-width: 480px) {
     width: 40px;
@@ -240,13 +240,12 @@ const StatIcon = styled.div`
 `;
 const StatContent = styled.div`
   text-align: left;
-  /* Allow text to wrap naturally */
 `;
 const StatValue = styled.div`
-  font-size: 1.8rem; /* Larger value font */
+  font-size: 1.8rem;
   font-weight: 700;
   color: ${(props) => props.theme.colors.heading};
-  white-space: nowrap; /* Prevent value from wrapping */
+  white-space: nowrap;
 
   &.debt-color {
     color: ${(props) => props.theme.colors.error};
@@ -259,12 +258,12 @@ const StatValue = styled.div`
   }
 `;
 const StatLabel = styled.div`
-  font-size: 0.8rem; /* Consistent smaller label */
+  font-size: 0.8rem;
   text-transform: uppercase;
   color: ${(props) => props.theme.colors.textSecondary};
   font-weight: 600;
   letter-spacing: 0.5px;
-  margin-top: 0.25rem; /* Space between value and label */
+  margin-top: 0.25rem;
 
   @media (max-width: 480px) {
     font-size: 0.7rem;
@@ -272,12 +271,12 @@ const StatLabel = styled.div`
   }
 `;
 const StatFooter = styled.div`
-  font-size: 0.85rem; /* Slightly larger footer text */
-  color: ${(props) => props.theme.colors.textLight}; /* Lighter text for footer */
+  font-size: 0.85rem;
+  color: ${(props) => props.theme.colors.textLight};
   margin-top: 0.75rem;
 
   @media (max-width: 480px) {
-    display: none; /* Hide footer on very small screens to save space */
+    display: none;
   }
 `;
 
@@ -285,17 +284,17 @@ const ActionBar = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 3rem; /* More spacing */
+  margin-top: 3rem;
   margin-bottom: 2rem;
   flex-wrap: wrap;
-  gap: 1rem; /* Consistent gap */
+  gap: 1rem;
 
   @media (max-width: 768px) {
     margin-top: 2rem;
     margin-bottom: 1.5rem;
   }
   @media (max-width: 480px) {
-    flex-direction: column; /* Stack vertically on mobile */
+    flex-direction: column;
     align-items: stretch;
     gap: 0.75rem;
   }
@@ -303,13 +302,13 @@ const ActionBar = styled.div`
 const SearchContainer = styled.div`
   position: relative;
   flex: 1;
-  min-width: 250px; /* Minimum width for search bar */
-  max-width: 450px; /* Max width for larger screens */
+  min-width: 250px;
+  max-width: 450px;
 
   @media (max-width: 480px) {
     min-width: unset;
     max-width: unset;
-    width: 100%; /* Take full width on mobile */
+    width: 100%;
   }
 `;
 const SearchIcon = styled.div`
@@ -322,27 +321,27 @@ const SearchIcon = styled.div`
   pointer-events: none;
 `;
 const SearchInput = styled(Input)`
-  padding-left: 3rem; /* More space for icon */
-  border-radius: ${(props) => props.theme.borderRadius.lg}; /* Larger border radius */
+  padding-left: 3rem;
+  border-radius: ${(props) => props.theme.borderRadius.lg};
   border: 1px solid ${(props) => props.theme.colors.border};
 
   @media (max-width: 480px) {
-    padding: 0.85rem 1rem; /* Slightly larger padding */
+    padding: 0.85rem 1rem;
     padding-left: 2.85rem;
   }
 `;
 const ActionButtons = styled.div`
   display: flex;
-  gap: 0.75rem; /* Reduced gap */
-  flex-wrap: wrap; /* Allow buttons to wrap */
+  gap: 0.75rem;
+  flex-wrap: wrap;
 
   @media (max-width: 480px) {
     width: 100%;
     justify-content: stretch;
     button {
-      flex-grow: 1; /* Stretch buttons to fill width */
-      padding: 0.75rem; /* Consistent padding */
-      font-size: 0.9rem; /* Slightly smaller font for mobile buttons */
+      flex-grow: 1;
+      padding: 0.75rem;
+      font-size: 0.9rem;
     }
   }
 `;
@@ -379,7 +378,7 @@ const TabContainer = styled.div`
   margin-bottom: 1.5rem;
   box-shadow: ${(props) => props.theme.shadows.sm};
   border: 1px solid ${(props) => props.theme.colors.border};
-  overflow-x: auto; /* Allow horizontal scrolling for many tabs */
+  overflow-x: auto;
   white-space: nowrap;
   -webkit-overflow-scrolling: touch;
 
@@ -390,13 +389,13 @@ const TabContainer = styled.div`
   }
 `;
 const Tab = styled.button`
-  flex: 1; /* Allow tabs to grow */
-  min-width: 130px; /* Minimum width for each tab */
-  padding: 0.85rem 1.2rem; /* Slightly larger padding */
+  flex: 1;
+  min-width: 130px;
+  padding: 0.85rem 1.2rem;
   border: none;
   background: ${(props) => (props.active ? props.theme.colors.primary : "transparent")};
   color: ${(props) => (props.active ? "white" : props.theme.colors.textSecondary)};
-  border-radius: ${(props) => props.theme.borderRadius.md}; /* Rounded corners for active tab */
+  border-radius: ${(props) => props.theme.borderRadius.md};
   font-weight: 600;
   transition: all 0.3s ease;
   cursor: pointer;
@@ -406,7 +405,7 @@ const Tab = styled.button`
   gap: 0.75rem;
   white-space: nowrap;
   &:hover:not(:disabled):not(.active) {
-    background: ${(props) => props.theme.colors.surfaceLight}; /* Lighter hover background */
+    background: ${(props) => props.theme.colors.surfaceLight};
     color: ${(props) => props.theme.colors.text};
   }
   @media (max-width: 480px) {
@@ -418,11 +417,11 @@ const Tab = styled.button`
 `;
 const ContentArea = styled.div`
   min-height: 600px;
-  background: ${(props) => props.theme.colors.surface}; /* Use theme surface for content area */
+  background: ${(props) => props.theme.colors.surface};
   border-radius: ${(props) => props.theme.borderRadius.xl};
-  box-shadow: ${(props) => props.theme.shadows.lg}; /* Consistent shadow */
-  border: 1px solid ${(props) => props.theme.colors.border}; /* Consistent border */
-  overflow: hidden; /* Ensure child content doesn't break rounded corners */
+  box-shadow: ${(props) => props.theme.shadows.lg};
+  border: 1px solid ${(props) => props.theme.colors.border};
+  overflow: hidden;
 
   @media (max-width: 768px) {
     min-height: 400px;
@@ -438,9 +437,9 @@ const FilterIndicator = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.5rem;
-  background-color: ${(props) => props.theme.colors.info}10; /* Lighter info background */
-  color: ${(props) => props.theme.colors.info}; /* Info text color */
-  border: 1px solid ${(props) => props.theme.colors.info}30; /* Info border */
+  background-color: ${(props) => props.theme.colors.info}10;
+  color: ${(props) => props.theme.colors.info};
+  border: 1px solid ${(props) => props.theme.colors.info}30;
   border-radius: ${(props) => props.theme.borderRadius.md};
   margin-bottom: 1.5rem;
   font-weight: 600;
@@ -467,6 +466,7 @@ const IMS = () => {
         add: false, edit: false, view: false, filter: false, notifications: false, export: false,
         recordExpense: false, 
         internalUseMulti: false,
+        stockAdjustment: false,
     });
     const [openExpenseModalOnTabLoad, setOpenExpenseModalOnTabLoad] = useState(false); 
 
@@ -484,6 +484,7 @@ const IMS = () => {
     const { customers, loading: customersLoading, createCustomer, refetchCustomers } = useCustomers();
 
     const { totalValueStats: internalUseSummary } = useInternalUse({});
+    const { totalImpactStats: stockAdjustmentSummary } = useStockAdjustments({}); // <--- NEW SUMMARY HOOK
 
     const totalOutstandingCustomerDebt = useMemo(() => {
       return customers.reduce((sum, customer) => sum + (customer.currentBalance || 0), 0);
@@ -503,6 +504,7 @@ const IMS = () => {
         add: false, edit: false, view: false, filter: false, notifications: false, export: false,
         recordExpense: false,
         internalUseMulti: false,
+        stockAdjustment: false,
     });
 
     const handleAddItem = async (payload) => {
@@ -546,6 +548,11 @@ const IMS = () => {
         handleModal('internalUseMulti');
     };
 
+    const handleRecordStockAdjustment = (item = null) => {
+        setSelectedItem(item);
+        handleModal('stockAdjustment');
+    };
+
     const activeFilterName = useMemo(() => {
         const activeFilters = Object.keys(filters).filter(key => filters[key] && !['search', 'page', 'limit'].includes(key));
         if (activeFilters.length === 0) return null;
@@ -575,6 +582,7 @@ const IMS = () => {
                             onEdit={(item) => handleModal('edit', item)} 
                             onDelete={handleDeleteItem} 
                             onView={(item) => handleModal('view', item)} 
+                            onAdjustStock={handleRecordStockAdjustment}
                         />
                     </>
                 );
@@ -597,7 +605,7 @@ const IMS = () => {
                     <ExpenseManagement 
                         onAction={refreshData} 
                         openModalInitially={isModalOpen.recordExpense} 
-                        setOpenModalInitially={() => setIsModalOpen(prev => ({...prev, recordExpense: false}))}
+                        setOpenModalInitially={setOpenExpenseModalOnTabLoad} 
                     />
                 );
             case "internal-use-history":
@@ -606,6 +614,14 @@ const IMS = () => {
                         onAction={refreshData}
                         openModalInitially={isModalOpen.internalUseMulti} 
                         setOpenModalInitially={() => setIsModalOpen(prev => ({...prev, internalUseMulti: false}))}
+                    />
+                );
+            case "stock-adjustment-history": // <--- NEW TAB CONTENT
+                return (
+                    <StockAdjustmentHistory
+                        onAction={refreshData} // Refresh IMS data after actions in history tab
+                        openModalInitially={isModalOpen.stockAdjustment} // Signal to open modal from here
+                        setOpenModalInitially={() => setIsModalOpen(prev => ({...prev, stockAdjustment: false}))}
                     />
                 );
             case "reports":
@@ -704,6 +720,15 @@ const IMS = () => {
                         </StatHeader>
                         <StatFooter>Items used internally by owner/staff</StatFooter>
                     </StatCard>
+                    {/* <--- NEW STAT CARD FOR TOTAL STOCK ADJUSTMENT IMPACT --- */}
+                    <StatCard className={activeTab === 'stock-adjustment-history' ? 'active' : ''} onClick={() => setActiveTab('stock-adjustment-history')}>
+                        <StatHeader>
+                            <StatContent><StatValue>{formatCurrency(stockAdjustmentSummary.totalCostImpact)}</StatValue><StatLabel>Total Cost Adjusted</StatLabel></StatContent>
+                            <StatIcon iconColor="#ed8936"><FaExchangeAlt /></StatIcon>
+                        </StatHeader>
+                        <StatFooter>Loss due to damage, expiry, etc.</StatFooter>
+                    </StatCard>
+                    {/* <--- END NEW STAT CARD --- */}
                 </StatsGrid>
             </HeaderSection>
 
@@ -726,6 +751,7 @@ const IMS = () => {
                     <Button variant="primary" onClick={() => handleModal('add')}><FaPlus /> Add New Item</Button>
                     <Button variant="info" onClick={handleRecordMultiInternalUse}><FaClipboardList /> Record Internal Use</Button>
                     <Button variant="warning" onClick={handleRecordExpense}><FaMoneyBillWave /> Record Expense</Button>
+                    <Button variant="danger" onClick={() => handleRecordStockAdjustment()}><FaExchangeAlt /> Adjust Stock</Button>
                 </ActionButtons>
             </ActionBar>
 
@@ -736,6 +762,7 @@ const IMS = () => {
                 <Tab active={activeTab === "sales"} onClick={() => setActiveTab("sales")}><FaFileInvoiceDollar /> Sales</Tab>
                 <Tab active={activeTab === "expenses"} onClick={() => setActiveTab("expenses")}><FaMoneyBillWave /> Expenses</Tab>
                 <Tab active={activeTab === "internal-use-history"} onClick={() => setActiveTab("internal-use-history")}><FaClipboardList /> Internal Use History</Tab>
+                <Tab active={activeTab === "stock-adjustment-history"} onClick={() => setActiveTab("stock-adjustment-history")}><FaExchangeAlt /> Stock Adjustment History</Tab> {/* <--- NEW TAB */}
                 <Tab active={activeTab === "reports"} onClick={() => setActiveTab("reports")}><FaChartLine /> Reports</Tab>
             </TabContainer>
             <ContentArea>{renderContent()}</ContentArea>
@@ -756,6 +783,16 @@ const IMS = () => {
 
             {isModalOpen.internalUseMulti && (
                 <RecordMultiInternalUseModal 
+                    inventoryItems={inventory}
+                    onClose={closeAllModals} 
+                    onSave={refreshData}
+                    loading={inventoryLoading}
+                />
+            )}
+
+            {isModalOpen.stockAdjustment && (
+                <StockAdjustmentModal 
+                    item={selectedItem}
                     inventoryItems={inventory}
                     onClose={closeAllModals} 
                     onSave={refreshData}

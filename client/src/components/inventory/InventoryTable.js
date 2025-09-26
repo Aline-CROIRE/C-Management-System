@@ -1,3 +1,5 @@
+
+// src/components/inventory/InventoryTable.js
 "use client";
 
 import { useState, useMemo } from "react";
@@ -5,14 +7,14 @@ import styled from "styled-components";
 import {
   FaBoxes, FaEdit, FaEye, FaTrash,
   FaSort, FaSortUp, FaSortDown, FaBarcode,
-  FaChevronLeft, FaChevronRight
+  FaChevronLeft, FaChevronRight, FaCalendarTimes, FaExclamationCircle, FaExchangeAlt // Added FaExchangeAlt
 } from "react-icons/fa";
 import Button from "../common/Button";
 import LoadingSpinner from "../common/LoadingSpinner";
 
 
 const getImageUrlBase = () => {
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
+  const apiUrl = process.env.REACT_APP_API_URL || "https://c-management-system.onrender.com/api";
   return apiUrl.replace(/\/api$/, ''); 
 };
 
@@ -88,6 +90,12 @@ const TableRow = styled.tr`
   &:last-child {
     border-bottom: none;
   }
+  ${(props) => props.$isExpired && `
+    background-color: #ffe0e0;
+    &:hover {
+      background-color: #ffcccc;
+    }
+  `}
 `;
 
 const TableCell = styled.td`
@@ -110,7 +118,6 @@ const ProductInfo = styled.div`
   gap: 1rem;
 `;
 
-// ProductImage styling adjusted as it will no longer display an actual image, only FaBoxes
 const ProductImage = styled.div`
   width: 48px;
   height: 48px;
@@ -123,7 +130,6 @@ const ProductImage = styled.div`
   flex-shrink: 0;
   overflow: hidden;
   border: 1px solid ${(props) => props.theme.colors.border};
-  /* img { Removed } */
 `;
 
 const ProductName = styled.div`
@@ -152,6 +158,7 @@ const StatusBadge = styled.span`
       'low-stock': theme.colors.warning,
       'out-of-stock': theme.colors.error,
       'on-order': theme.colors.info,
+      'expired': '#C53030',
       default: theme.colors.textSecondary,
     };
     const color = statusColors[status] || statusColors.default;
@@ -198,6 +205,7 @@ const InventoryTable = ({
   onDelete,
   onView,
   onPageChange,
+  onAdjustStock // NEW PROP: Callback for stock adjustment
 }) => {
   const [sortConfig, setSortConfig] = useState({ key: "updatedAt", direction: "desc" });
 
@@ -211,6 +219,14 @@ const InventoryTable = ({
         if (sortConfig.key === 'category' || sortConfig.key === 'location' || sortConfig.key === 'supplier') {
             aValue = a[sortConfig.key]?.name || '';
             bValue = b[sortConfig.key]?.name || '';
+        }
+
+        if (sortConfig.key === 'expiryDate') {
+            const dateA = aValue ? new Date(aValue).getTime() : 0;
+            const dateB = bValue ? new Date(bValue).getTime() : 0;
+            if (dateA < dateB) return sortConfig.direction === "asc" ? -1 : 1;
+            if (dateA > dateB) return sortConfig.direction === "asc" ? 1 : -1;
+            return 0;
         }
 
         if (typeof aValue === 'string') aValue = aValue.toLowerCase();
@@ -236,7 +252,11 @@ const InventoryTable = ({
   };
 
   if (loading && data.length === 0) {
-    return <div style={{ display: "grid", placeItems: "center", padding: "4rem" }}><LoadingSpinner /></div>;
+    return (
+      <TableWrapper>
+        <div style={{ display: "grid", placeItems: "center", padding: "4rem" }}><LoadingSpinner /></div>
+      </TableWrapper>
+    );
   }
 
   if (!loading && data.length === 0) {
@@ -253,6 +273,13 @@ const InventoryTable = ({
   
   const totalPages = Math.ceil(pagination.total / pagination.limit) || 1;
 
+  const isItemExpired = (expiryDate) => {
+    if (!expiryDate) return false;
+    const today = new Date();
+    const expiry = new Date(expiryDate);
+    return expiry < today;
+  };
+
   return (
     <TableWrapper>
       <TableContainer>
@@ -265,17 +292,20 @@ const InventoryTable = ({
               <TableHeaderCell sortable sorted={sortConfig.key === "price"} onClick={() => handleSort("price")}>Price {getSortIcon("price")}</TableHeaderCell>
               <TableHeaderCell className="hide-on-mobile" sortable sorted={sortConfig.key === "totalValue"} onClick={() => handleSort("totalValue")}>Value {getSortIcon("totalValue")}</TableHeaderCell>
               <TableHeaderCell>Status</TableHeaderCell>
+              <TableHeaderCell className="hide-on-mobile" sortable sorted={sortConfig.key === "expiryDate"} onClick={() => handleSort("expiryDate")}>Expiry Date {getSortIcon("expiryDate")}</TableHeaderCell>
               <TableHeaderCell className="hide-on-mobile" sortable sorted={sortConfig.key === "updatedAt"} onClick={() => handleSort("updatedAt")}>Last Updated {getSortIcon("updatedAt")}</TableHeaderCell>
               <TableHeaderCell>Actions</TableHeaderCell>
             </tr>
           </TableHeader>
           <TableBody>
-            {sortedData.map((item) => (
-              <TableRow key={item._id}>
+            {sortedData.map((item) => {
+                const expired = isItemExpired(item.expiryDate);
+                const displayStatus = expired ? 'expired' : item.status?.replace('-', ' ');
+                return (
+              <TableRow key={item._id} $isExpired={expired}>
                 <TableCell>
                   <ProductInfo>
                     <ProductImage>
-                      {/* Removed image rendering logic, always show FaBoxes */}
                       <FaBoxes /> 
                     </ProductImage>
                     <div>
@@ -293,17 +323,24 @@ const InventoryTable = ({
                 </TableCell>
                 <TableCell>Rwf {item.price?.toFixed(2) ?? '0.00'}</TableCell>
                 <TableCell className="hide-on-mobile">Rwf {item.totalValue?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'}</TableCell>
-                <TableCell><StatusBadge status={item.status}>{item.status?.replace('-', ' ')}</StatusBadge></TableCell>
+                <TableCell><StatusBadge status={displayStatus}>{displayStatus}</StatusBadge></TableCell>
+                <TableCell className="hide-on-mobile">
+                    {item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : 'N/A'}
+                    {expired && <FaCalendarTimes style={{ marginLeft: '0.5rem', color: '#c53030' }} title="Expired" />}
+                </TableCell>
                 <TableCell className="hide-on-mobile">{new Date(item.updatedAt).toLocaleDateString()}</TableCell>
                 <TableCell>
                   <ActionButtonGroup>
                     <Button size="sm" variant="ghost" iconOnly title="View Details" onClick={() => onView(item)}><FaEye /></Button>
                     <Button size="sm" variant="ghost" iconOnly title="Edit Item" onClick={() => onEdit(item)}><FaEdit /></Button>
+                    {onAdjustStock && (
+                        <Button size="sm" variant="ghost" iconOnly title="Adjust Stock" onClick={() => onAdjustStock(item)}><FaExchangeAlt style={{color: '#ed8936'}}/></Button> // Changed icon and color for clarity
+                    )}
                     <Button size="sm" variant="ghost" iconOnly title="Delete Item" onClick={() => onDelete(item._id)}><FaTrash style={{color: '#c53030'}}/></Button>
                   </ActionButtonGroup>
                 </TableCell>
               </TableRow>
-            ))}
+            )})}
           </TableBody>
         </Table>
       </TableContainer>
