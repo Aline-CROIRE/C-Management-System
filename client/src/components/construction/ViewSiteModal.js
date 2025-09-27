@@ -9,12 +9,10 @@ import { FaTimes, FaBuilding, FaMapMarkerAlt, FaCalendarAlt, FaDollarSign, FaUse
 import Button from "../common/Button";
 import moment from "moment";
 import LoadingSpinner from "../common/LoadingSpinner";
-
 import TaskTable from "./task-management/TaskTable";
 import AddEditTaskModal from "./task-management/AddEditTaskModal";
 import ViewTaskModal from "./task-management/ViewTaskModal";
 import { useConstructionManagement } from "../../hooks/useConstructionManagement";
-
 import AddEditMilestoneModal from './milestone-management/AddEditMilestoneModal';
 import AddEditChangeOrderModal from './change-order-management/AddEditChangeOrderModal';
 import ViewChangeOrderModal from './change-order-management/ViewChangeOrderModal';
@@ -246,8 +244,6 @@ const ListContainer = styled.ul`
     }
   }
 `;
-
-
 const ModalFooter = styled.div`
   padding: 1rem 1.5rem;
   border-top: 1px solid ${(props) => props.theme.colors.border};
