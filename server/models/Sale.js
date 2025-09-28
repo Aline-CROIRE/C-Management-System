@@ -1,3 +1,4 @@
+// server/models/Sale.js
 const mongoose = require('mongoose');
 
 const saleItemSchema = new mongoose.Schema({
@@ -5,9 +6,11 @@ const saleItemSchema = new mongoose.Schema({
     quantity: { type: Number, required: true, min: 1 },
     price: { type: Number, required: true },
     costPrice: { type: Number, required: true },
-    packagingIncluded: { type: Boolean, default: false },
-    packagingDepositCharged: { type: Number, default: 0 },
-    packagingReturned: { type: Boolean, default: false },
+    packagingIncluded: { type: Boolean, default: false }, // Was packaging involved for this specific item in the sale
+    packagingDepositCharged: { type: Number, default: 0 }, // How much deposit was charged for this item's packaging
+    packagingReturned: { type: Boolean, default: false }, // Has the packaging for this specific item been fully returned
+    packagingQuantityReturned: { type: Number, default: 0 }, // NEW: Track partial packaging returns for this item
+    packagingTypeSnapshot: { type: String, enum: ['None', 'Reusable', 'Recyclable', 'Compostable', 'Other'], default: 'None' }, // Snapshot of packaging type at sale time
 }, { _id: false });
 
 const saleSchema = new mongoose.Schema({
@@ -44,6 +47,16 @@ const saleSchema = new mongoose.Schema({
         enum: ['Completed', 'Returned', 'Partially Returned'],
         default: 'Completed'
     },
+    packagingDepositTotal: { // NEW: Overall total packaging deposit charged for this sale
+        type: Number,
+        default: 0,
+        min: 0,
+    },
+    packagingReturnedTotal: { // NEW: Overall total packaging deposit refunded for this sale
+        type: Number,
+        default: 0,
+        min: 0,
+    },
     notes: { type: String, trim: true },
 }, { timestamps: true });
 
@@ -57,6 +70,12 @@ saleSchema.pre('save', function(next) {
             this.paymentStatus = 'Unpaid';
         }
     }
+    // Calculate total packaging deposit from items array
+    this.packagingDepositTotal = this.items.reduce((sum, item) => sum + (item.packagingIncluded ? item.quantity * item.packagingDepositCharged : 0), 0);
+
+    // Calculate total refunded packaging deposit from items array
+    this.packagingReturnedTotal = this.items.reduce((sum, item) => sum + ((item.packagingQuantityReturned || 0) * item.packagingDepositCharged), 0);
+
     next();
 });
 
