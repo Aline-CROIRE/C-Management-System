@@ -1,10 +1,14 @@
+// server/routes/sales.js
 const express = require("express");
 const router = express.Router();
-const { body, validationResult } = require("express-validator");
-const saleController = require("../controllers/saleController");
+const { body } = require("express-validator");
+const saleController = require("../controllers/salesController");
 const { verifyToken } = require("../middleware/auth");
 
 router.use(verifyToken);
+
+// router.get("/total-value", saleController.getTotalSalesValue); // Example route, if you have one.
+router.get("/packaging-report", saleController.getPackagingReport); // NEW ROUTE
 
 router.route("/")
     .get(saleController.getSales)
@@ -33,9 +37,17 @@ router.post("/:id/return",
     saleController.processReturn
 );
 
-router.delete("/:id", saleController.deleteSale);
+// NEW ROUTE: For explicit packaging return (e.g., customer returns bottles)
+router.post("/:saleId/items/:itemId/return-packaging", 
+    [
+        body('quantityReturned', 'Quantity returned for packaging is required and must be a positive number').isInt({ min: 1 }),
+        body('refundMethod', 'Refund method is required').not().isEmpty().trim(),
+    ],
+    saleController.returnPackaging
+);
 
-router.get("/:id/pdf", saleController.generatePDF);
-router.post("/analytics", saleController.getSalesAnalytics);
+router.delete("/:id", saleController.deleteSale); 
+router.get("/:id/pdf", saleController.generatePDF); 
+router.post("/analytics", saleController.getSalesAnalytics); 
 
 module.exports = router;
