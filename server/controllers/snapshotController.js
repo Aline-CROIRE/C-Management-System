@@ -51,12 +51,10 @@ exports.getDailyStockSnapshots = async (req, res) => {
     }
 };
 
-// @desc    Generate a single snapshot (for testing/manual trigger, not for production cron)
+// @desc    Generate a single snapshot (for testing/manual trigger, NOT for production cron)
 // @route   POST /api/snapshots/generate-one
-// @access  Private (Admin or specific roles)
+// @access  Private (Admin or specific roles - for testing purposes here)
 exports.generateSingleDailySnapshot = async (req, res) => {
-    // This is an example for how a manual trigger *could* work for a single day/item
-    // A robust cron job would iterate through all users and their items
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -76,13 +74,15 @@ exports.generateSingleDailySnapshot = async (req, res) => {
             throw new Error("Inventory item not found or does not belong to user.");
         }
 
-        // Simplistic approach for manual generation:
-        // Assume opening quantity is previous day's closing, or 0 if no previous snapshot.
-        // Assume closing quantity is current live quantity (for 'today's' snapshot)
+        // For this manual test function:
+        // - Opening quantity: Assume previous day's closing, or 0 if no previous snapshot.
+        // - Closing quantity: Use the *current live quantity* from the Inventory item.
+        // NOTE: A production-grade automated daily snapshot would calculate opening/closing based on
+        // all transactions within the specific day, not just live quantity.
         const previousDay = moment(targetDate).subtract(1, 'day').startOf('day').toDate();
         const previousSnapshot = await DailyStockSnapshot.findOne({ user: userId, item: itemId, date: previousDay }).session(session);
         const openingQuantity = previousSnapshot ? previousSnapshot.closingQuantity : 0;
-        const closingQuantity = inventoryItem.quantity; 
+        const closingQuantity = inventoryItem.quantity; // Live read for simplicity here
 
         const newSnapshot = new DailyStockSnapshot({
             user: userId,
