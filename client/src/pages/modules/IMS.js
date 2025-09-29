@@ -1,12 +1,13 @@
-// src/components/inventory/IMS.js
+// src/pages/modules/IMS.js
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes, ThemeProvider } from "styled-components";
 import {
   FaBoxes, FaPlus, FaSearch, FaFilter, FaDownload, FaExclamationTriangle, FaFileCsv, FaFileCode,
   FaChartLine, FaTruck, FaUsers, FaDollarSign, FaSync, FaTimes, FaFileInvoiceDollar, FaUndo, FaBell,
-  FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie, FaClipboardList, FaArrowDown, FaExchangeAlt
+  FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie, FaClipboardList, FaArrowDown, FaExchangeAlt,
+  FaLeaf // Import FaLeaf for Circular Economy
 } from "react-icons/fa";
 
 import Card from "../../components/common/Card";
@@ -19,24 +20,34 @@ import FilterPanel from "../../components/inventory/FilterPanel";
 import PurchaseOrders from "../../components/inventory/PurchaseOrders";
 import SupplierManagement from "../../components/inventory/SupplierManagement";
 import Sales from "../../components/sales/Sales";
-import ReportsAnalytics from "../../components/inventory/ReportsAnalytics";
+import ReportsAnalytics from "../../components/reports/ReportsAnalytics"; 
 import NotificationPanel from "../../components/inventory/NotificationPanel";
 
-import ExpenseManagement from "../../components/expenses/ExpenseManagement";
+import ExpenseManagement from "../../components/expenses/ExpenseManagement"; 
 import RecordMultiInternalUseModal from "../../components/inventory/RecordMultiInternalUseModal";
 import InternalUseHistory from "../../components/inventory/InternalUseHistory";
 import StockAdjustmentModal from "../../components/inventory/StockAdjustmentModal";
-import StockAdjustmentHistory from "../../components/inventory/StockAdjustmentHistory"; // <--- NEW IMPORT for tab content
+import StockAdjustmentHistory from "../../components/inventory/StockAdjustmentHistory"; 
+
+
+import CircularEconomyReport from "../../components/reports/CircularEconomyReport"; 
+import DailyStockReport from "../../components/reports/DailyStockReport"; 
+import ProfitLossReport from "../../components/reports/ProfitLossReport"; 
+import ReportsPage from "../../components/reports/ReportsPage"; 
+
 
 import { useInventory } from "../../hooks/useInventory";
 import { useSuppliers } from "../../hooks/useSuppliers";
 import { useCustomers } from "../../hooks/useCustomers";
-import { useNotifications } from "../../contexts/NotificationContext";
+import { useNotifications } from "../../contexts/NotificationContext"; 
 import { useDebounce } from "../../hooks/useDebounce";
 import { inventoryAPI } from "../../services/api";
 import { useInternalUse } from "../../hooks/useInternalUse";
-import { useStockAdjustments } from "../../hooks/useStockAdjustments"; // <--- NEW IMPORT for useStockAdjustments hook
+import { useStockAdjustments } from "../../hooks/useStockAdjustments"; 
+import appTheme from "../../styles/Theme"; 
 
+// Keyframes for animations
+const spinAnimation = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
 
 const IMSContainer = styled.div`
   padding: 1.5rem 2rem;
@@ -176,22 +187,32 @@ const StatCard = styled(Card)`
   min-height: 120px;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
-  border: 1px solid ${(props) => props.theme.colors.border};
+  
+  /* DEFAULT STATE: Strong green top border and clean shadow */
+  border: 1px solid ${(props) => props.theme.colors.border}; /* Subtle overall border */
+  border-top: 5px solid ${(props) => props.theme.colors.primary}; /* Strong green top border */
   border-radius: ${(props) => props.theme.borderRadius.lg};
-  box-shadow: ${(props) => props.theme.shadows.sm};
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); /* Clean, diffused shadow */
   background: ${(props) => props.theme.colors.surface};
+  transform: translateY(0); /* Ensure it starts at normal position */
+
 
   &:hover {
-    transform: translateY(-5px);
-    box-shadow: ${(props) => props.theme.shadows.md};
+    transform: translateY(-5px); /* Gentle lift on hover */
+    /* NEW HOVER EFFECT: Slightly deeper shadow and maybe a subtle top-border change */
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.06); /* Deeper shadow */
+    background: ${(props) => props.theme.colors.surfaceLight}; /* Subtle background tint */
+    border-top-color: ${(props) => props.theme.colors.primaryDark || props.theme.colors.primary}; /* Make top border slightly darker/more intense on hover */
   }
+  
   &.active {
-    border-color: ${(props) => props.theme.colors.primary};
-    box-shadow: 0 0 0 3px ${(props) => props.theme.colors.primary}30, ${(props) => props.theme.shadows.md};
+    /* Active state: still strong, but the pulse is adjusted to fit the new default top border */
+    border-color: ${(props) => props.theme.colors.primary}; /* Maintain overall border color */
+    box-shadow: 0 0 0 3px ${(props) => props.theme.colors.primary}40, 0 4px 10px rgba(0, 0, 0, 0.08);
     animation: ${keyframes`
-      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(64, 145, 108, 0.4); }
-      70% { transform: scale(1.01); box-shadow: 0 0 0 8px rgba(64, 145, 108, 0); }
-      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(64, 145, 108, 0); }
+      0% { transform: scale(1); box-shadow: 0 0 0 0 ${(props) => props.theme.colors.primary}40; } 
+      70% { transform: scale(1.01); box-shadow: 0 0 0 8px transparent; }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 transparent; }
     `} 1s infinite alternate;
   }
 
@@ -201,6 +222,13 @@ const StatCard = styled(Card)`
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+    
+    &:hover {
+        transform: translateY(-3px); /* Less dramatic lift on mobile */
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); /* Keep default shadow for consistency */
+        background: ${(props) => props.theme.colors.surface}; /* No background change on mobile hover */
+        border-top-color: ${(props) => props.theme.colors.primary}; /* Revert top border to default primary on mobile hover */
+    }
   }
 `;
 const StatHeader = styled.div`
@@ -372,30 +400,33 @@ const DropdownItem = styled.button`
 `;
 const TabContainer = styled.div`
   display: flex;
+  flex-wrap: wrap; /* Allow tabs to wrap */
   background: ${(props) => props.theme.colors.surface};
   border-radius: ${(props) => props.theme.borderRadius.lg};
   padding: 0.5rem;
   margin-bottom: 1.5rem;
   box-shadow: ${(props) => props.theme.shadows.sm};
   border: 1px solid ${(props) => props.theme.colors.border};
-  overflow-x: auto;
-  white-space: nowrap;
-  -webkit-overflow-scrolling: touch;
+  
+  /* Removed overflow-x: auto and white-space: nowrap to encourage wrapping */
 
   @media (max-width: 480px) {
     padding: 0.25rem;
     border-radius: ${(props) => props.theme.borderRadius.md};
     margin-bottom: 1rem;
+    /* Ensure tabs still space out reasonably */
+    justify-content: space-around;
   }
 `;
 const Tab = styled.button`
-  flex: 1;
+  flex: 1 1 auto; /* Allow tabs to grow and shrink, and wrap */
   min-width: 130px;
+  max-width: 180px; /* Give a max-width to prevent stretching too much */
   padding: 0.85rem 1.2rem;
   border: none;
   background: ${(props) => (props.active ? props.theme.colors.primary : "transparent")};
   color: ${(props) => (props.active ? "white" : props.theme.colors.textSecondary)};
-  border-radius: ${(props) => props.theme.borderRadius.md};
+  border-radius: ${(props) => props.theme.borderRadius.md}; /* Smaller radius for tabs */
   font-weight: 600;
   transition: all 0.3s ease;
   cursor: pointer;
@@ -409,10 +440,12 @@ const Tab = styled.button`
     color: ${(props) => props.theme.colors.text};
   }
   @media (max-width: 480px) {
-    min-width: 100px;
+    min-width: unset; /* Remove min-width on very small screens */
+    flex: 1 1 45%; /* Allow two tabs per row, roughly */
     font-size: 0.8rem;
     padding: 0.6rem 0.8rem;
     gap: 0.5rem;
+    margin: 0.25rem; /* Add some margin between wrapped tabs */
   }
 `;
 const ContentArea = styled.div`
@@ -421,14 +454,15 @@ const ContentArea = styled.div`
   border-radius: ${(props) => props.theme.borderRadius.xl};
   box-shadow: ${(props) => props.theme.shadows.lg};
   border: 1px solid ${(props) => props.theme.colors.border};
-  overflow: hidden;
+  overflow: hidden; /* Important: this will prevent children from causing outer scroll */
+  display: flex; /* Ensure content itself can flex inside */
+  flex-direction: column; /* Stack content within */
 
   @media (max-width: 768px) {
     min-height: 400px;
     border-radius: ${(props) => props.theme.borderRadius.lg};
   }
 `;
-const spinAnimation = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
 const SpinningFaSync = styled(FaSync)`
   animation: ${spinAnimation} 1s linear infinite;
 `;
@@ -484,7 +518,7 @@ const IMS = () => {
     const { customers, loading: customersLoading, createCustomer, refetchCustomers } = useCustomers();
 
     const { totalValueStats: internalUseSummary } = useInternalUse({});
-    const { totalImpactStats: stockAdjustmentSummary } = useStockAdjustments({}); // <--- NEW SUMMARY HOOK
+    const { totalImpactStats: stockAdjustmentSummary } = useStockAdjustments({}); 
 
     const totalOutstandingCustomerDebt = useMemo(() => {
       return customers.reduce((sum, customer) => sum + (customer.currentBalance || 0), 0);
@@ -574,6 +608,7 @@ const IMS = () => {
                                 <Button variant="ghost" size="sm" onClick={handleClearFilters}><FaUndo style={{marginRight: '0.5rem'}}/>Show All Items</Button>
                             </FilterIndicator>
                         )}
+                        {/* Note: InventoryTable will need internal responsiveness. */}
                         <InventoryTable 
                             data={inventory} 
                             loading={inventoryLoading} 
@@ -616,16 +651,22 @@ const IMS = () => {
                         setOpenModalInitially={() => setIsModalOpen(prev => ({...prev, internalUseMulti: false}))}
                     />
                 );
-            case "stock-adjustment-history": // <--- NEW TAB CONTENT
+            case "stock-adjustment-history": 
                 return (
                     <StockAdjustmentHistory
-                        onAction={refreshData} // Refresh IMS data after actions in history tab
-                        openModalInitially={isModalOpen.stockAdjustment} // Signal to open modal from here
+                        onAction={refreshData} 
+                        openModalInitially={isModalOpen.stockAdjustment} 
                         setOpenModalInitially={() => setIsModalOpen(prev => ({...prev, stockAdjustment: false}))}
                     />
                 );
-            case "reports":
-                return <ReportsAnalytics />;
+            case "reports": 
+                return <ReportsPage setActiveTab={setActiveTab} />; 
+            case "circular-economy": 
+                return <CircularEconomyReport />;
+            case "daily-stock-report": 
+                return <DailyStockReport inventoryItems={inventory} />;
+            case "profit-loss": 
+                return <ProfitLossReport />;
             default: return null;
         }
     };
@@ -633,47 +674,48 @@ const IMS = () => {
     if (inventoryError) return <IMSContainer>Error: {inventoryError}. <Button onClick={refreshData}>Retry</Button></IMSContainer>;
 
     return (
-        <IMSContainer>
-            <HeaderSection>
-                <HeaderContent>
-                    <HeaderInfo><HeaderTitle>Inventory Management System</HeaderTitle><HeaderSubtitle>Welcome! Here is your operational overview.</HeaderSubtitle></HeaderInfo>
-                    <HeaderActions>
-                        <NotificationBadge onClick={() => handleModal('notifications')}>
-                            <FaBell size={24} />
-                            {unreadCount > 0 && <span className="badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
-                        </NotificationBadge>
-                        <Button variant="outline" onClick={refreshData} disabled={inventoryLoading}>
-                            {inventoryLoading ? <SpinningFaSync /> : <FaSync />} 
-                            {inventoryLoading ? 'Syncing...' : 'Sync Data'}
-                        </Button>
-                    </HeaderActions>
-                </HeaderContent>
+        <ThemeProvider theme={appTheme}> 
+            <IMSContainer>
+                <HeaderSection>
+                    <HeaderContent>
+                        <HeaderInfo><HeaderTitle>Inventory Management System</HeaderTitle><HeaderSubtitle>Welcome! Here is your operational overview.</HeaderSubtitle></HeaderInfo>
+                        <HeaderActions>
+                            <NotificationBadge onClick={() => handleModal('notifications')}>
+                                <FaBell size={24} />
+                                {unreadCount > 0 && <span className="badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+                            </NotificationBadge>
+                            <Button variant="outline" onClick={refreshData} disabled={inventoryLoading}>
+                                {inventoryLoading ? <SpinningFaSync /> : <FaSync />} 
+                                {inventoryLoading ? 'Syncing...' : 'Sync Data'}
+                            </Button>
+                        </HeaderActions>
+                    </HeaderContent>
 
-                <StatsGrid>
-                    <StatCard className={activeTab === 'inventory' && !activeFilterName ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleClearFilters(); }}>
-                        <StatHeader>
-                            <StatContent><StatValue>{formatNumber(stats.totalItems)}</StatValue><StatLabel>Total Unique Items</StatLabel></StatContent>
-                            <StatIcon iconColor="#3182ce"><FaBoxes /></StatIcon>
-                        </StatHeader>
-                        <StatFooter>All products in system</StatFooter>
-                    </StatCard>
-                    <StatCard className={activeTab === 'inventory' && (filters.status === 'in-stock' || !activeFilterName) ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'in-stock' }); }}>
-                        <StatHeader>
-                            <StatContent><StatValue>{formatCurrency(stats.totalValue)}</StatValue><StatLabel>Retail Stock Value</StatLabel></StatContent>
-                            <StatIcon iconColor="#38A169"><FaMoneyBillWave /></StatIcon>
-                        </StatHeader>
-                        <StatFooter>Potential revenue from current stock</StatFooter>
-                    </StatCard>
-                    <StatCard className={activeTab === 'inventory' && (filters.status === 'in-stock' || !activeFilterName) ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'in-stock' }); }}>
-                        <StatHeader>
-                            <StatContent><StatValue>{formatCurrency(stats.totalCostValue)}</StatValue><StatLabel>Cost Stock Value</StatLabel></StatContent>
-                            <StatIcon iconColor="#D69E2E"><FaBalanceScale /></StatIcon>
-                        </StatHeader>
-                        <StatFooter>Total cost of current stock</StatFooter>
-                    </StatCard>
-                    <StatCard className={activeTab === 'inventory' && filters.status === 'low-stock' ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'low-stock' }); }}>
-                        <StatHeader>
-                            <StatContent><StatValue>{formatNumber(stats.lowStockCount)}</StatValue><StatLabel>Items Low on Stock</StatLabel></StatContent>
+                    <StatsGrid>
+                        <StatCard className={activeTab === 'inventory' && !activeFilterName ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleClearFilters(); }}>
+                            <StatHeader>
+                                <StatContent><StatValue>{formatNumber(stats.totalItems)}</StatValue><StatLabel>Total Unique Items</StatLabel></StatContent>
+                                <StatIcon iconColor="#3182ce"><FaBoxes /></StatIcon>
+                            </StatHeader>
+                            <StatFooter>All products in system</StatFooter>
+                        </StatCard>
+                        <StatCard className={activeTab === 'inventory' && (filters.status === 'in-stock' || !activeFilterName) ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'in-stock' }); }}>
+                            <StatHeader>
+                                <StatContent><StatValue>{formatCurrency(stats.totalValue)}</StatValue><StatLabel>Retail Stock Value</StatLabel></StatContent>
+                                <StatIcon iconColor="#38A169"><FaMoneyBillWave /></StatIcon>
+                            </StatHeader>
+                            <StatFooter>Potential revenue from current stock</StatFooter>
+                        </StatCard>
+                        <StatCard className={activeTab === 'inventory' && (filters.status === 'in-stock' || !activeFilterName) ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'in-stock' }); }}>
+                            <StatHeader>
+                                <StatContent><StatValue>{formatCurrency(stats.totalCostValue)}</StatValue><StatLabel>Cost Stock Value</StatLabel></StatContent>
+                                <StatIcon iconColor="#D69E2E"><FaBalanceScale /></StatIcon>
+                            </StatHeader>
+                            <StatFooter>Total cost of current stock</StatFooter>
+                        </StatCard>
+                        <StatCard className={activeTab === 'inventory' && filters.status === 'low-stock' ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'low-stock' }); }}>
+                            <StatHeader>
+                                <StatContent><StatValue>{formatNumber(stats.lowStockCount)}</StatValue><StatLabel>Items Low on Stock</StatLabel></StatContent>
                             <StatIcon iconColor="#dd6b20"><FaExclamationTriangle /></StatIcon>
                         </StatHeader>
                         <StatFooter>Requires urgent attention</StatFooter>
@@ -685,7 +727,7 @@ const IMS = () => {
                         </StatHeader>
                         <StatFooter>Lost sales opportunity</StatFooter>
                     </StatCard>
-                     <StatCard className={activeTab === 'inventory' && filters.status === 'on-order' ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'on-order' }); }}>
+                    <StatCard className={activeTab === 'inventory' && filters.status === 'on-order' ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'on-order' }); }}>
                         <StatHeader>
                             <StatContent><StatValue>{formatNumber(stats.onOrderCount)}</StatValue><StatLabel>Items On Order</StatLabel></StatContent>
                             <StatIcon iconColor="#805ad5"><FaTruck /></StatIcon>
@@ -720,7 +762,6 @@ const IMS = () => {
                         </StatHeader>
                         <StatFooter>Items used internally by owner/staff</StatFooter>
                     </StatCard>
-                    {/* <--- NEW STAT CARD FOR TOTAL STOCK ADJUSTMENT IMPACT --- */}
                     <StatCard className={activeTab === 'stock-adjustment-history' ? 'active' : ''} onClick={() => setActiveTab('stock-adjustment-history')}>
                         <StatHeader>
                             <StatContent><StatValue>{formatCurrency(stockAdjustmentSummary.totalCostImpact)}</StatValue><StatLabel>Total Cost Adjusted</StatLabel></StatContent>
@@ -728,7 +769,6 @@ const IMS = () => {
                         </StatHeader>
                         <StatFooter>Loss due to damage, expiry, etc.</StatFooter>
                     </StatCard>
-                    {/* <--- END NEW STAT CARD --- */}
                 </StatsGrid>
             </HeaderSection>
 
@@ -762,8 +802,11 @@ const IMS = () => {
                 <Tab active={activeTab === "sales"} onClick={() => setActiveTab("sales")}><FaFileInvoiceDollar /> Sales</Tab>
                 <Tab active={activeTab === "expenses"} onClick={() => setActiveTab("expenses")}><FaMoneyBillWave /> Expenses</Tab>
                 <Tab active={activeTab === "internal-use-history"} onClick={() => setActiveTab("internal-use-history")}><FaClipboardList /> Internal Use History</Tab>
-                <Tab active={activeTab === "stock-adjustment-history"} onClick={() => setActiveTab("stock-adjustment-history")}><FaExchangeAlt /> Stock Adjustment History</Tab> {/* <--- NEW TAB */}
+                <Tab active={activeTab === "stock-adjustment-history"} onClick={() => setActiveTab("stock-adjustment-history")}><FaExchangeAlt /> Stock Adjustment History</Tab>
                 <Tab active={activeTab === "reports"} onClick={() => setActiveTab("reports")}><FaChartLine /> Reports</Tab>
+                <Tab active={activeTab === "circular-economy"} onClick={() => setActiveTab("circular-economy")}><FaLeaf /> Circular Economy</Tab>
+                <Tab active={activeTab === "daily-stock-report"} onClick={() => setActiveTab("daily-stock-report")}><FaBoxes /> Daily Stock</Tab>
+                <Tab active={activeTab === "profit-loss"} onClick={() => setActiveTab("profit-loss")}><FaBalanceScale /> P&L</Tab>
             </TabContainer>
             <ContentArea>{renderContent()}</ContentArea>
 
@@ -777,7 +820,7 @@ const IMS = () => {
                 <ExpenseManagement 
                     onAction={refreshData} 
                     openModalInitially={isModalOpen.recordExpense} 
-                    setOpenModalInitially={() => setIsModalOpen(prev => ({...prev, recordExpense: false}))}
+                    setOpenModalInitially={setOpenExpenseModalOnTabLoad} 
                 />
             )}
 
@@ -800,6 +843,7 @@ const IMS = () => {
                 />
             )}
         </IMSContainer>
+        </ThemeProvider>
     );
 };
 

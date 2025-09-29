@@ -65,7 +65,7 @@ export const authAPI = {
 export const dashboardAPI = {
   getStats: () => api.get("/dashboard/stats"),
   getRecentActivity: () => api.get("/dashboard/recent-activity"),
-  getNotifications: () => api.get("/dashboard/notifications"),
+  getNotifications: () => api.get("/notifications"),
 };
 
 export const usersAPI = {
@@ -80,12 +80,11 @@ export const inventoryAPI = {
   getAll: (params) => api.get("/inventory", { params }),
   getById: (id) => api.get(`/inventory/${id}`),
   create: (itemData) => api.post("/inventory", itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  update: (id, itemData) => api.put(`/inventory/${id}`, itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  update: (id, itemData) => api.patch(`/inventory/${id}`, itemData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => api.delete(`/inventory/${id}`),
   getStats: (params) => api.get("/inventory/stats", { params }),
   exportInventory: (format, filters) => api.get(`/inventory/export/${format}`, { params: filters, responseType: 'blob' }),
   
-  // All inventory-related metadata endpoints are now part of inventoryAPI
   getDistinctUnits: () => api.get("/inventory/units"), 
   createUnit: (data) => api.post("/inventory/units", data),
   getCategories: () => api.get("/inventory/categories"),
@@ -94,13 +93,12 @@ export const inventoryAPI = {
   createLocation: (data) => api.post("/inventory/locations", data),
 };
 
-// metadataAPI object is removed as its functions are directly in inventoryAPI
-export const metadataAPI = { // This object acts as an alias or simplified interface
+export const metadataAPI = {
   getCategories: () => inventoryAPI.getCategories(),
   createCategory: (data) => inventoryAPI.createCategory(data),
   getLocations: () => inventoryAPI.getLocations(),
   createLocation: (data) => inventoryAPI.createLocation(data),
-  getUnits: () => inventoryAPI.getDistinctUnits(),
+  getUnits: () => inventoryAPI.getUnits(),
   createUnit: (data) => inventoryAPI.createUnit(data),
 };
 
@@ -109,7 +107,7 @@ export const supplierAPI = {
   getAll: (params) => api.get("/suppliers", { params }),
   getById: (id) => api.get(`/suppliers/${id}`),
   create: (supplierData) => api.post("/suppliers", supplierData),
-  update: (id, supplierData) => api.put(`/suppliers/${id}`, supplierData),
+  update: (id, supplierData) => api.patch(`/suppliers/${id}`, supplierData),
   delete: (id) => api.delete(`/suppliers/${id}`),
 };
 
@@ -145,6 +143,8 @@ export const salesAPI = {
   generatePDF: (id) => api.get(`/sales/${id}/pdf`, { responseType: 'blob' }),
   getAnalytics: (filters) => api.post("/sales/analytics", filters),
   recordPayment: (saleId, paymentData) => api.post(`/sales/${saleId}/record-payment`, paymentData),
+  returnPackaging: (saleId, itemId, returnData) => api.post(`/sales/${saleId}/items/${itemId}/return-packaging`, returnData),
+  getPackagingReport: (params) => api.get("/sales/packaging-report", { params }),
 };
 
 export const customerAPI = {
@@ -158,6 +158,7 @@ export const reportsAPI = {
   getInventoryValuation: (filters) => api.post("/reports/inventory-valuation", filters),
   getSalesSummary: (filters) => api.post("/reports/sales-summary", filters),
   getComprehensiveReport: (filters) => api.post("/reports/comprehensive", filters),
+  getProfitLossReport: (params) => api.get("/reports/profit-loss", { params }),
 };
 
 export const expensesAPI = {
@@ -173,7 +174,7 @@ export const internalUseAPI = {
   getById: (id) => api.get(`/internal-use/${id}`),
   create: (useData) => api.post("/internal-use", useData),
   delete: (id) => api.delete(`/internal-use/${id}`),
-  getTotalValue: (params) => api.get("/internal-use/total-value", { params }), // NEW
+  getTotalValue: (params) => api.get("/internal-use/total-value", { params }),
 };
 
 export const stockAdjustmentAPI = {
@@ -182,6 +183,11 @@ export const stockAdjustmentAPI = {
   create: (adjustmentData) => api.post("/stock-adjustments", adjustmentData),
   delete: (id) => api.delete(`/stock-adjustments/${id}`),
   getTotalImpact: (params) => api.get("/stock-adjustments/total-impact", { params }), 
+};
+
+export const snapshotAPI = { 
+    getDailyStockSnapshots: (params) => api.get("/snapshots/daily-stock", { params }),
+    generateSingleDailySnapshot: (data) => api.post("/snapshots/generate-one", data), 
 };
 
 export const constructionAPI = {
@@ -269,8 +275,5 @@ export const constructionAPI = {
   generateReport: async (siteId, reportType) => await api.get(`/construction/sites/${siteId}/reports/${reportType}`, { responseType: 'blob' }),
 
 };
-
-
-
 
 export default api;

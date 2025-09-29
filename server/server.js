@@ -73,16 +73,6 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(compression());
 app.use(morgan("combined", { stream: { write: (message) => logger.info(message.trim()) } })); // Use logger for morgan
 
-// Rate Limiting
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200, // Max requests per 15 minutes per IP
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  message: { success: false, message: "Too many attempts from this IP, please try again after 15 minutes." },
-});
-app.use("/api", apiLimiter);
-
 // Serve static files from the 'uploads' directory
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 

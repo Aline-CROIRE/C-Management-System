@@ -1,13 +1,14 @@
 // src/components/sales/ViewSaleModal.js
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { FaTimes, FaPrint, FaSpinner, FaUndo, FaMoneyBillWave, FaDollarSign } from 'react-icons/fa';
+import { FaTimes, FaPrint, FaSpinner, FaUndo, FaMoneyBillWave, FaBoxes, FaRedo, FaCheck } from 'react-icons/fa';
 import Button from '../common/Button';
 import { salesAPI } from '../../services/api';
 import toast from 'react-hot-toast';
-import ReturnSaleModal from '../inventory/ReturnSaleModal';
-import RecordPaymentModal from './RecordPaymentModal'; // NEW Import
+import ReturnSaleModal from '../inventory/ReturnSaleModal'; // Updated path
+import RecordPaymentModal from './RecordPaymentModal'; 
+import ReturnPackagingModal from './ReturnPackagingModal'; // NEW Import
 
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 const slideUp = keyframes`from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; }`;
@@ -74,6 +75,15 @@ const ViewSaleModal = ({ sale, onClose, onReturn, onRecordPaymentSuccess }) => {
     const [printLoading, setPrintLoading] = useState(false);
     const [isReturning, setIsReturning] = useState(false);
     const [isRecordingPayment, setIsRecordingPayment] = useState(false);
+    const [isReturningPackaging, setIsReturningPackaging] = useState(false); // NEW State
+
+    const hasOutstandingReusablePackaging = useMemo(() => 
+        sale.items.some(item => 
+            item.packagingIncluded && 
+            item.packagingDepositCharged > 0 && 
+            (item.packagingQuantityReturned || 0) < item.quantity
+        ), 
+    [sale.items]);
 
     const handlePrint = async () => {
         setPrintLoading(true);
@@ -100,7 +110,12 @@ const ViewSaleModal = ({ sale, onClose, onReturn, onRecordPaymentSuccess }) => {
 
     const handlePaymentRecorded = () => {
         setIsRecordingPayment(false);
-        onRecordPaymentSuccess(); // Notify parent to refresh sales data
+        onRecordPaymentSuccess(); // Callback to notify parent (e.g., refresh sales data)
+    };
+
+    const handlePackagingReturned = () => { // NEW: Handler for successful packaging return
+        setIsReturningPackaging(false);
+        onRecordPaymentSuccess(); // Refresh sales to update packaging status and customer balance
     };
 
     if (!sale) return null;
@@ -145,6 +160,18 @@ const ViewSaleModal = ({ sale, onClose, onReturn, onRecordPaymentSuccess }) => {
                                     <span style={{color: '#c53030', fontWeight: 'bold'}}>Rwf {remainingBalance.toLocaleString()}</span>
                                 </InfoItem>
                             )}
+                            {sale.packagingDepositTotal > 0 && ( // NEW: Display total charged packaging deposit
+                                <>
+                                    <InfoItem>
+                                        <strong>PACKAGING DEPOSIT CHARGED</strong>
+                                        <span>Rwf {sale.packagingDepositTotal?.toLocaleString() || '0'}</span>
+                                    </InfoItem>
+                                    <InfoItem>
+                                        <strong>PACKAGING DEPOSIT REFUNDED</strong>
+                                        <span>Rwf {sale.packagingReturnedTotal?.toLocaleString() || '0'}</span>
+                                    </InfoItem>
+                                </>
+                            )}
                         </InfoGrid>
 
                         <h4>Items Sold</h4>
@@ -154,7 +181,7 @@ const ViewSaleModal = ({ sale, onClose, onReturn, onRecordPaymentSuccess }) => {
                                     <Th>Product</Th>
                                     <Th style={{textAlign: 'right'}}>Quantity</Th>
                                     <Th style={{textAlign: 'right'}}>Unit Price</Th>
-                                    <Th style={{textAlign: 'right'}}>Packaging Deposit</Th>
+                                    <Th style={{textAlign: 'right'}}>Packaging Type / Deposit</Th> {/* NEW */}
                                     <Th style={{textAlign: 'right'}}>Subtotal</Th>
                                 </tr>
                             </thead>
@@ -166,7 +193,15 @@ const ViewSaleModal = ({ sale, onClose, onReturn, onRecordPaymentSuccess }) => {
                                         <Td style={{textAlign: 'right'}}>Rwf {item.price.toLocaleString()}</Td>
                                         <Td style={{textAlign: 'right'}}>
                                             {item.packagingIncluded && item.packagingDepositCharged > 0 ? 
-                                                `Rwf ${item.packagingDepositCharged.toLocaleString()}` : 'N/A'}
+                                                <span style={{display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem'}}>
+                                                    <FaBoxes title="Reusable Packaging" style={{color: '#40916c'}}/> 
+                                                    Rwf {item.packagingDepositCharged.toLocaleString()} 
+                                                    {item.packagingReturned ? 
+                                                        <FaCheck title="Packaging Fully Returned" style={{color: '#38a169'}}/> : 
+                                                        <FaRedo title={`Packaging Outstanding: ${item.quantity - (item.packagingQuantityReturned || 0)}`} style={{color: '#ed8936'}}/>
+                                                    }
+                                                </span>
+                                                : (item.packagingTypeSnapshot !== 'None' ? item.packagingTypeSnapshot : 'None')}
                                         </Td>
                                         <Td style={{textAlign: 'right'}}>
                                             Rwf {(item.quantity * item.price + (item.packagingIncluded ? item.quantity * item.packagingDepositCharged : 0)).toLocaleString()}
@@ -181,8 +216,11 @@ const ViewSaleModal = ({ sale, onClose, onReturn, onRecordPaymentSuccess }) => {
                         </ItemsTable>
                     </ModalBody>
                     <ModalFooter>
-                        {sale.status === 'Completed' && (
+                        {sale.status === 'Completed' && ( // Only show return button if sale is completed and not fully returned
                             <Button variant="danger-outline" onClick={() => setIsReturning(true)}><FaUndo/> Process Return</Button>
+                        )}
+                        {hasOutstandingReusablePackaging && ( // Only show if reusable packaging is outstanding
+                            <Button variant="info" onClick={() => setIsReturningPackaging(true)}><FaRedo/> Return Packaging</Button>
                         )}
                         {sale.paymentStatus !== 'Paid' && (
                             <Button variant="primary" onClick={() => setIsRecordingPayment(true)}><FaMoneyBillWave/> Record Payment</Button>
@@ -207,6 +245,14 @@ const ViewSaleModal = ({ sale, onClose, onReturn, onRecordPaymentSuccess }) => {
                     sale={sale}
                     onClose={() => setIsRecordingPayment(false)}
                     onPaymentSuccess={handlePaymentRecorded}
+                />
+            )}
+
+            {isReturningPackaging && ( // NEW: Render ReturnPackagingModal
+                <ReturnPackagingModal
+                    sale={sale}
+                    onClose={() => setIsReturningPackaging(false)}
+                    onPackagingReturnSuccess={handlePackagingReturned}
                 />
             )}
         </>

@@ -1,3 +1,4 @@
+// src/components/sales/CreateSaleModal.js
 "use client";
 import React, { useState, useMemo, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
@@ -6,12 +7,12 @@ import Button from '../common/Button';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import toast from 'react-hot-toast';
-import BarcodeScannerModal from '../inventory/BarcodeScannerModal';
+import BarcodeScannerModal from '../inventory/BarcodeScannerModal'; // Updated path
 
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
 const slideUp = keyframes`from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; }`;
 
-const ModalOverlay = styled.div` position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1010; display: flex; align-items: center; justify-content: center; animation: ${fadeIn} 0.3s; `;
+const ModalOverlay = styled.div` position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1010; display: flex; align-items: center; justify-content: center; animation: ${fadeIn} 0.3s;`;
 const ModalContent = styled.div`
   background: white; border-radius: 1rem; width: 90%; max-width: 800px;
   box-shadow: 0 10px 25px rgba(0,0,0,0.1); animation: ${slideUp} 0.3s;
@@ -73,6 +74,7 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
 
             const duplicatedItems = saleToDuplicate.items.map(soldItem => {
                 const inventoryItem = inventoryItems.find(i => i._id === soldItem.item._id);
+                // Ensure inventory item exists and has enough stock to duplicate the sale
                 if (!inventoryItem || inventoryItem.quantity < soldItem.quantity) {
                     toast.error(`Could not duplicate "${soldItem.item.name}" due to insufficient stock.`);
                     return null;
@@ -80,24 +82,22 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
                 return {
                     item: inventoryItem._id, name: inventoryItem.name, sku: inventoryItem.sku,
                     quantity: soldItem.quantity, price: soldItem.price, originalPrice: inventoryItem.price,
-                    maxQuantity: inventoryItem.quantity,
+                    maxQuantity: inventoryItem.quantity, // Max quantity based on current stock
                     packagingIncluded: soldItem.packagingIncluded || false,
                     packagingDepositCharged: soldItem.packagingDepositCharged || 0,
+                    packagingTypeSnapshot: soldItem.packagingTypeSnapshot || 'None', // Ensure snapshot is carried over
                 };
-            }).filter(Boolean);
+            }).filter(Boolean); // Filter out items that couldn't be duplicated
             setItems(duplicatedItems);
         } else {
-            setFormDataInitialState();
+            // Reset to initial state for new sale
+            setCustomerId('');
+            setPaymentMethod('Cash');
+            setAmountPaid('');
+            setPaymentStatus('Unpaid');
+            setItems([]);
         }
     }, [saleToDuplicate, inventoryItems]);
-
-    const setFormDataInitialState = () => {
-        setCustomerId('');
-        setPaymentMethod('Cash');
-        setAmountPaid('');
-        setPaymentStatus('Unpaid');
-        setItems([]);
-    };
 
     const availableItems = useMemo(() => {
         const addedItemIds = new Set(items.map(i => i.item));
@@ -115,10 +115,11 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
     const handleAddItem = (item) => {
         setItems(prev => [...prev, {
             item: item._id, name: item.name, sku: item.sku,
-            quantity: 1, price: item.price, originalPrice: item.price,
-            maxQuantity: item.quantity,
+            quantity: 1, price: item.price, originalPrice: item.price, // Store original price for validation
+            maxQuantity: item.quantity, // Current stock quantity
             packagingIncluded: item.packagingType === 'Reusable',
             packagingDepositCharged: item.packagingType === 'Reusable' ? item.packagingDeposit : 0,
+            packagingTypeSnapshot: item.packagingType, // Capture the packaging type at sale time
         }]);
         setSearchTerm('');
     };
@@ -131,21 +132,28 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
         } else {
             toast.error(`Product with SKU "${sku}" not found or already in cart.`);
         }
+        setIsScanning(false); // Close scanner after scan
     };
 
     const handleUpdateItem = (itemId, field, value) => {
-        const numValue = value === '' ? 0 : (field === 'price' || field === 'packagingDepositCharged' ? parseFloat(value) : parseInt(value, 10));
         setItems(prev => prev.map(item => {
             if (item.item === itemId) {
-                const newItem = { ...item, [field]: isNaN(numValue) ? item[field] : numValue };
-                if (field === 'price' && newItem.price < item.originalPrice) {
-                    toast.error(`Price cannot be lower than the minimum of Rwf ${item.originalPrice.toLocaleString()}`);
-                    newItem.price = item.originalPrice;
-                }
+                let updatedValue = value;
                 if (field === 'quantity') {
-                    newItem.quantity = Math.max(1, Math.min(newItem.quantity, item.maxQuantity));
+                    updatedValue = parseInt(value, 10);
+                    if (isNaN(updatedValue) || updatedValue < 1) updatedValue = 1;
+                    if (updatedValue > item.maxQuantity) updatedValue = item.maxQuantity;
+                } else if (field === 'price') {
+                    updatedValue = parseFloat(value);
+                    if (isNaN(updatedValue) || updatedValue < 0) updatedValue = 0;
+                    // Add validation for minimum price if needed
+                    if (updatedValue < item.originalPrice) {
+                        toast.error(`Price for ${item.name} cannot be lower than the original price of Rwf ${item.originalPrice.toLocaleString()}.`);
+                        updatedValue = item.originalPrice;
+                    }
                 }
-                return newItem;
+                
+                return { ...item, [field]: updatedValue };
             }
             return item;
         }));
@@ -161,26 +169,23 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
     };
 
     const handleSaveNewCustomer = async () => {
-        if (!newCustomerFields.name.trim()) { // Trim name before checking
+        if (!newCustomerFields.name.trim()) {
             return toast.error("Customer name is required.");
         }
-        // Prepare data for sending, ensuring empty strings are converted to null or omitted for optional fields
         const customerDataToSend = {
             name: newCustomerFields.name.trim(),
-            email: newCustomerFields.email.trim() || undefined, // Send undefined if empty
-            phone: newCustomerFields.phone.trim() || undefined, // Send undefined if empty
-            // address: newCustomerFields.address.trim() || undefined, // if you add address to the form
+            email: newCustomerFields.email.trim() || undefined,
+            phone: newCustomerFields.phone.trim() || undefined,
         };
 
         try {
-            const newCustomer = await createCustomer(customerDataToSend); // Use the trimmed data
+            const newCustomer = await createCustomer(customerDataToSend);
             if (newCustomer) {
                 setCustomerId(newCustomer._id);
                 setNewCustomerFields({ name: '', email: '', phone: '' });
                 toast.success(`New customer "${newCustomer.name}" added successfully!`);
             }
         } catch (error) {
-            // The api.js interceptor will already show a toast with the specific error message
             console.error("Failed to save new customer:", error);
         }
     };
@@ -213,12 +218,13 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
         if (items.length === 0) return toast.error("Please add at least one item to the sale.");
         onSave({
             customer: customerId === '_add_new_' || !customerId ? null : customerId,
-            items: items.map(({ item, quantity, price, packagingIncluded, packagingDepositCharged }) => ({
+            items: items.map(({ item, quantity, price, packagingIncluded, packagingDepositCharged, packagingTypeSnapshot }) => ({
                 item, 
                 quantity, 
                 price,
                 packagingIncluded,
                 packagingDepositCharged,
+                packagingTypeSnapshot, // Pass the packagingTypeSnapshot to the backend
             })),
             totalAmount,
             subtotal: calculateSubtotal,
@@ -355,7 +361,7 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
                                                 <div style={{fontSize: '0.8rem'}}>
                                                     Reusable (+Rwf {item.packagingDepositCharged.toLocaleString()})
                                                 </div>
-                                            ) : 'None'}
+                                            ) : (item.packagingTypeSnapshot !== 'None' ? item.packagingTypeSnapshot : 'None')}
                                         </Td>
                                         <Td>Rwf {(item.quantity * item.price + (item.packagingIncluded ? item.quantity * item.packagingDepositCharged : 0)).toLocaleString()}</Td>
                                         <Td><Button variant="danger-ghost" size="sm" iconOnly onClick={() => handleRemoveItem(item.item)}><FaTrash /></Button></Td>
