@@ -185,9 +185,9 @@ export const stockAdjustmentAPI = {
   getTotalImpact: (params) => api.get("/stock-adjustments/total-impact", { params }), 
 };
 
-export const snapshotAPI = {
+export const snapshotAPI = { 
     getDailyStockSnapshots: (params) => api.get("/snapshots/daily-stock", { params }),
-    generateSingleDailySnapshot: (data) => api.post("/snapshots/generate-one", data),
+    generateSingleDailySnapshot: (data) => api.post("/snapshots/generate-one", data), 
 };
 
 export const constructionAPI = {

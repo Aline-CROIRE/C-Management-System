@@ -1,7 +1,7 @@
 // src/hooks/useDailyStockSnapshots.js
 "use client";
 import { useState, useCallback, useEffect } from 'react';
-import { snapshotAPI } from '../services/api'; // NEW: Import snapshotAPI
+import { snapshotAPI } from '../services/api'; 
 import toast from 'react-hot-toast';
 import moment from 'moment';
 
@@ -30,11 +30,11 @@ export const useDailyStockSnapshots = (initialFilters = {}) => {
             }
         } catch (err) {
             setError(err.message);
-            // toast.error handled by interceptor
+            // toast.error is handled by the API interceptor
         } finally {
             setLoading(false);
         }
-    }, [filters]);
+    }, [filters]); 
 
     useEffect(() => {
         fetchSnapshots();

@@ -26,6 +26,10 @@ const ReportContainer = styled.div`
   background-color: ${(props) => props.theme.colors.background};
   min-height: calc(100vh - 80px); /* Adjust based on header height */
   animation: ${fadeIn} 0.5s ease-out;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
 `;
 
 const ReportHeader = styled.div`
@@ -35,6 +39,11 @@ const ReportHeader = styled.div`
   margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 `;
 
 const Title = styled.h1`
@@ -44,6 +53,10 @@ const Title = styled.h1`
   align-items: center;
   gap: 0.75rem;
   margin: 0;
+
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+  }
 `;
 
 const FilterSection = styled.div`
@@ -51,17 +64,32 @@ const FilterSection = styled.div`
   gap: 1rem;
   align-items: center;
   flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    justify-content: space-between;
+  }
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
 `;
 
 const DateRangePickerContainer = styled.div`
   position: absolute;
   top: 100%;
-  right: 0; /* Position dropdown to the right */
+  right: 0; 
   z-index: 1000;
   box-shadow: 0 5px 15px rgba(0,0,0,0.2);
   border-radius: 0.5rem;
   overflow: hidden;
-  background: white; /* Ensure background is white */
+  background: white;
+
+  @media (max-width: 768px) {
+    left: 0;
+    right: auto;
+    width: 100%;
+  }
 `;
 
 const StatsGrid = styled.div`
@@ -69,6 +97,10 @@ const StatsGrid = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const StatCard = styled(Card)`
@@ -81,6 +113,10 @@ const StatCard = styled(Card)`
   gap: 0.5rem;
   box-shadow: ${(props) => props.theme.shadows.sm};
   border-left: 5px solid ${({ theme, color }) => color || theme.colors.primary}; /* FIX: Destructure theme */
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+  }
 `;
 
 const StatLabel = styled.span`
@@ -96,6 +132,10 @@ const StatValue = styled.span`
   font-size: 2rem;
   font-weight: 700;
   color: ${(props) => props.theme.colors.textPrimary};
+
+  @media (max-width: 480px) {
+    font-size: 1.5rem;
+  }
 `;
 
 const StatDescription = styled.small`
@@ -111,46 +151,103 @@ const SectionTitle = styled.h2`
   display: flex;
   align-items: center;
   gap: 0.75rem;
+
+  @media (max-width: 768px) {
+    font-size: 1.25rem;
+  }
+`;
+
+const TableWrapper = styled.div`
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  overflow: hidden;
+  /* Remove overflow-x: auto, let Table component handle it */
+
+  @media (max-width: 768px) {
+    border-radius: 0.75rem;
+  }
 `;
 
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  background-color: white;
-  border-radius: 0.75rem;
-  overflow: hidden;
-  box-shadow: ${(props) => props.theme.shadows.sm};
-  margin-bottom: 2rem;
+  
+  /* Default table styles for larger screens */
+  @media (min-width: 769px) { /* Adjust breakpoint as needed */
+    min-width: 700px; /* Ensure columns have enough space */
+    display: table; /* Revert to default table display */
+  }
+
+  /* Responsive Table - Stacked/Card View for smaller screens */
+  @media (max-width: 768px) {
+    border: none;
+    width: 100%;
+    display: block; /* Make table behave like a block element */
+  }
 `;
 
 const Th = styled.th`
-  background-color: ${(props) => props.theme.colors.primaryLight};
-  color: ${(props) => props.theme.colors.primary};
-  padding: 1rem 1.25rem;
+  padding: 1rem 1.5rem;
   text-align: left;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4a5568;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid ${(props) => props.theme.colors.border};
+  border-bottom: 2px solid #e2e8f0;
+
+  @media (max-width: 768px) {
+    display: none; /* Hide table headers on small screens */
+  }
 `;
 
 const Td = styled.td`
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid ${(props) => props.theme.colors.border};
-  color: ${(props) => props.theme.colors.textPrimary};
+  padding: 1rem 1.5rem;
   font-size: 0.9rem;
+  color: #2d3748;
+  vertical-align: middle;
+  white-space: nowrap; /* Keep content on one line for default table view */
+  border-bottom: 1px solid #e2e8f0;
+  &:last-child { border-bottom: none; }
 
-  &:last-child {
-    border-right: none;
+  @media (max-width: 768px) {
+    display: block; /* Make td behave like a block element */
+    padding: 0.5rem 0; /* Adjust padding for stacked view */
+    text-align: left;
+    white-space: normal; /* Allow text to wrap */
+    border-bottom: none; /* Remove inner cell borders */
+    
+    &::before {
+      content: attr(data-label); /* Use data-label attribute for virtual header */
+      font-weight: 600;
+      color: ${(props) => props.theme.colors.textSecondary};
+      display: block; /* Ensure label is on its own line */
+      margin-bottom: 0.25rem;
+      font-size: 0.8rem;
+    }
   }
 `;
 
 const TableRow = styled.tr`
+  /* Default styles */
   &:last-child ${Td} {
     border-bottom: none;
   }
   &:hover {
     background-color: ${(props) => props.theme.colors.hover};
+  }
+
+  /* Responsive styles */
+  @media (max-width: 768px) {
+    display: block; /* Make tr behave like a block element */
+    margin-bottom: 1rem;
+    border: 1px solid ${(props) => props.theme.colors.border};
+    border-radius: ${(props) => props.theme.borderRadius.md};
+    box-shadow: ${(props) => props.theme.shadows.sm};
+    padding: 1rem;
+    &:last-child {
+        margin-bottom: 0;
+    }
   }
 `;
 
@@ -161,6 +258,11 @@ const ChartContainer = styled(Card)`
   box-shadow: ${(props) => props.theme.shadows.sm};
   margin-bottom: 2rem;
   height: 400px; /* Fixed height for charts */
+
+  @media (max-width: 768px) {
+    height: 300px; /* Adjust height for smaller screens */
+    padding: 1rem;
+  }
 `;
 
 const TooltipContent = styled.div`
@@ -183,6 +285,11 @@ const NoDataMessage = styled.div`
   border-radius: 0.75rem;
   box-shadow: ${(props) => props.theme.shadows.sm};
   margin-top: 2rem;
+
+  @media (max-width: 768px) {
+    padding: 1.5rem;
+    font-size: 1rem;
+  }
 `;
 
 const FilterWrapper = styled.div`
@@ -190,6 +297,11 @@ const FilterWrapper = styled.div`
   display: flex;
   gap: 1rem;
   align-items: center;
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
 `;
 
 
@@ -362,11 +474,11 @@ const CircularEconomyReport = () => {
                         <tbody>
                             {depositsChargedDetails.map((item) => (
                                 <TableRow key={item._id}>
-                                    <Td>{item.itemName}</Td>
-                                    <Td>{item.itemSku}</Td>
-                                    <Td>{item.packagingTypeSnapshot}</Td>
-                                    <Td style={{textAlign: 'right'}}>{item.totalChargedQuantity}</Td>
-                                    <Td style={{textAlign: 'right'}}>{formatCurrency(item.totalChargedDeposit)}</Td>
+                                    <Td data-label="Product Name">{item.itemName}</Td>
+                                    <Td data-label="SKU">{item.itemSku}</Td>
+                                    <Td data-label="Packaging Type">{item.packagingTypeSnapshot}</Td>
+                                    <Td data-label="Quantity Charged" style={{textAlign: 'right'}}>{item.totalChargedQuantity}</Td>
+                                    <Td data-label="Total Deposit" style={{textAlign: 'right'}}>{formatCurrency(item.totalChargedDeposit)}</Td>
                                 </TableRow>
                             ))}
                         </tbody>
@@ -391,10 +503,10 @@ const CircularEconomyReport = () => {
                         <tbody>
                             {depositsRefundedDetails.map((item, index) => (
                                 <TableRow key={item._id || index}>
-                                    <Td>{item.itemName || 'N/A'}</Td>
-                                    <Td>{item.itemSku || 'N/A'}</Td>
-                                    <Td style={{textAlign: 'right'}}>{item.totalReturnedQuantity}</Td>
-                                    <Td style={{textAlign: 'right'}}>{formatCurrency(item.totalRefundedDeposit)}</Td>
+                                    <Td data-label="Product Name">{item.itemName || 'N/A'}</Td>
+                                    <Td data-label="SKU">{item.itemSku || 'N/A'}</Td>
+                                    <Td data-label="Quantity Returned" style={{textAlign: 'right'}}>{item.totalReturnedQuantity}</Td>
+                                    <Td data-label="Total Refunded" style={{textAlign: 'right'}}>{formatCurrency(item.totalRefundedDeposit)}</Td>
                                 </TableRow>
                             ))}
                         </tbody>
@@ -424,7 +536,7 @@ const CircularEconomyReport = () => {
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
-                                <Tooltip content={({ active, payload, label }) => {
+                                <Tooltip content={({ active, payload }) => { // Destructure payload from props
                                     if (active && payload && payload.length) {
                                         const data = payload[0].payload;
                                         return (

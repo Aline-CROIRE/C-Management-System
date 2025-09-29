@@ -23,10 +23,10 @@ const theme = {
   },
   
   colors: {
-    primary: "#1b4332", // Dark forest green
+    primary: "#022c1aff", // Dark forest green
     secondary: "#2d5016", // Dark olive green
     accent: "#40916c", // Medium green for highlights
-    background: "#2d3748", // Dark teal
+    background: "#ffffff", 
     surface: "#ffffff",
     surfaceLight: "#f7fafc",
     surfaceDark: "#edf2f7",

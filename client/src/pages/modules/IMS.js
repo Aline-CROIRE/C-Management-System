@@ -20,7 +20,6 @@ import FilterPanel from "../../components/inventory/FilterPanel";
 import PurchaseOrders from "../../components/inventory/PurchaseOrders";
 import SupplierManagement from "../../components/inventory/SupplierManagement";
 import Sales from "../../components/sales/Sales";
-// Corrected report paths below:
 import ReportsAnalytics from "../../components/reports/ReportsAnalytics"; 
 import NotificationPanel from "../../components/inventory/NotificationPanel";
 
@@ -30,7 +29,7 @@ import InternalUseHistory from "../../components/inventory/InternalUseHistory";
 import StockAdjustmentModal from "../../components/inventory/StockAdjustmentModal";
 import StockAdjustmentHistory from "../../components/inventory/StockAdjustmentHistory"; 
 
-// NEW Imports for Advanced Features
+
 import CircularEconomyReport from "../../components/reports/CircularEconomyReport"; 
 import DailyStockReport from "../../components/reports/DailyStockReport"; 
 import ProfitLossReport from "../../components/reports/ProfitLossReport"; 
@@ -45,7 +44,10 @@ import { useDebounce } from "../../hooks/useDebounce";
 import { inventoryAPI } from "../../services/api";
 import { useInternalUse } from "../../hooks/useInternalUse";
 import { useStockAdjustments } from "../../hooks/useStockAdjustments"; 
-import appTheme from "../../styles/Theme"
+import appTheme from "../../styles/Theme"; 
+
+// Keyframes for animations
+const spinAnimation = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
 
 const IMSContainer = styled.div`
   padding: 1.5rem 2rem;
@@ -185,22 +187,32 @@ const StatCard = styled(Card)`
   min-height: 120px;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
-  border: 1px solid ${(props) => props.theme.colors.border};
+  
+  /* DEFAULT STATE: Strong green top border and clean shadow */
+  border: 1px solid ${(props) => props.theme.colors.border}; /* Subtle overall border */
+  border-top: 5px solid ${(props) => props.theme.colors.primary}; /* Strong green top border */
   border-radius: ${(props) => props.theme.borderRadius.lg};
-  box-shadow: ${(props) => props.theme.shadows.sm};
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); /* Clean, diffused shadow */
   background: ${(props) => props.theme.colors.surface};
+  transform: translateY(0); /* Ensure it starts at normal position */
+
 
   &:hover {
-    transform: translateY(-5px);
-    box-shadow: ${(props) => props.theme.shadows.md};
+    transform: translateY(-5px); /* Gentle lift on hover */
+    /* NEW HOVER EFFECT: Slightly deeper shadow and maybe a subtle top-border change */
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15), 0 4px 8px rgba(0, 0, 0, 0.06); /* Deeper shadow */
+    background: ${(props) => props.theme.colors.surfaceLight}; /* Subtle background tint */
+    border-top-color: ${(props) => props.theme.colors.primaryDark || props.theme.colors.primary}; /* Make top border slightly darker/more intense on hover */
   }
+  
   &.active {
-    border-color: ${(props) => props.theme.colors.primary};
-    box-shadow: 0 0 0 3px ${(props) => props.theme.colors.primary}30, ${(props) => props.theme.shadows.md};
+    /* Active state: still strong, but the pulse is adjusted to fit the new default top border */
+    border-color: ${(props) => props.theme.colors.primary}; /* Maintain overall border color */
+    box-shadow: 0 0 0 3px ${(props) => props.theme.colors.primary}40, 0 4px 10px rgba(0, 0, 0, 0.08);
     animation: ${keyframes`
-      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(64, 145, 108, 0.4); }
-      70% { transform: scale(1.01); box-shadow: 0 0 0 8px rgba(64, 145, 108, 0); }
-      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(64, 145, 108, 0); }
+      0% { transform: scale(1); box-shadow: 0 0 0 0 ${(props) => props.theme.colors.primary}40; } 
+      70% { transform: scale(1.01); box-shadow: 0 0 0 8px transparent; }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 transparent; }
     `} 1s infinite alternate;
   }
 
@@ -210,6 +222,13 @@ const StatCard = styled(Card)`
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+    
+    &:hover {
+        transform: translateY(-3px); /* Less dramatic lift on mobile */
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); /* Keep default shadow for consistency */
+        background: ${(props) => props.theme.colors.surface}; /* No background change on mobile hover */
+        border-top-color: ${(props) => props.theme.colors.primary}; /* Revert top border to default primary on mobile hover */
+    }
   }
 `;
 const StatHeader = styled.div`
@@ -381,30 +400,33 @@ const DropdownItem = styled.button`
 `;
 const TabContainer = styled.div`
   display: flex;
+  flex-wrap: wrap; /* Allow tabs to wrap */
   background: ${(props) => props.theme.colors.surface};
   border-radius: ${(props) => props.theme.borderRadius.lg};
   padding: 0.5rem;
   margin-bottom: 1.5rem;
   box-shadow: ${(props) => props.theme.shadows.sm};
   border: 1px solid ${(props) => props.theme.colors.border};
-  overflow-x: auto;
-  white-space: nowrap;
-  -webkit-overflow-scrolling: touch;
+  
+  /* Removed overflow-x: auto and white-space: nowrap to encourage wrapping */
 
   @media (max-width: 480px) {
     padding: 0.25rem;
     border-radius: ${(props) => props.theme.borderRadius.md};
     margin-bottom: 1rem;
+    /* Ensure tabs still space out reasonably */
+    justify-content: space-around;
   }
 `;
 const Tab = styled.button`
-  flex: 1;
+  flex: 1 1 auto; /* Allow tabs to grow and shrink, and wrap */
   min-width: 130px;
+  max-width: 180px; /* Give a max-width to prevent stretching too much */
   padding: 0.85rem 1.2rem;
   border: none;
   background: ${(props) => (props.active ? props.theme.colors.primary : "transparent")};
   color: ${(props) => (props.active ? "white" : props.theme.colors.textSecondary)};
-  border-radius: ${(props) => props.theme.borderRadius.md};
+  border-radius: ${(props) => props.theme.borderRadius.md}; /* Smaller radius for tabs */
   font-weight: 600;
   transition: all 0.3s ease;
   cursor: pointer;
@@ -418,10 +440,12 @@ const Tab = styled.button`
     color: ${(props) => props.theme.colors.text};
   }
   @media (max-width: 480px) {
-    min-width: 100px;
+    min-width: unset; /* Remove min-width on very small screens */
+    flex: 1 1 45%; /* Allow two tabs per row, roughly */
     font-size: 0.8rem;
     padding: 0.6rem 0.8rem;
     gap: 0.5rem;
+    margin: 0.25rem; /* Add some margin between wrapped tabs */
   }
 `;
 const ContentArea = styled.div`
@@ -430,14 +454,15 @@ const ContentArea = styled.div`
   border-radius: ${(props) => props.theme.borderRadius.xl};
   box-shadow: ${(props) => props.theme.shadows.lg};
   border: 1px solid ${(props) => props.theme.colors.border};
-  overflow: hidden;
+  overflow: hidden; /* Important: this will prevent children from causing outer scroll */
+  display: flex; /* Ensure content itself can flex inside */
+  flex-direction: column; /* Stack content within */
 
   @media (max-width: 768px) {
     min-height: 400px;
     border-radius: ${(props) => props.theme.borderRadius.lg};
   }
 `;
-const spinAnimation = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
 const SpinningFaSync = styled(FaSync)`
   animation: ${spinAnimation} 1s linear infinite;
 `;
@@ -583,6 +608,7 @@ const IMS = () => {
                                 <Button variant="ghost" size="sm" onClick={handleClearFilters}><FaUndo style={{marginRight: '0.5rem'}}/>Show All Items</Button>
                             </FilterIndicator>
                         )}
+                        {/* Note: InventoryTable will need internal responsiveness. */}
                         <InventoryTable 
                             data={inventory} 
                             loading={inventoryLoading} 
@@ -648,7 +674,7 @@ const IMS = () => {
     if (inventoryError) return <IMSContainer>Error: {inventoryError}. <Button onClick={refreshData}>Retry</Button></IMSContainer>;
 
     return (
-        <ThemeProvider theme={appTheme}> {/* Corrected: Use 'appTheme' here */}
+        <ThemeProvider theme={appTheme}> 
             <IMSContainer>
                 <HeaderSection>
                     <HeaderContent>
@@ -818,7 +844,6 @@ const IMS = () => {
             )}
         </IMSContainer>
         </ThemeProvider>
-  
     );
 };
 

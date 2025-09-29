@@ -2,19 +2,18 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { FaBoxes, FaCalendarAlt, FaRedo, FaFilter, FaChevronLeft, FaChevronRight, FaPlus } from 'react-icons/fa';
+import { FaBoxes, FaCalendarAlt, FaRedo, FaFilter, FaChevronLeft, FaChevronRight, FaPlus, FaMinus } from 'react-icons/fa';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Card from '../common/Card';
 import { DateRange } from 'react-date-range';
-import 'react-date-range/dist/styles.css';
-import 'react-date-range/dist/theme/default.css';
+import 'react-date-range/dist/styles.css'; // main style file
+import 'react-date-range/dist/theme/default.css'; // theme css file
 import { enUS } from 'date-fns/locale';
 import moment from 'moment';
-import { useDailyStockSnapshots } from '../../hooks/useDailyStockSnapshots'; // NEW Hook
-// import { useInventory } from '../../hooks/useInventory'; // Not using directly, passing inventoryItems from IMS
+import { useDailyStockSnapshots } from '../../hooks/useDailyStockSnapshots'; 
 import toast from 'react-hot-toast';
 
 const fadeIn = keyframes`from { opacity: 0; } to { opacity: 1; }`;
@@ -24,6 +23,10 @@ const ReportContainer = styled.div`
   background-color: ${(props) => props.theme.colors.background};
   min-height: calc(100vh - 80px);
   animation: ${fadeIn} 0.5s ease-out;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
 `;
 
 const ReportHeader = styled.div`
@@ -33,6 +36,11 @@ const ReportHeader = styled.div`
   margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 `;
 
 const Title = styled.h1`
@@ -42,6 +50,10 @@ const Title = styled.h1`
   align-items: center;
   gap: 0.75rem;
   margin: 0;
+
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+  }
 `;
 
 const FilterSection = styled.div`
@@ -49,6 +61,15 @@ const FilterSection = styled.div`
   gap: 1rem;
   align-items: center;
   flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    justify-content: space-between;
+  }
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
 `;
 
 const DateRangePickerContainer = styled.div`
@@ -60,6 +81,12 @@ const DateRangePickerContainer = styled.div`
   border-radius: 0.5rem;
   overflow: hidden;
   background: white;
+
+  @media (max-width: 768px) {
+    left: 0;
+    right: auto; 
+    width: 100%;
+  }
 `;
 
 const FiltersCard = styled(Card)`
@@ -68,6 +95,10 @@ const FiltersCard = styled(Card)`
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
 `;
 
 const FilterGrid = styled.div`
@@ -75,6 +106,10 @@ const FilterGrid = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
   align-items: end;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const FormGroup = styled.div`
@@ -94,12 +129,29 @@ const TableWrapper = styled.div`
   border-radius: 1rem;
   box-shadow: 0 4px 15px rgba(0,0,0,0.05);
   overflow: hidden;
+  /* Remove overflow-x: auto from here, let the Table component handle it */
+
+  @media (max-width: 768px) {
+    border-radius: 0.75rem;
+  }
 `;
 
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 800px;
+  
+  /* Default table styles for larger screens */
+  @media (min-width: 769px) { /* Adjust breakpoint as needed */
+    min-width: 700px; /* Minimum width to ensure columns are readable */
+    display: table; /* Revert to default table display */
+  }
+
+  /* Responsive Table - Stacked/Card View for smaller screens */
+  @media (max-width: 768px) {
+    border: none;
+    width: 100%;
+    display: block; /* Make table behave like a block element */
+  }
 `;
 
 const Th = styled.th`
@@ -110,6 +162,10 @@ const Th = styled.th`
   color: #4a5568;
   text-transform: uppercase;
   border-bottom: 2px solid #e2e8f0;
+
+  @media (max-width: 768px) {
+    display: none; /* Hide table headers on small screens */
+  }
 `;
 
 const Td = styled.td`
@@ -117,8 +173,26 @@ const Td = styled.td`
   font-size: 0.9rem;
   color: #2d3748;
   vertical-align: middle;
+  white-space: nowrap; /* Keep content on one line for default table view */
   border-bottom: 1px solid #e2e8f0;
   &:last-child { border-bottom: none; }
+
+  @media (max-width: 768px) {
+    display: block; /* Make td behave like a block element */
+    padding: 0.5rem 0; /* Adjust padding for stacked view */
+    text-align: left;
+    white-space: normal; /* Allow text to wrap */
+    border-bottom: none; /* Remove inner cell borders */
+    
+    &::before {
+      content: attr(data-label); /* Use data-label attribute for virtual header */
+      font-weight: 600;
+      color: ${(props) => props.theme.colors.textSecondary};
+      display: block; /* Ensure label is on its own line */
+      margin-bottom: 0.25rem;
+      font-size: 0.8rem;
+    }
+  }
 `;
 
 const EmptyState = styled.div`
@@ -126,6 +200,10 @@ const EmptyState = styled.div`
   text-align: center;
   color: #718096;
   .icon { font-size: 3rem; opacity: 0.3; margin-bottom: 1rem; }
+
+  @media (max-width: 768px) {
+    padding: 2rem;
+  }
 `;
 
 const TableFooter = styled.div`
@@ -135,6 +213,11 @@ const TableFooter = styled.div`
   padding: 1rem 1.5rem;
   font-size: 0.875rem;
   color: ${(props) => props.theme.colors.textSecondary};
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
 `;
 const PaginationControls = styled.div` display: flex; gap: 0.5rem; `;
 const FilterWrapper = styled.div`
@@ -142,6 +225,11 @@ const FilterWrapper = styled.div`
   display: flex;
   gap: 1rem;
   align-items: center;
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
 `;
 
 const DailyStockReport = ({ inventoryItems }) => { // Receives inventoryItems as prop
@@ -200,9 +288,9 @@ const DailyStockReport = ({ inventoryItems }) => { // Receives inventoryItems as
     };
 
     const handleGenerateSnapshot = async (item) => {
-        if (window.confirm(`Generate snapshot for ${item.name} (${item.sku}) for today? This is for testing only.`)) {
+        if (window.confirm(`Generate snapshot for ${item.name} (${item.sku}) for today? This is for testing only. In a real app, this happens automatically overnight.`)) {
             const success = await generateSingleSnapshot(new Date(), item._id);
-            if(success) toast.success(`Snapshot for ${item.name} generated for today.`);
+            // Refetch is already called inside generateSingleSnapshot, so no need here.
         }
     };
 
@@ -316,13 +404,17 @@ const DailyStockReport = ({ inventoryItems }) => { // Receives inventoryItems as
                         <tbody>
                             {snapshots.map(snapshot => (
                                 <tr key={snapshot._id}>
-                                    <Td>{moment(snapshot.date).format('YYYY-MM-DD')}</Td>
-                                    <Td>{snapshot.item?.name || 'N/A'}</Td>
-                                    <Td>{snapshot.item?.sku || 'N/A'}</Td>
-                                    <Td>{snapshot.openingQuantity?.toLocaleString()} {snapshot.item?.unit || ''}</Td>
-                                    <Td>{snapshot.closingQuantity?.toLocaleString()} {snapshot.item?.unit || ''}</Td>
-                                    <Td>
-                                        {(snapshot.closingQuantity - snapshot.openingQuantity) > 0 ? `+${(snapshot.closingQuantity - snapshot.openingQuantity).toLocaleString()}` : (snapshot.closingQuantity - snapshot.openingQuantity).toLocaleString()}
+                                    <Td data-label="Date">{moment(snapshot.date).format('YYYY-MM-DD')}</Td>
+                                    <Td data-label="Product Name">{snapshot.item?.name || 'N/A'}</Td>
+                                    <Td data-label="SKU">{snapshot.item?.sku || 'N/A'}</Td>
+                                    <Td data-label="Opening Qty">{snapshot.openingQuantity?.toLocaleString()} {snapshot.item?.unit || ''}</Td>
+                                    <Td data-label="Closing Qty">{snapshot.closingQuantity?.toLocaleString()} {snapshot.item?.unit || ''}</Td>
+                                    <Td data-label="Net Change">
+                                        {(snapshot.closingQuantity - snapshot.openingQuantity) > 0 ? 
+                                         <span style={{color: '#2F855A', fontWeight: 'bold'}}><FaPlus style={{marginRight: '0.25rem', fontSize: '0.75rem'}} />{(snapshot.closingQuantity - snapshot.openingQuantity).toLocaleString()}</span>
+                                        : (snapshot.closingQuantity - snapshot.openingQuantity) < 0 ? 
+                                         <span style={{color: '#C53030', fontWeight: 'bold'}}><FaMinus style={{marginRight: '0.25rem', fontSize: '0.75rem'}} />{(snapshot.openingQuantity - snapshot.closingQuantity).toLocaleString()}</span>
+                                        : (snapshot.closingQuantity - snapshot.openingQuantity).toLocaleString()}
                                         {snapshot.item?.unit || ''}
                                     </Td>
                                 </tr>
