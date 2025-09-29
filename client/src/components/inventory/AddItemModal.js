@@ -1,14 +1,16 @@
+// src/components/inventory/AddItemModal.js
 "use client";
 
 import React, { useState, useEffect } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
-import { FaTimes, FaSave, FaBarcode, FaImage } from "react-icons/fa";
+import { FaTimes, FaSave, FaBarcode } from "react-icons/fa"; // Removed FaImage as it's not used
 import Button from "../common/Button";
 import Input from "../common/Input";
 import Select from "../common/Select";
 import toast from 'react-hot-toast';
 
+// Styled components (assuming they are defined elsewhere or simplified here for brevity)
 const ModalOverlay = styled.div` position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; backdrop-filter: blur(4px); `;
 const ModalContent = styled.form` background: ${(props) => props.theme.colors.surface}; color: ${(props) => props.theme.colors.text}; border-radius: ${(props) => props.theme.borderRadius.xl}; width: 100%; max-width: 800px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: ${(props) => props.theme.shadows.xl}; overflow: hidden; `;
 const ModalHeader = styled.div` padding: 1.5rem 2rem; border-bottom: 1px solid ${(props) => props.theme.colors.border}; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; `;
@@ -24,6 +26,7 @@ const TextArea = styled.textarea` padding: 0.75rem; border: 1px solid ${(props) 
 const ImageUploadContainer = styled.div` border: 2px dashed ${(props) => props.theme.colors.border}; border-radius: ${(props) => props.theme.borderRadius.lg}; padding: 2rem; text-align: center; cursor: pointer; position: relative; transition: all 0.2s ease-in-out; &:hover { border-color: ${(props) => props.theme.colors.primary}; } `;
 const HiddenInput = styled.input` position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; `;
 const ModalFooter = styled.div` padding: 1.5rem 2rem; display: flex; justify-content: flex-end; gap: 1rem; border-top: 1px solid ${(props) => props.theme.colors.border}; `;
+
 
 const AddItemModal = ({
     onClose,
@@ -49,7 +52,7 @@ const AddItemModal = ({
     const [formData, setFormData] = useState({
         name: '', sku: '', category: '', location: '', unit: '', quantity: '',
         price: '', costPrice: '', minStockLevel: '', supplier: '', description: '', expiryDate: '', 
-        packagingType: 'None',
+        packagingType: 'None', // Default to 'None'
         packagingDeposit: '0',
     });
 
@@ -225,12 +228,15 @@ const AddItemModal = ({
                         </FormGroup>
                         <FormGroup><Label htmlFor="expiryDate">Expiry Date</Label><ThemedInput id="expiryDate" name="expiryDate" type="date" value={formData.expiryDate} onChange={handleInputChange} /></FormGroup>
 
+                        {/* Packaging Fields - Updated enum */}
                         <FormGroup>
                             <Label htmlFor="packagingType">Packaging Type</Label>
                             <ThemedSelect id="packagingType" name="packagingType" value={formData.packagingType} onChange={handleInputChange}>
                                 <option value="None">None</option>
-                                <option value="Standard">Standard (Disposable)</option>
-                                <option value="Reusable">Reusable (Deposit)</option>
+                                <option value="Reusable">Reusable</option>
+                                <option value="Recyclable">Recyclable</option> {/* NEW OPTION */}
+                                <option value="Compostable">Compostable</option> {/* NEW OPTION */}
+                                <option value="Other">Other</option> {/* NEW OPTION */}
                             </ThemedSelect>
                         </FormGroup>
                         {formData.packagingType === 'Reusable' && (

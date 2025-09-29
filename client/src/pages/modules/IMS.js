@@ -1,12 +1,13 @@
-// src/components/inventory/IMS.js
+// src/pages/modules/IMS.js
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes, ThemeProvider } from "styled-components";
 import {
   FaBoxes, FaPlus, FaSearch, FaFilter, FaDownload, FaExclamationTriangle, FaFileCsv, FaFileCode,
   FaChartLine, FaTruck, FaUsers, FaDollarSign, FaSync, FaTimes, FaFileInvoiceDollar, FaUndo, FaBell,
-  FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie, FaClipboardList, FaArrowDown, FaExchangeAlt
+  FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie, FaClipboardList, FaArrowDown, FaExchangeAlt,
+  FaLeaf // Import FaLeaf for Circular Economy
 } from "react-icons/fa";
 
 import Card from "../../components/common/Card";
@@ -19,24 +20,32 @@ import FilterPanel from "../../components/inventory/FilterPanel";
 import PurchaseOrders from "../../components/inventory/PurchaseOrders";
 import SupplierManagement from "../../components/inventory/SupplierManagement";
 import Sales from "../../components/sales/Sales";
-import ReportsAnalytics from "../../components/inventory/ReportsAnalytics";
+// Corrected report paths below:
+import ReportsAnalytics from "../../components/reports/ReportsAnalytics"; 
 import NotificationPanel from "../../components/inventory/NotificationPanel";
 
-import ExpenseManagement from "../../components/expenses/ExpenseManagement";
+import ExpenseManagement from "../../components/expenses/ExpenseManagement"; 
 import RecordMultiInternalUseModal from "../../components/inventory/RecordMultiInternalUseModal";
 import InternalUseHistory from "../../components/inventory/InternalUseHistory";
 import StockAdjustmentModal from "../../components/inventory/StockAdjustmentModal";
-import StockAdjustmentHistory from "../../components/inventory/StockAdjustmentHistory"; // <--- NEW IMPORT for tab content
+import StockAdjustmentHistory from "../../components/inventory/StockAdjustmentHistory"; 
+
+// NEW Imports for Advanced Features
+import CircularEconomyReport from "../../components/reports/CircularEconomyReport"; 
+import DailyStockReport from "../../components/reports/DailyStockReport"; 
+import ProfitLossReport from "../../components/reports/ProfitLossReport"; 
+import ReportsPage from "../../components/reports/ReportsPage"; 
+
 
 import { useInventory } from "../../hooks/useInventory";
 import { useSuppliers } from "../../hooks/useSuppliers";
 import { useCustomers } from "../../hooks/useCustomers";
-import { useNotifications } from "../../contexts/NotificationContext";
+import { useNotifications } from "../../contexts/NotificationContext"; 
 import { useDebounce } from "../../hooks/useDebounce";
 import { inventoryAPI } from "../../services/api";
 import { useInternalUse } from "../../hooks/useInternalUse";
-import { useStockAdjustments } from "../../hooks/useStockAdjustments"; // <--- NEW IMPORT for useStockAdjustments hook
-
+import { useStockAdjustments } from "../../hooks/useStockAdjustments"; 
+import appTheme from "../../styles/Theme"
 
 const IMSContainer = styled.div`
   padding: 1.5rem 2rem;
@@ -484,7 +493,7 @@ const IMS = () => {
     const { customers, loading: customersLoading, createCustomer, refetchCustomers } = useCustomers();
 
     const { totalValueStats: internalUseSummary } = useInternalUse({});
-    const { totalImpactStats: stockAdjustmentSummary } = useStockAdjustments({}); // <--- NEW SUMMARY HOOK
+    const { totalImpactStats: stockAdjustmentSummary } = useStockAdjustments({}); 
 
     const totalOutstandingCustomerDebt = useMemo(() => {
       return customers.reduce((sum, customer) => sum + (customer.currentBalance || 0), 0);
@@ -616,16 +625,22 @@ const IMS = () => {
                         setOpenModalInitially={() => setIsModalOpen(prev => ({...prev, internalUseMulti: false}))}
                     />
                 );
-            case "stock-adjustment-history": // <--- NEW TAB CONTENT
+            case "stock-adjustment-history": 
                 return (
                     <StockAdjustmentHistory
-                        onAction={refreshData} // Refresh IMS data after actions in history tab
-                        openModalInitially={isModalOpen.stockAdjustment} // Signal to open modal from here
+                        onAction={refreshData} 
+                        openModalInitially={isModalOpen.stockAdjustment} 
                         setOpenModalInitially={() => setIsModalOpen(prev => ({...prev, stockAdjustment: false}))}
                     />
                 );
-            case "reports":
-                return <ReportsAnalytics />;
+            case "reports": 
+                return <ReportsPage setActiveTab={setActiveTab} />; 
+            case "circular-economy": 
+                return <CircularEconomyReport />;
+            case "daily-stock-report": 
+                return <DailyStockReport inventoryItems={inventory} />;
+            case "profit-loss": 
+                return <ProfitLossReport />;
             default: return null;
         }
     };
@@ -633,47 +648,48 @@ const IMS = () => {
     if (inventoryError) return <IMSContainer>Error: {inventoryError}. <Button onClick={refreshData}>Retry</Button></IMSContainer>;
 
     return (
-        <IMSContainer>
-            <HeaderSection>
-                <HeaderContent>
-                    <HeaderInfo><HeaderTitle>Inventory Management System</HeaderTitle><HeaderSubtitle>Welcome! Here is your operational overview.</HeaderSubtitle></HeaderInfo>
-                    <HeaderActions>
-                        <NotificationBadge onClick={() => handleModal('notifications')}>
-                            <FaBell size={24} />
-                            {unreadCount > 0 && <span className="badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
-                        </NotificationBadge>
-                        <Button variant="outline" onClick={refreshData} disabled={inventoryLoading}>
-                            {inventoryLoading ? <SpinningFaSync /> : <FaSync />} 
-                            {inventoryLoading ? 'Syncing...' : 'Sync Data'}
-                        </Button>
-                    </HeaderActions>
-                </HeaderContent>
+        <ThemeProvider theme={appTheme}> {/* Corrected: Use 'appTheme' here */}
+            <IMSContainer>
+                <HeaderSection>
+                    <HeaderContent>
+                        <HeaderInfo><HeaderTitle>Inventory Management System</HeaderTitle><HeaderSubtitle>Welcome! Here is your operational overview.</HeaderSubtitle></HeaderInfo>
+                        <HeaderActions>
+                            <NotificationBadge onClick={() => handleModal('notifications')}>
+                                <FaBell size={24} />
+                                {unreadCount > 0 && <span className="badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+                            </NotificationBadge>
+                            <Button variant="outline" onClick={refreshData} disabled={inventoryLoading}>
+                                {inventoryLoading ? <SpinningFaSync /> : <FaSync />} 
+                                {inventoryLoading ? 'Syncing...' : 'Sync Data'}
+                            </Button>
+                        </HeaderActions>
+                    </HeaderContent>
 
-                <StatsGrid>
-                    <StatCard className={activeTab === 'inventory' && !activeFilterName ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleClearFilters(); }}>
-                        <StatHeader>
-                            <StatContent><StatValue>{formatNumber(stats.totalItems)}</StatValue><StatLabel>Total Unique Items</StatLabel></StatContent>
-                            <StatIcon iconColor="#3182ce"><FaBoxes /></StatIcon>
-                        </StatHeader>
-                        <StatFooter>All products in system</StatFooter>
-                    </StatCard>
-                    <StatCard className={activeTab === 'inventory' && (filters.status === 'in-stock' || !activeFilterName) ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'in-stock' }); }}>
-                        <StatHeader>
-                            <StatContent><StatValue>{formatCurrency(stats.totalValue)}</StatValue><StatLabel>Retail Stock Value</StatLabel></StatContent>
-                            <StatIcon iconColor="#38A169"><FaMoneyBillWave /></StatIcon>
-                        </StatHeader>
-                        <StatFooter>Potential revenue from current stock</StatFooter>
-                    </StatCard>
-                    <StatCard className={activeTab === 'inventory' && (filters.status === 'in-stock' || !activeFilterName) ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'in-stock' }); }}>
-                        <StatHeader>
-                            <StatContent><StatValue>{formatCurrency(stats.totalCostValue)}</StatValue><StatLabel>Cost Stock Value</StatLabel></StatContent>
-                            <StatIcon iconColor="#D69E2E"><FaBalanceScale /></StatIcon>
-                        </StatHeader>
-                        <StatFooter>Total cost of current stock</StatFooter>
-                    </StatCard>
-                    <StatCard className={activeTab === 'inventory' && filters.status === 'low-stock' ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'low-stock' }); }}>
-                        <StatHeader>
-                            <StatContent><StatValue>{formatNumber(stats.lowStockCount)}</StatValue><StatLabel>Items Low on Stock</StatLabel></StatContent>
+                    <StatsGrid>
+                        <StatCard className={activeTab === 'inventory' && !activeFilterName ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleClearFilters(); }}>
+                            <StatHeader>
+                                <StatContent><StatValue>{formatNumber(stats.totalItems)}</StatValue><StatLabel>Total Unique Items</StatLabel></StatContent>
+                                <StatIcon iconColor="#3182ce"><FaBoxes /></StatIcon>
+                            </StatHeader>
+                            <StatFooter>All products in system</StatFooter>
+                        </StatCard>
+                        <StatCard className={activeTab === 'inventory' && (filters.status === 'in-stock' || !activeFilterName) ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'in-stock' }); }}>
+                            <StatHeader>
+                                <StatContent><StatValue>{formatCurrency(stats.totalValue)}</StatValue><StatLabel>Retail Stock Value</StatLabel></StatContent>
+                                <StatIcon iconColor="#38A169"><FaMoneyBillWave /></StatIcon>
+                            </StatHeader>
+                            <StatFooter>Potential revenue from current stock</StatFooter>
+                        </StatCard>
+                        <StatCard className={activeTab === 'inventory' && (filters.status === 'in-stock' || !activeFilterName) ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'in-stock' }); }}>
+                            <StatHeader>
+                                <StatContent><StatValue>{formatCurrency(stats.totalCostValue)}</StatValue><StatLabel>Cost Stock Value</StatLabel></StatContent>
+                                <StatIcon iconColor="#D69E2E"><FaBalanceScale /></StatIcon>
+                            </StatHeader>
+                            <StatFooter>Total cost of current stock</StatFooter>
+                        </StatCard>
+                        <StatCard className={activeTab === 'inventory' && filters.status === 'low-stock' ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'low-stock' }); }}>
+                            <StatHeader>
+                                <StatContent><StatValue>{formatNumber(stats.lowStockCount)}</StatValue><StatLabel>Items Low on Stock</StatLabel></StatContent>
                             <StatIcon iconColor="#dd6b20"><FaExclamationTriangle /></StatIcon>
                         </StatHeader>
                         <StatFooter>Requires urgent attention</StatFooter>
@@ -685,7 +701,7 @@ const IMS = () => {
                         </StatHeader>
                         <StatFooter>Lost sales opportunity</StatFooter>
                     </StatCard>
-                     <StatCard className={activeTab === 'inventory' && filters.status === 'on-order' ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'on-order' }); }}>
+                    <StatCard className={activeTab === 'inventory' && filters.status === 'on-order' ? 'active' : ''} onClick={() => { setActiveTab('inventory'); handleApplyFilters({ status: 'on-order' }); }}>
                         <StatHeader>
                             <StatContent><StatValue>{formatNumber(stats.onOrderCount)}</StatValue><StatLabel>Items On Order</StatLabel></StatContent>
                             <StatIcon iconColor="#805ad5"><FaTruck /></StatIcon>
@@ -720,7 +736,6 @@ const IMS = () => {
                         </StatHeader>
                         <StatFooter>Items used internally by owner/staff</StatFooter>
                     </StatCard>
-                    {/* <--- NEW STAT CARD FOR TOTAL STOCK ADJUSTMENT IMPACT --- */}
                     <StatCard className={activeTab === 'stock-adjustment-history' ? 'active' : ''} onClick={() => setActiveTab('stock-adjustment-history')}>
                         <StatHeader>
                             <StatContent><StatValue>{formatCurrency(stockAdjustmentSummary.totalCostImpact)}</StatValue><StatLabel>Total Cost Adjusted</StatLabel></StatContent>
@@ -728,7 +743,6 @@ const IMS = () => {
                         </StatHeader>
                         <StatFooter>Loss due to damage, expiry, etc.</StatFooter>
                     </StatCard>
-                    {/* <--- END NEW STAT CARD --- */}
                 </StatsGrid>
             </HeaderSection>
 
@@ -762,8 +776,11 @@ const IMS = () => {
                 <Tab active={activeTab === "sales"} onClick={() => setActiveTab("sales")}><FaFileInvoiceDollar /> Sales</Tab>
                 <Tab active={activeTab === "expenses"} onClick={() => setActiveTab("expenses")}><FaMoneyBillWave /> Expenses</Tab>
                 <Tab active={activeTab === "internal-use-history"} onClick={() => setActiveTab("internal-use-history")}><FaClipboardList /> Internal Use History</Tab>
-                <Tab active={activeTab === "stock-adjustment-history"} onClick={() => setActiveTab("stock-adjustment-history")}><FaExchangeAlt /> Stock Adjustment History</Tab> {/* <--- NEW TAB */}
+                <Tab active={activeTab === "stock-adjustment-history"} onClick={() => setActiveTab("stock-adjustment-history")}><FaExchangeAlt /> Stock Adjustment History</Tab>
                 <Tab active={activeTab === "reports"} onClick={() => setActiveTab("reports")}><FaChartLine /> Reports</Tab>
+                <Tab active={activeTab === "circular-economy"} onClick={() => setActiveTab("circular-economy")}><FaLeaf /> Circular Economy</Tab>
+                <Tab active={activeTab === "daily-stock-report"} onClick={() => setActiveTab("daily-stock-report")}><FaBoxes /> Daily Stock</Tab>
+                <Tab active={activeTab === "profit-loss"} onClick={() => setActiveTab("profit-loss")}><FaBalanceScale /> P&L</Tab>
             </TabContainer>
             <ContentArea>{renderContent()}</ContentArea>
 
@@ -777,7 +794,7 @@ const IMS = () => {
                 <ExpenseManagement 
                     onAction={refreshData} 
                     openModalInitially={isModalOpen.recordExpense} 
-                    setOpenModalInitially={() => setIsModalOpen(prev => ({...prev, recordExpense: false}))}
+                    setOpenModalInitially={setOpenExpenseModalOnTabLoad} 
                 />
             )}
 
@@ -800,6 +817,8 @@ const IMS = () => {
                 />
             )}
         </IMSContainer>
+        </ThemeProvider>
+  
     );
 };
 
