@@ -7,7 +7,7 @@ import {
   FaBoxes, FaPlus, FaSearch, FaFilter, FaDownload, FaExclamationTriangle, FaFileCsv, FaFileCode,
   FaChartLine, FaTruck, FaUsers, FaDollarSign, FaSync, FaTimes, FaFileInvoiceDollar, FaUndo, FaBell,
   FaMoneyBillWave, FaBalanceScale, FaHandshake, FaUserTie, FaClipboardList, FaArrowDown, FaExchangeAlt,
-  FaLeaf // Import FaLeaf for Circular Economy
+  FaLeaf 
 } from "react-icons/fa";
 
 import Card from "../../components/common/Card";
@@ -29,7 +29,7 @@ import InternalUseHistory from "../../components/inventory/InternalUseHistory";
 import StockAdjustmentModal from "../../components/inventory/StockAdjustmentModal";
 import StockAdjustmentHistory from "../../components/inventory/StockAdjustmentHistory"; 
 
-
+// NEW Imports for Advanced Features (from previous turn, assuming they are set up)
 import CircularEconomyReport from "../../components/reports/CircularEconomyReport"; 
 import DailyStockReport from "../../components/reports/DailyStockReport"; 
 import ProfitLossReport from "../../components/reports/ProfitLossReport"; 
@@ -44,7 +44,7 @@ import { useDebounce } from "../../hooks/useDebounce";
 import { inventoryAPI } from "../../services/api";
 import { useInternalUse } from "../../hooks/useInternalUse";
 import { useStockAdjustments } from "../../hooks/useStockAdjustments"; 
-import appTheme from "../../styles/Theme"; 
+import appTheme from "../../styles/Theme"; // Correctly import default export as 'appTheme'
 
 // Keyframes for animations
 const spinAnimation = keyframes`from { transform: rotate(0deg); } to { transform: rotate(360deg); }`;
@@ -400,7 +400,7 @@ const DropdownItem = styled.button`
 `;
 const TabContainer = styled.div`
   display: flex;
-  flex-wrap: wrap; /* Allow tabs to wrap */
+  flex-wrap: wrap; 
   background: ${(props) => props.theme.colors.surface};
   border-radius: ${(props) => props.theme.borderRadius.lg};
   padding: 0.5rem;
@@ -408,25 +408,22 @@ const TabContainer = styled.div`
   box-shadow: ${(props) => props.theme.shadows.sm};
   border: 1px solid ${(props) => props.theme.colors.border};
   
-  /* Removed overflow-x: auto and white-space: nowrap to encourage wrapping */
-
   @media (max-width: 480px) {
     padding: 0.25rem;
     border-radius: ${(props) => props.theme.borderRadius.md};
     margin-bottom: 1rem;
-    /* Ensure tabs still space out reasonably */
     justify-content: space-around;
   }
 `;
 const Tab = styled.button`
-  flex: 1 1 auto; /* Allow tabs to grow and shrink, and wrap */
+  flex: 1 1 auto; 
   min-width: 130px;
-  max-width: 180px; /* Give a max-width to prevent stretching too much */
+  max-width: 180px; 
   padding: 0.85rem 1.2rem;
   border: none;
   background: ${(props) => (props.active ? props.theme.colors.primary : "transparent")};
   color: ${(props) => (props.active ? "white" : props.theme.colors.textSecondary)};
-  border-radius: ${(props) => props.theme.borderRadius.md}; /* Smaller radius for tabs */
+  border-radius: ${(props) => props.theme.borderRadius.md}; 
   font-weight: 600;
   transition: all 0.3s ease;
   cursor: pointer;
@@ -440,12 +437,12 @@ const Tab = styled.button`
     color: ${(props) => props.theme.colors.text};
   }
   @media (max-width: 480px) {
-    min-width: unset; /* Remove min-width on very small screens */
-    flex: 1 1 45%; /* Allow two tabs per row, roughly */
+    min-width: unset; 
+    flex: 1 1 45%; 
     font-size: 0.8rem;
     padding: 0.6rem 0.8rem;
     gap: 0.5rem;
-    margin: 0.25rem; /* Add some margin between wrapped tabs */
+    margin: 0.25rem; 
   }
 `;
 const ContentArea = styled.div`
@@ -454,9 +451,9 @@ const ContentArea = styled.div`
   border-radius: ${(props) => props.theme.borderRadius.xl};
   box-shadow: ${(props) => props.theme.shadows.lg};
   border: 1px solid ${(props) => props.theme.colors.border};
-  overflow: hidden; /* Important: this will prevent children from causing outer scroll */
-  display: flex; /* Ensure content itself can flex inside */
-  flex-direction: column; /* Stack content within */
+  overflow: hidden; 
+  display: flex; 
+  flex-direction: column; 
 
   @media (max-width: 768px) {
     min-height: 400px;
@@ -608,7 +605,6 @@ const IMS = () => {
                                 <Button variant="ghost" size="sm" onClick={handleClearFilters}><FaUndo style={{marginRight: '0.5rem'}}/>Show All Items</Button>
                             </FilterIndicator>
                         )}
-                        {/* Note: InventoryTable will need internal responsiveness. */}
                         <InventoryTable 
                             data={inventory} 
                             loading={inventoryLoading} 
@@ -810,8 +806,8 @@ const IMS = () => {
             </TabContainer>
             <ContentArea>{renderContent()}</ContentArea>
 
-            {isModalOpen.add && <AddItemModal onClose={closeAllModals} onSave={handleAddItem} categories={categories} locations={locations} units={units} suppliers={inventorySuppliers} createCategory={createCategory} createLocation={createLocation} createUnit={createUnit} createSupplier={createSupplier} loading={inventoryLoading || suppliersLoading} />}
-            {isModalOpen.edit && selectedItem && <AddItemModal itemToEdit={selectedItem} onClose={closeAllModals} onSave={(payload) => handleUpdateItem(payload)} categories={categories} locations={locations} units={units} suppliers={inventorySuppliers} createCategory={createCategory} createLocation={createLocation} createUnit={createUnit} createSupplier={createSupplier} loading={inventoryLoading || suppliersLoading} />}
+            {isModalOpen.add && <AddItemModal onClose={closeAllModals} onSave={handleAddItem} categories={categories} locations={locations} units={units} suppliers={inventorySuppliers} inventoryItems={inventory} createCategory={createCategory} createLocation={createLocation} createUnit={createUnit} createSupplier={createSupplier} loading={inventoryLoading || suppliersLoading} />}
+            {isModalOpen.edit && selectedItem && <AddItemModal itemToEdit={selectedItem} onClose={closeAllModals} onSave={(payload) => handleUpdateItem(payload)} categories={categories} locations={locations} units={units} suppliers={inventorySuppliers} inventoryItems={inventory} createCategory={createCategory} createLocation={createLocation} createUnit={createUnit} createSupplier={createSupplier} loading={inventoryLoading || suppliersLoading} />}
             {isModalOpen.view && selectedItem && <ViewItemModal item={selectedItem} onClose={closeAllModals} />}
             {isModalOpen.filter && <FilterPanel onClose={closeAllModals} onApply={handleApplyFilters} onClear={handleClearFilters} categories={categories} locations={locations} initialFilters={filters} />}
             {isModalOpen.notifications && <NotificationPanel onClose={closeAllModals} />}

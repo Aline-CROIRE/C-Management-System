@@ -2,7 +2,7 @@
 "use client";
 import React, { useState, useMemo, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { FaPlus, FaTimes, FaTrash, FaSearch, FaBarcode, FaMoneyBillWave } from 'react-icons/fa';
+import { FaPlus, FaTimes, FaTrash, FaSearch, FaBarcode, FaMoneyBillWave, FaBoxes } from 'react-icons/fa';
 import Button from '../common/Button';
 import Input from '../common/Input';
 import Select from '../common/Select';
@@ -74,20 +74,36 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
 
             const duplicatedItems = saleToDuplicate.items.map(soldItem => {
                 const inventoryItem = inventoryItems.find(i => i._id === soldItem.item._id);
-                // Ensure inventory item exists and has enough stock to duplicate the sale
+                // Check stock for product itself
                 if (!inventoryItem || inventoryItem.quantity < soldItem.quantity) {
-                    toast.error(`Could not duplicate "${soldItem.item.name}" due to insufficient stock.`);
+                    toast.error(`Could not duplicate "${soldItem.item.name}" due to insufficient product stock.`);
                     return null;
                 }
+                // Check stock for linked reusable packaging too, if applicable
+                if (inventoryItem.linkedReusablePackagingItem) {
+                    const reusableItemStock = inventoryItems.find(i => i._id === inventoryItem.linkedReusablePackagingItem)?.quantity || 0;
+                    if (reusableItemStock < soldItem.quantity) {
+                        toast.error(`Not enough reusable packaging for "${inventoryItem.name}" to duplicate sale. Available: ${reusableItemStock}.`);
+                        return null;
+                    }
+                }
+
                 return {
                     item: inventoryItem._id, name: inventoryItem.name, sku: inventoryItem.sku,
                     quantity: soldItem.quantity, price: soldItem.price, originalPrice: inventoryItem.price,
-                    maxQuantity: inventoryItem.quantity, // Max quantity based on current stock
+                    maxQuantity: inventoryItem.quantity, // Max quantity based on current product stock
+                    
+                    // NEW: Determine max sellable quantity based on bottleneck (product or packaging)
+                    maxSellableQuantity: inventoryItem.linkedReusablePackagingItem
+                        ? Math.min(inventoryItem.quantity, inventoryItems.find(i => i._id === inventoryItem.linkedReusablePackagingItem)?.quantity || 0)
+                        : inventoryItem.quantity,
+
                     packagingIncluded: soldItem.packagingIncluded || false,
                     packagingDepositCharged: soldItem.packagingDepositCharged || 0,
-                    packagingTypeSnapshot: soldItem.packagingTypeSnapshot || 'None', // Ensure snapshot is carried over
+                    packagingTypeSnapshot: soldItem.packagingTypeSnapshot || 'None', 
+                    reusablePackagingItemIdSnapshot: soldItem.reusablePackagingItemIdSnapshot || null, // NEW: Carry over snapshot of linked item
                 };
-            }).filter(Boolean); // Filter out items that couldn't be duplicated
+            }).filter(Boolean); 
             setItems(duplicatedItems);
         } else {
             // Reset to initial state for new sale
@@ -99,9 +115,18 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
         }
     }, [saleToDuplicate, inventoryItems]);
 
+    // Available items for selection: not already added, product has stock, AND if it uses reusable packaging, that packaging is also in stock
     const availableItems = useMemo(() => {
         const addedItemIds = new Set(items.map(i => i.item));
-        return inventoryItems.filter(item => !addedItemIds.has(item._id) && item.quantity > 0);
+        return inventoryItems.filter(product => {
+            if (addedItemIds.has(product._id) || product.quantity <= 0 || product.isReusablePackaging) return false; // Exclude actual reusable packaging items from direct sale selection
+
+            if (product.linkedReusablePackagingItem) {
+                const reusablePackagingItem = inventoryItems.find(pkg => pkg._id === product.linkedReusablePackagingItem);
+                return reusablePackagingItem && reusablePackagingItem.quantity > 0; // Check if linked packaging is in stock
+            }
+            return true;
+        });
     }, [items, inventoryItems]);
 
     const searchResults = useMemo(() => {
@@ -112,14 +137,29 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
         );
     }, [searchTerm, availableItems]);
 
-    const handleAddItem = (item) => {
+    const handleAddItem = (product) => {
+        const reusablePackagingItem = product.linkedReusablePackagingItem 
+            ? inventoryItems.find(pkg => pkg._id === product.linkedReusablePackagingItem)
+            : null;
+
         setItems(prev => [...prev, {
-            item: item._id, name: item.name, sku: item.sku,
-            quantity: 1, price: item.price, originalPrice: item.price, // Store original price for validation
-            maxQuantity: item.quantity, // Current stock quantity
-            packagingIncluded: item.packagingType === 'Reusable',
-            packagingDepositCharged: item.packagingType === 'Reusable' ? item.packagingDeposit : 0,
-            packagingTypeSnapshot: item.packagingType, // Capture the packaging type at sale time
+            item: product._id, 
+            name: product.name, 
+            sku: product.sku,
+            quantity: 1, 
+            price: product.price, 
+            originalPrice: product.price, 
+            maxQuantity: product.quantity, // Max quantity of the product itself
+
+            // Max quantity sellable is bottleneck of product stock OR linked packaging stock
+            maxSellableQuantity: product.linkedReusablePackagingItem
+                ? Math.min(product.quantity, reusablePackagingItem?.quantity || 0)
+                : product.quantity,
+
+            packagingIncluded: product.packagingType === 'Reusable',
+            packagingDepositCharged: product.packagingType === 'Reusable' ? product.packagingDeposit : 0,
+            packagingTypeSnapshot: product.packagingType, 
+            reusablePackagingItemIdSnapshot: reusablePackagingItem?._id || null, // NEW: Capture linked packaging item ID
         }]);
         setSearchTerm('');
     };
@@ -132,7 +172,7 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
         } else {
             toast.error(`Product with SKU "${sku}" not found or already in cart.`);
         }
-        setIsScanning(false); // Close scanner after scan
+        setIsScanning(false); 
     };
 
     const handleUpdateItem = (itemId, field, value) => {
@@ -142,11 +182,10 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
                 if (field === 'quantity') {
                     updatedValue = parseInt(value, 10);
                     if (isNaN(updatedValue) || updatedValue < 1) updatedValue = 1;
-                    if (updatedValue > item.maxQuantity) updatedValue = item.maxQuantity;
+                    updatedValue = Math.min(updatedValue, item.maxSellableQuantity); // Use maxSellableQuantity
                 } else if (field === 'price') {
                     updatedValue = parseFloat(value);
                     if (isNaN(updatedValue) || updatedValue < 0) updatedValue = 0;
-                    // Add validation for minimum price if needed
                     if (updatedValue < item.originalPrice) {
                         toast.error(`Price for ${item.name} cannot be lower than the original price of Rwf ${item.originalPrice.toLocaleString()}.`);
                         updatedValue = item.originalPrice;
@@ -174,8 +213,8 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
         }
         const customerDataToSend = {
             name: newCustomerFields.name.trim(),
-            email: newCustomerFields.email.trim() || undefined,
-            phone: newCustomerFields.phone.trim() || undefined,
+            email: newCustomerFields.email.trim() || undefined, 
+            phone: newCustomerFields.phone.trim() || undefined, 
         };
 
         try {
@@ -218,13 +257,14 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
         if (items.length === 0) return toast.error("Please add at least one item to the sale.");
         onSave({
             customer: customerId === '_add_new_' || !customerId ? null : customerId,
-            items: items.map(({ item, quantity, price, packagingIncluded, packagingDepositCharged, packagingTypeSnapshot }) => ({
+            items: items.map(({ item, quantity, price, packagingIncluded, packagingDepositCharged, packagingTypeSnapshot, reusablePackagingItemIdSnapshot }) => ({
                 item, 
                 quantity, 
                 price,
                 packagingIncluded,
                 packagingDepositCharged,
-                packagingTypeSnapshot, // Pass the packagingTypeSnapshot to the backend
+                packagingTypeSnapshot, 
+                reusablePackagingItemIdSnapshot, // NEW: Pass to backend
             })),
             totalAmount,
             subtotal: calculateSubtotal,
@@ -312,7 +352,7 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
                                             {searchResults.map(item => (
                                                 <SearchResultItem key={item._id} onClick={() => handleAddItem(item)}>
                                                     {item.name} ({item.sku}) - In Stock: {item.quantity}
-                                                    {item.packagingType === 'Reusable' && ` (+Rwf ${item.packagingDeposit.toLocaleString()} Deposit)`}
+                                                    {item.linkedReusablePackagingItem && ` (+Rwf ${item.packagingDeposit.toLocaleString()} Deposit)`} 
                                                 </SearchResultItem>
                                             ))}
                                         </SearchResults>
@@ -352,14 +392,14 @@ const CreateSaleModal = ({ inventoryItems, customers, createCustomer, saleToDupl
                                                 value={item.quantity}
                                                 onChange={(e) => handleUpdateItem(item.item, 'quantity', e.target.value)}
                                                 min="1"
-                                                max={item.maxQuantity}
+                                                max={item.maxSellableQuantity} 
                                                 style={{width: '70px'}}
                                             />
                                         </Td>
                                         <Td>
-                                            {item.packagingIncluded ? (
+                                            {item.reusablePackagingItemIdSnapshot ? ( // Check for the new linked ID
                                                 <div style={{fontSize: '0.8rem'}}>
-                                                    Reusable (+Rwf {item.packagingDepositCharged.toLocaleString()})
+                                                    Reusable (<FaBoxes/>) (+Rwf {item.packagingDepositCharged.toLocaleString()})
                                                 </div>
                                             ) : (item.packagingTypeSnapshot !== 'None' ? item.packagingTypeSnapshot : 'None')}
                                         </Td>

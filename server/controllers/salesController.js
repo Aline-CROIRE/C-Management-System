@@ -36,7 +36,10 @@ exports.getSales = async (req, res) => {
 
         const sales = await Sale.find(query)
             .populate('customer', 'name currentBalance')
-            .populate({ path: 'items.item', select: 'name sku unit packagingType packagingDeposit' })
+            .populate({ 
+                path: 'items.item', 
+                select: 'name sku unit packagingType packagingDeposit isReusablePackaging linkedReusablePackagingItem' // Include new fields
+            })
             .sort({ [sort]: sortOrder })
             .skip(skip)
             .limit(limitNum);
@@ -78,23 +81,50 @@ exports.createSale = async (req, res) => {
             paymentMethod, notes, amountPaid
         } = req.body;
 
-        const processedItems = []; // To store items with full details for the sale record
+        const processedItems = []; 
 
         for (const saleItem of items) {
             const inventoryItem = await Inventory.findOne({ _id: saleItem.item, user: userId }).session(session);
             if (!inventoryItem) throw new Error(`Inventory item not found or does not belong to user.`);
             if (inventoryItem.quantity < saleItem.quantity) throw new Error(`Not enough stock for ${inventoryItem.name}. Available: ${inventoryItem.quantity}, Requested: ${saleItem.quantity}.`);
             
-            inventoryItem.quantity -= saleItem.quantity;
+            inventoryItem.quantity -= saleItem.quantity; // Deduct from product stock
             saleItem.costPrice = inventoryItem.costPrice || 0; 
 
-            // Add packaging details to the saleItem snapshot
-            saleItem.packagingIncluded = inventoryItem.packagingType === 'Reusable';
-            saleItem.packagingDepositCharged = inventoryItem.packagingType === 'Reusable' ? inventoryItem.packagingDeposit || 0 : 0;
-            saleItem.packagingTypeSnapshot = inventoryItem.packagingType; // Snapshot the type
+            // Handle reusable packaging logic:
+            // If the product sold uses a linked reusable packaging item
+            if (inventoryItem.packagingType === 'Reusable' && inventoryItem.linkedReusablePackagingItem) {
+                const reusablePackagingItem = await Inventory.findOne({ 
+                    _id: inventoryItem.linkedReusablePackagingItem, 
+                    user: userId,
+                    isReusablePackaging: true // Ensure it's marked as actual reusable packaging
+                }).session(session);
 
-            processedItems.push(saleItem); // Add to the new array with full details
+                if (!reusablePackagingItem) {
+                    throw new Error(`Linked reusable packaging item not found for ${inventoryItem.name}. Please check inventory settings.`);
+                }
+                if (reusablePackagingItem.quantity < saleItem.quantity) {
+                    throw new Error(`Not enough reusable packaging (${reusablePackagingItem.name}) in stock for ${inventoryItem.name}. Available: ${reusablePackagingItem.quantity}, Requested: ${saleItem.quantity}.`);
+                }
+
+                reusablePackagingItem.quantity -= saleItem.quantity; // Deduct from reusable packaging stock (issuance of empty container)
+                await reusablePackagingItem.save({ session });
+
+                saleItem.packagingIncluded = true;
+                saleItem.packagingDepositCharged = inventoryItem.packagingDeposit || 0;
+                saleItem.packagingTypeSnapshot = inventoryItem.packagingType;
+                saleItem.reusablePackagingItemIdSnapshot = reusablePackagingItem._id; // Store the ID of the actual reusable item
+            } else {
+                // For non-reusable packaging, just capture type snapshot
+                saleItem.packagingIncluded = false;
+                saleItem.packagingDepositCharged = 0;
+                saleItem.packagingTypeSnapshot = inventoryItem.packagingType;
+                saleItem.reusablePackagingItemIdSnapshot = null;
+            }
+
+            processedItems.push(saleItem); 
             
+            // Update product's stock status and create notifications
             const newQuantity = inventoryItem.quantity;
             const minStockLevel = inventoryItem.minStockLevel || 0;
 
@@ -123,7 +153,7 @@ exports.createSale = async (req, res) => {
         
         const receiptNumber = await Sale.generateReceiptNumber();
         const newSale = new Sale({
-            receiptNumber, customer, items: processedItems, totalAmount, // Use processedItems
+            receiptNumber, customer, items: processedItems, totalAmount, 
             subtotal, taxAmount, paymentMethod, notes,
             user: userId,
             amountPaid: amountPaid || 0,
@@ -218,7 +248,7 @@ exports.recordPayment = async (req, res) => {
 };
 
 
-// @desc    Process a return for a sale
+// @desc    Process a return for a sale (product returned)
 // @route   POST /api/sales/:id/return
 // @access  Private
 exports.processReturn = async (req, res) => {
@@ -243,40 +273,50 @@ exports.processReturn = async (req, res) => {
             if (originalSaleItemIndex === -1) throw new Error(`Item ${returnedItem.item} not found in original sale.`);
             const originalSaleItem = sale.items[originalSaleItemIndex];
 
-            // Check if attempting to return more than originally sold quantities
             if (returnedItem.quantity > originalSaleItem.quantity) {
                 throw new Error(`Cannot return more than sold quantity for ${originalSaleItem.item.name}. Sold: ${originalSaleItem.quantity}, Attempted Return: ${returnedItem.quantity}.`);
             }
 
-            const inventoryItem = await Inventory.findOne({ _id: returnedItem.item, user: userId }).session(session);
-            if (!inventoryItem) throw new Error(`Inventory item ${returnedItem.item} not found or does not belong to user for return.`);
+            const inventoryProduct = await Inventory.findOne({ _id: returnedItem.item, user: userId }).session(session);
+            if (!inventoryProduct) throw new Error(`Inventory product ${returnedItem.item} not found or does not belong to user for return.`);
 
-            inventoryItem.quantity += returnedItem.quantity; // Restock inventory
+            inventoryProduct.quantity += returnedItem.quantity; // Restock product inventory
 
-            const newQuantity = inventoryItem.quantity;
-            const minStockLevel = inventoryItem.minStockLevel || 0;
-            if (newQuantity <= 0 && inventoryItem.status !== 'out-of-stock') {
-                inventoryItem.status = 'out-of-stock';
-            } else if (newQuantity <= minStockLevel && newQuantity > 0 && inventoryItem.status !== 'low-stock') {
-                inventoryItem.status = 'low-stock';
-            } else if (newQuantity > minStockLevel && newQuantity > 0 && (inventoryItem.status === 'low-stock' || inventoryItem.status === 'out-of-stock')) {
-                inventoryItem.status = 'in-stock';
+            // Update product's stock status
+            const newQuantity = inventoryProduct.quantity;
+            const minStockLevel = inventoryProduct.minStockLevel || 0;
+            if (newQuantity <= 0 && inventoryProduct.status !== 'out-of-stock') {
+                inventoryProduct.status = 'out-of-stock';
+            } else if (newQuantity <= minStockLevel && newQuantity > 0 && inventoryProduct.status !== 'low-stock') {
+                inventoryProduct.status = 'low-stock';
+            } else if (newQuantity > minStockLevel && newQuantity > 0 && (inventoryProduct.status === 'low-stock' || inventoryProduct.status === 'out-of-stock')) {
+                inventoryProduct.status = 'in-stock';
             }
-            await inventoryItem.save({ session });
+            await inventoryProduct.save({ session });
 
             totalReturnedValue += originalSaleItem.price * returnedItem.quantity;
 
-            // When returning a product, if it had reusable packaging, update packagingQuantityReturned
-            if (originalSaleItem.packagingIncluded && originalSaleItem.packagingDepositCharged > 0) {
-                 // The quantity of packaging *associated with this returned product* is now also returned.
-                 // We need to make sure we don't 'return' more packaging than was sold for this item.
-                 const actualPackagingReturnedThisCall = Math.min(returnedItem.quantity, originalSaleItem.quantity - (originalSaleItem.packagingQuantityReturned || 0));
-                 sale.items[originalSaleItemIndex].packagingQuantityReturned = (sale.items[originalSaleItemIndex].packagingQuantityReturned || 0) + actualPackagingReturnedThisCall;
-                 
-                 // If all packaging for this item is now returned, mark it as fully returned.
-                 if (sale.items[originalSaleItemIndex].packagingQuantityReturned >= sale.items[originalSaleItemIndex].quantity) {
-                     sale.items[originalSaleItemIndex].packagingReturned = true;
-                 }
+            // Handle reusable packaging return associated with this product return
+            // If the product was sold with a linked reusable packaging item, and it's being returned,
+            // assume the packaging comes back with it.
+            if (originalSaleItem.reusablePackagingItemIdSnapshot) {
+                const reusablePackagingItem = await Inventory.findOne({
+                    _id: originalSaleItem.reusablePackagingItemIdSnapshot,
+                    user: userId,
+                    isReusablePackaging: true
+                }).session(session);
+
+                if (reusablePackagingItem) {
+                    // Increment reusable packaging item stock (receiving back the empty container)
+                    reusablePackagingItem.quantity += returnedItem.quantity; 
+                    await reusablePackagingItem.save({ session });
+
+                    // Update the saleItem's tracking for packaging return
+                    sale.items[originalSaleItemIndex].packagingQuantityReturned = (sale.items[originalSaleItemIndex].packagingQuantityReturned || 0) + returnedItem.quantity;
+                    if (sale.items[originalSaleItemIndex].packagingQuantityReturned >= sale.items[originalSaleItemIndex].quantity) {
+                        sale.items[originalSaleItemIndex].packagingReturned = true; // Mark as fully returned
+                    }
+                }
             }
         }
 
@@ -284,23 +324,13 @@ exports.processReturn = async (req, res) => {
         const totalSoldItemsQuantity = sale.items.reduce((sum, item) => sum + item.quantity, 0);
         const totalPhysicalItemsReturnedQuantity = returnedItems.reduce((sum, item) => sum + item.quantity, 0); 
         
-        // This logic can be more sophisticated if tracking multiple partial product returns.
-        // For now, if all original items are covered by returns, mark as 'Returned'.
-        // Otherwise, 'Partially Returned'.
-        const allItemsFullyReturned = sale.items.every(saleItem => {
-            // Check if this item's original quantity is now matched by total quantity returned for it across all returns
-            const totalReturnedForThisItem = (returnedItems.find(r => r.item === saleItem.item.toString())?.quantity || 0); // This is just for *this* call
-            return saleItem.quantity <= totalReturnedForThisItem; // Simplified check
-        });
-        sale.status = allItemsFullyReturned ? 'Returned' : 'Partially Returned';
+        sale.status = totalPhysicalItemsReturnedQuantity >= totalSoldItemsQuantity ? 'Returned' : 'Partially Returned';
 
         // Calculate total packaging deposit to refund from THIS product return operation
-        const totalPackagingDepositRefundedByThisReturn = sale.items.reduce((sum, item) => {
-            const returnedQtyInThisCall = returnedItems.find(r => r.item === item.item.toString())?.quantity || 0;
-            if (item.packagingIncluded && item.packagingDepositCharged > 0) {
-                 // Sum up the deposit for the packaging that was just returned *with* the product
-                 // This ensures we only refund for packaging that is now considered returned.
-                 return sum + (returnedQtyInThisCall * item.packagingDepositCharged);
+        const totalPackagingDepositRefundedByThisReturn = returnedItems.reduce((sum, returnedItem) => {
+            const originalSaleItem = sale.items.find(i => i.item.toString() === returnedItem.item);
+            if (originalSaleItem?.reusablePackagingItemIdSnapshot && originalSaleItem?.packagingDepositCharged > 0) { // Check for reusable packaging link
+                 return sum + (returnedItem.quantity * originalSaleItem.packagingDepositCharged);
             }
             return sum;
         }, 0);
@@ -308,7 +338,6 @@ exports.processReturn = async (req, res) => {
 
         sale.amountPaid = Math.max(0, sale.amountPaid - totalReturnedValue - totalPackagingDepositRefundedByThisReturn); // Adjust amount paid
         sale.totalAmount = Math.max(0, sale.totalAmount - totalReturnedValue); // Adjust sale total if items are returned.
-        // packagingReturnedTotal will be updated by pre-save hook based on packagingQuantityReturned
         await sale.save({ session }); // Trigger pre-save hook for packaging totals
 
         if (sale.customer) {
@@ -331,7 +360,7 @@ exports.processReturn = async (req, res) => {
     }
 };
 
-// @desc    Track packaging return and refund deposit
+// @desc    Track packaging return and refund deposit (packaging only returned)
 // @route   POST /api/sales/:saleId/items/:itemId/return-packaging
 // @access  Private
 exports.returnPackaging = async (req, res) => {
@@ -345,8 +374,8 @@ exports.returnPackaging = async (req, res) => {
 
     try {
         const userId = req.user._id;
-        const { saleId, itemId } = req.params;
-        const { quantityReturned, refundMethod } = req.body; // quantityReturned for this specific packaging return
+        const { saleId, itemId } = req.params; // itemId here refers to the *product* item ID in the sale
+        const { quantityReturned, refundMethod } = req.body; 
 
         const sale = await Sale.findOne({ _id: saleId, user: userId }).session(session);
         if (!sale) {
@@ -355,12 +384,15 @@ exports.returnPackaging = async (req, res) => {
 
         const saleItemIndex = sale.items.findIndex(item => item.item.toString() === itemId);
         if (saleItemIndex === -1) {
-            throw new Error("Item not found in this sale.");
+            throw new Error("Product item not found in this sale.");
         }
         const saleItem = sale.items[saleItemIndex];
 
-        if (!saleItem.packagingIncluded || saleItem.packagingDepositCharged <= 0) {
-            throw new Error("Packaging deposit was not charged for this item.");
+        if (!saleItem.reusablePackagingItemIdSnapshot) { // Check for the new linked ID
+            throw new Error("No reusable packaging was associated with this product item in the sale.");
+        }
+        if (saleItem.packagingDepositCharged <= 0) {
+             throw new Error("Packaging deposit was not charged for this product item.");
         }
 
         const currentReturnedQuantity = saleItem.packagingQuantityReturned || 0;
@@ -370,12 +402,26 @@ exports.returnPackaging = async (req, res) => {
             throw new Error("Quantity returned for packaging must be a positive number.");
         }
         if (quantityReturned > maxReturnable) {
-             throw new Error(`Cannot return more packaging than outstanding. Max returnable: ${maxReturnable}.`);
+             throw new Error(`Cannot return more packaging than outstanding for product '${saleItem.item.name}'. Max returnable: ${maxReturnable}.`);
         }
 
         const depositToRefund = saleItem.packagingDepositCharged * quantityReturned;
 
-        // Update packaging quantity returned for this specific sale item
+        // Find and update the actual reusable packaging inventory item
+        const reusablePackagingItem = await Inventory.findOne({
+            _id: saleItem.reusablePackagingItemIdSnapshot,
+            user: userId,
+            isReusablePackaging: true // Ensure it's the correct type of item
+        }).session(session);
+
+        if (!reusablePackagingItem) {
+            throw new Error(`Associated reusable packaging item (ID: ${saleItem.reusablePackagingItemIdSnapshot}) not found or is not marked as reusable packaging.`);
+        }
+
+        reusablePackagingItem.quantity += quantityReturned; // Increment reusable packaging stock
+        await reusablePackagingItem.save({ session });
+
+        // Update saleItem's tracking for packaging return
         sale.items[saleItemIndex].packagingQuantityReturned = currentReturnedQuantity + quantityReturned;
         if (sale.items[saleItemIndex].packagingQuantityReturned >= sale.items[saleItemIndex].quantity) {
              sale.items[saleItemIndex].packagingReturned = true; // Mark as fully returned if applicable
@@ -386,9 +432,8 @@ exports.returnPackaging = async (req, res) => {
             const customerToUpdate = await Customer.findOne({ _id: sale.customer, user: userId }).session(session);
             if (!customerToUpdate) throw new Error("Associated customer not found or does not belong to user.");
             
-            // Adjust customer's balance and total spent
-            customerToUpdate.currentBalance = Math.max(0, customerToUpdate.currentBalance - depositToRefund); // Reduce outstanding debt
-            customerToUpdate.totalSpent = Math.max(0, customerToUpdate.totalSpent - depositToRefund); // Reduce total spent (as deposit was part of original sale total)
+            customerToUpdate.currentBalance = Math.max(0, customerToUpdate.currentBalance - depositToRefund); 
+            customerToUpdate.totalSpent = Math.max(0, customerToUpdate.totalSpent - depositToRefund); 
             await customerToUpdate.save({ session });
         }
 
@@ -426,7 +471,7 @@ exports.getPackagingReport = async (req, res) => {
             { $match: { "items.packagingDepositCharged": { $gt: 0 }, "items.packagingTypeSnapshot": "Reusable" } },
             {
                 $group: {
-                    _id: "$items.item",
+                    _id: "$items.item", // Group by the product ID
                     totalChargedQuantity: { $sum: "$items.quantity" },
                     totalChargedDeposit: { $sum: { $multiply: ["$items.quantity", "$items.packagingDepositCharged"] } },
                 }
@@ -437,9 +482,11 @@ exports.getPackagingReport = async (req, res) => {
                 _id: 1,
                 itemName: '$itemDetails.name',
                 itemSku: '$itemDetails.sku',
-                packagingTypeSnapshot: '$itemDetails.packagingType', // Get latest type from inventory for reporting
+                packagingTypeSnapshot: '$itemDetails.packagingType', 
                 totalChargedQuantity: 1,
                 totalChargedDeposit: 1,
+                // Include details of the reusable packaging item itself if linked for more advanced reporting
+                reusablePackagingItem: '$itemDetails.linkedReusablePackagingItem' 
             }}
         ]);
 
@@ -447,24 +494,75 @@ exports.getPackagingReport = async (req, res) => {
         const depositsRefunded = await Sale.aggregate([
             { $match: { user: new mongoose.Types.ObjectId(userId), ...dateMatch } },
             { $unwind: "$items" },
-            { $match: { "items.packagingQuantityReturned": { $gt: 0 } } }, // Match items where some packaging was returned
+            { $match: { "items.packagingQuantityReturned": { $gt: 0 } } }, 
             {
                 $group: {
-                    _id: "$items.item",
+                    _id: "$items.item", // Group by the product ID
                     totalReturnedQuantity: { $sum: "$items.packagingQuantityReturned" },
                     totalRefundedDeposit: { $sum: { $multiply: ["$items.packagingQuantityReturned", "$items.packagingDepositCharged"] } },
                 }
             }
         ]);
-        // To add item details to depositsRefunded, we need another lookup. 
         const depositsRefundedWithDetails = await Promise.all(depositsRefunded.map(async (entry) => {
-            const itemDetails = await Inventory.findById(entry._id).select('name sku'); // Only fetch name and sku
+            const itemDetails = await Inventory.findById(entry._id).select('name sku'); 
             return {
                 ...entry,
                 itemName: itemDetails?.name || 'Unknown Item',
                 itemSku: itemDetails?.sku || 'N/A',
             };
         }));
+
+        // NEW: Reusable Packaging Inventory Tracking
+        // 1. Total Reusable Packaging Issued with products
+        const reusablePackagingIssued = await Sale.aggregate([
+            { $match: { user: new mongoose.Types.ObjectId(userId), ...dateMatch, "items.reusablePackagingItemIdSnapshot": { $ne: null } } },
+            { $unwind: "$items" },
+            { $match: { "items.reusablePackagingItemIdSnapshot": { $ne: null } } },
+            {
+                $group: {
+                    _id: "$items.reusablePackagingItemIdSnapshot", // Group by the actual reusable packaging item ID
+                    totalIssuedQuantity: { $sum: "$items.quantity" },
+                }
+            },
+            { $lookup: { from: 'inventories', localField: '_id', foreignField: '_id', as: 'packagingDetails' } },
+            { $unwind: '$packagingDetails' },
+            { $project: {
+                _id: 1,
+                name: '$packagingDetails.name',
+                sku: '$packagingDetails.sku',
+                unit: '$packagingDetails.unit',
+                totalIssuedQuantity: 1,
+            }}
+        ]);
+
+        // 2. Total Reusable Packaging Returned to Stock (from returns)
+        const reusablePackagingReturnedToStock = await Sale.aggregate([
+            { $match: { user: new mongoose.Types.ObjectId(userId), ...dateMatch, "items.packagingQuantityReturned": { $gt: 0 }, "items.reusablePackagingItemIdSnapshot": { $ne: null } } },
+            { $unwind: "$items" },
+            { $match: { "items.packagingQuantityReturned": { $gt: 0 }, "items.reusablePackagingItemIdSnapshot": { $ne: null } } },
+            {
+                $group: {
+                    _id: "$items.reusablePackagingItemIdSnapshot", // Group by the actual reusable packaging item ID
+                    totalReceivedQuantity: { $sum: "$items.packagingQuantityReturned" },
+                }
+            },
+            { $lookup: { from: 'inventories', localField: '_id', foreignField: '_id', as: 'packagingDetails' } },
+            { $unwind: '$packagingDetails' },
+            { $project: {
+                _id: 1,
+                name: '$packagingDetails.name',
+                sku: '$packagingDetails.sku',
+                unit: '$packagingDetails.unit',
+                totalReceivedQuantity: 1,
+            }}
+        ]);
+
+        // 3. Current live stock of actual reusable packaging items (empty inventory)
+        const currentReusablePackagingStock = await Inventory.find({
+            user: userId,
+            isReusablePackaging: true,
+            quantity: { $gt: 0 } // Only show those currently in stock
+        }).select('name sku quantity unit');
 
 
         // Calculate overall impact
@@ -492,8 +590,12 @@ exports.getPackagingReport = async (req, res) => {
                 totalDepositsRefunded,
                 outstandingDeposits,
                 depositsChargedDetails: depositsCharged,
-                depositsRefundedDetails: depositsRefundedWithDetails, // Use the version with populated details
+                depositsRefundedDetails: depositsRefundedWithDetails, 
                 otherPackagingSoldDetails: otherPackagingSold,
+                // NEW: Reusable Packaging Tracking details
+                reusablePackagingIssued,
+                reusablePackagingReturnedToStock,
+                currentReusablePackagingStock,
             }
         });
 
@@ -525,19 +627,33 @@ exports.deleteSale = async (req, res) => {
 
         // Revert inventory for each item in the sale
         for (const saleItem of saleToDelete.items) {
-            const inventoryItem = await Inventory.findById(saleItem.item).session(session);
-            if (inventoryItem) {
-                inventoryItem.quantity += saleItem.quantity;
+            const inventoryProduct = await Inventory.findById(saleItem.item).session(session);
+            if (inventoryProduct) {
+                inventoryProduct.quantity += saleItem.quantity;
 
-                // Update inventory status if it was out-of-stock or low-stock
-                const newQuantity = inventoryItem.quantity;
-                const minStockLevel = inventoryItem.minStockLevel || 0;
-                if (newQuantity > minStockLevel && newQuantity > 0 && (inventoryItem.status === 'low-stock' || inventoryItem.status === 'out-of-stock')) {
-                    inventoryItem.status = 'in-stock';
-                } else if (newQuantity > 0 && newQuantity <= minStockLevel && inventoryItem.status !== 'low-stock') {
-                    inventoryItem.status = 'low-stock';
+                // Also revert stock for linked reusable packaging item if applicable
+                if (saleItem.reusablePackagingItemIdSnapshot) {
+                    const reusablePackagingItem = await Inventory.findOne({
+                        _id: saleItem.reusablePackagingItemIdSnapshot,
+                        user: userId,
+                        isReusablePackaging: true
+                    }).session(session);
+                    if (reusablePackagingItem) {
+                        // Only add back what was actually issued and NOT already returned via a separate packaging return
+                        reusablePackagingItem.quantity += saleItem.quantity - (saleItem.packagingQuantityReturned || 0); 
+                        await reusablePackagingItem.save({ session });
+                    }
                 }
-                await inventoryItem.save({ session });
+
+                // Update product's stock status if it was out-of-stock or low-stock
+                const newQuantity = inventoryProduct.quantity;
+                const minStockLevel = inventoryProduct.minStockLevel || 0;
+                if (newQuantity > minStockLevel && newQuantity > 0 && (inventoryProduct.status === 'low-stock' || inventoryProduct.status === 'out-of-stock')) {
+                    inventoryProduct.status = 'in-stock';
+                } else if (newQuantity > 0 && newQuantity <= minStockLevel && inventoryProduct.status !== 'low-stock') {
+                    inventoryProduct.status = 'low-stock';
+                }
+                await inventoryProduct.save({ session });
             }
         }
 
@@ -546,7 +662,7 @@ exports.deleteSale = async (req, res) => {
             const customerToUpdate = await Customer.findById(saleToDelete.customer).session(session);
             if (customerToUpdate) {
                 customerToUpdate.totalSpent = Math.max(0, customerToUpdate.totalSpent - saleToDelete.totalAmount);
-                customerToUpdate.currentBalance = Math.max(0, customerToUpdate.currentBalance - (saleToDelete.totalAmount - saleToDelete.amountPaid)); // Adjust outstanding balance
+                customerToUpdate.currentBalance = Math.max(0, customerToUpdate.currentBalance - (saleToDelete.totalAmount - saleToDelete.amountPaid)); 
                 await customerToUpdate.save({ session });
             }
         }
