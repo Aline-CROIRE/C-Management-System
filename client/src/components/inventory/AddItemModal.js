@@ -1,10 +1,10 @@
 // src/components/inventory/AddItemModal.js
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import ReactDOM from 'react-dom';
 import styled from "styled-components";
-import { FaTimes, FaSave, FaBarcode } from "react-icons/fa"; // Removed FaImage as it's not used
+import { FaTimes, FaSave, FaBarcode } from "react-icons/fa"; 
 import Button from "../common/Button";
 import Input from "../common/Input";
 import Select from "../common/Select";
@@ -37,6 +37,8 @@ const AddItemModal = ({
     locations = [],
     units = [],
     suppliers = [],
+    // We also need the full list of inventory items to select a linked reusable packaging item
+    inventoryItems = [], // Assuming this is passed from IMS
     createCategory,
     createLocation,
     createSupplier,
@@ -52,8 +54,10 @@ const AddItemModal = ({
     const [formData, setFormData] = useState({
         name: '', sku: '', category: '', location: '', unit: '', quantity: '',
         price: '', costPrice: '', minStockLevel: '', supplier: '', description: '', expiryDate: '', 
-        packagingType: 'None', // Default to 'None'
+        packagingType: 'None', 
         packagingDeposit: '0',
+        isReusablePackaging: false, // NEW: default
+        linkedReusablePackagingItem: '', // NEW: default
     });
 
     useEffect(() => {
@@ -73,6 +77,8 @@ const AddItemModal = ({
                 expiryDate: itemToEdit.expiryDate ? new Date(itemToEdit.expiryDate).toISOString().split('T')[0] : '',
                 packagingType: itemToEdit.packagingType || 'None',
                 packagingDeposit: itemToEdit.packagingDeposit?.toString() ?? '0',
+                isReusablePackaging: itemToEdit.isReusablePackaging || false, // NEW
+                linkedReusablePackagingItem: itemToEdit.linkedReusablePackagingItem?._id || '', // NEW
             });
          
         } else {
@@ -81,15 +87,28 @@ const AddItemModal = ({
                 price: '', costPrice: '', minStockLevel: '', supplier: '', description: '', expiryDate: '',
                 packagingType: 'None',
                 packagingDeposit: '0',
+                isReusablePackaging: false,
+                linkedReusablePackagingItem: '',
             });
          
         }
     }, [itemToEdit, isEditMode]);
 
     const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
+        const { name, value, type, checked } = e.target;
+        setFormData((prev) => ({ 
+            ...prev, 
+            [name]: type === 'checkbox' ? checked : value 
+        }));
     };
+
+    // Filter to show only items that ARE reusable packaging for linking
+    const reusablePackagingItems = useMemo(() => {
+        return inventoryItems.filter(item => 
+            item.isReusablePackaging === true && item._id !== itemToEdit?._id // Cannot link to itself
+        );
+    }, [inventoryItems, itemToEdit]);
+
 
     const generateSKU = () => setFormData((prev) => ({ ...prev, sku: `${(prev.name.substring(0, 3) || "NEW").toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}` }));
 
@@ -104,7 +123,7 @@ const AddItemModal = ({
                     toast.error("Please enter a name for the new category.");
                     return;
                 }
-                const newCat = await createCategory(trimmedName); // This should return { _id, name }
+                const newCat = await createCategory(trimmedName); 
                 if (!newCat || !newCat._id) {
                     toast.error("Failed to create new category. It might already exist or there was a server error.");
                     return;
@@ -118,7 +137,7 @@ const AddItemModal = ({
                     toast.error("Please enter a name for the new location.");
                     return;
                 }
-                const newLoc = await createLocation(trimmedName); // This should return { _id, name }
+                const newLoc = await createLocation(trimmedName); 
                 if (!newLoc || !newLoc._id) {
                     toast.error("Failed to create new location. It might already exist or there was a server error.");
                     return;
@@ -132,12 +151,12 @@ const AddItemModal = ({
                     toast.error("Please enter a name for the new unit.");
                     return;
                 }
-                const newUnitResult = await createUnit(trimmedName); // This returns { name: '...' } or false
+                const newUnitResult = await createUnit(trimmedName); 
                 if (!newUnitResult || !newUnitResult.name) {
                     toast.error("Failed to add new unit. It might already exist or there was a server error.");
                     return;
                 }
-                finalData.unit = newUnitResult.name; // Assign the string name
+                finalData.unit = newUnitResult.name; 
             }
 
             if (formData.supplier === "_add_new_") {
@@ -146,13 +165,42 @@ const AddItemModal = ({
                     toast.error("Please enter a name for the new supplier.");
                     return;
                 }
-                const newSupplier = await createSupplier({ name: trimmedName }); // This should return { _id, name }
+                const newSupplier = await createSupplier({ name: trimmedName }); 
                 if (!newSupplier || !newSupplier._id) {
                     toast.error("Failed to create new supplier. It might already exist or there was a server error.");
                     return;
                 }
                 finalData.supplier = newSupplier._id;
             }
+
+            // Client-side validation for new fields
+            if (finalData.packagingType === 'Reusable' && !finalData.isReusablePackaging && !finalData.linkedReusablePackagingItem) {
+                toast.error("For 'Reusable' packaging, you must either mark this item AS reusable packaging or link it to an existing reusable packaging item.");
+                return;
+            }
+            if (finalData.isReusablePackaging && finalData.linkedReusablePackagingItem) {
+                toast.error("An item cannot BE a reusable packaging item and ALSO be linked to another reusable packaging item simultaneously.");
+                return;
+            }
+            if (finalData.isReusablePackaging && finalData.packagingType !== 'Reusable') {
+                toast.error("If this item IS reusable packaging, its 'Packaging Type' must be set to 'Reusable'.");
+                return;
+            }
+            if (finalData.packagingType !== 'Reusable' && finalData.linkedReusablePackagingItem) {
+                toast.error("If an item is linked to reusable packaging, its 'Packaging Type' must be 'Reusable'.");
+                return;
+            }
+            if (finalData.packagingType !== 'Reusable') {
+                // If not reusable, clear reusable-specific fields
+                finalData.isReusablePackaging = false;
+                finalData.linkedReusablePackagingItem = ''; // Ensure this is null in DB
+                finalData.packagingDeposit = 0; // Clear deposit if not reusable
+            }
+            // If the item is *not* reusable packaging, and not linked, ensure deposit is 0
+            if (!finalData.isReusablePackaging && !finalData.linkedReusablePackagingItem) {
+                 finalData.packagingDeposit = 0;
+            }
+
 
             finalData.quantity = Number(finalData.quantity);
             finalData.price = Number(finalData.price);
@@ -162,7 +210,10 @@ const AddItemModal = ({
 
             const itemPayload = new FormData();
             Object.keys(finalData).forEach(key => {
-                if (finalData[key] !== null && finalData[key] !== undefined) {
+                // For linkedReusablePackagingItem, append its ID or empty string for null
+                if (key === 'linkedReusablePackagingItem' && !finalData[key]) {
+                    itemPayload.append(key, ''); 
+                } else if (finalData[key] !== null && finalData[key] !== undefined) {
                     itemPayload.append(key, finalData[key]);
                 }
             });
@@ -228,23 +279,96 @@ const AddItemModal = ({
                         </FormGroup>
                         <FormGroup><Label htmlFor="expiryDate">Expiry Date</Label><ThemedInput id="expiryDate" name="expiryDate" type="date" value={formData.expiryDate} onChange={handleInputChange} /></FormGroup>
 
-                        {/* Packaging Fields - Updated enum */}
+                        {/* NEW: Reusable Packaging fields */}
                         <FormGroup>
-                            <Label htmlFor="packagingType">Packaging Type</Label>
-                            <ThemedSelect id="packagingType" name="packagingType" value={formData.packagingType} onChange={handleInputChange}>
-                                <option value="None">None</option>
-                                <option value="Reusable">Reusable</option>
-                                <option value="Recyclable">Recyclable</option> {/* NEW OPTION */}
-                                <option value="Compostable">Compostable</option> {/* NEW OPTION */}
-                                <option value="Other">Other</option> {/* NEW OPTION */}
-                            </ThemedSelect>
+                            <Label htmlFor="isReusablePackaging">Is This Item Reusable Packaging?</Label>
+                            <Input 
+                                id="isReusablePackaging" 
+                                name="isReusablePackaging" 
+                                type="checkbox" 
+                                checked={formData.isReusablePackaging} 
+                                onChange={handleInputChange} 
+                                style={{width: 'auto', alignSelf: 'flex-start'}}
+                            />
+                            <small style={{color: '#718096', fontSize: '0.75rem'}}>Check if this inventory item itself *is* a reusable container (e.g., a "Glass Bottle").</small>
                         </FormGroup>
-                        {formData.packagingType === 'Reusable' && (
+
+                        {/* Only show packaging type & linked item if this item is *not* the reusable packaging itself */}
+                        {!formData.isReusablePackaging && (
                             <FormGroup>
-                                <Label htmlFor="packagingDeposit">Packaging Deposit (RWF)</Label>
-                                <ThemedInput id="packagingDeposit" name="packagingDeposit" type="number" step="0.01" value={formData.packagingDeposit} onChange={handleInputChange} min="0" />
+                                <Label htmlFor="packagingType">Product Packaging Type</Label>
+                                <ThemedSelect id="packagingType" name="packagingType" value={formData.packagingType} onChange={handleInputChange}>
+                                    <option value="None">None</option>
+                                    <option value="Reusable">Reusable (Deposit)</option>
+                                    <option value="Recyclable">Recyclable</option>
+                                    <option value="Compostable">Compostable</option>
+                                    <option value="Other">Other</option>
+                                </ThemedSelect>
+                                <small style={{color: '#718096', fontSize: '0.75rem'}}>What type of packaging does *this product* come in?</small>
                             </FormGroup>
                         )}
+
+                        {/* Link to reusable packaging if packagingType is Reusable AND this is not the packaging itself */}
+                        {formData.packagingType === 'Reusable' && !formData.isReusablePackaging && (
+                            <>
+                                <FormGroup>
+                                    <Label htmlFor="linkedReusablePackagingItem">Linked Reusable Packaging Item</Label>
+                                    <ThemedSelect 
+                                        id="linkedReusablePackagingItem" 
+                                        name="linkedReusablePackagingItem" 
+                                        value={formData.linkedReusablePackagingItem} 
+                                        onChange={handleInputChange}
+                                        required={formData.packagingType === 'Reusable' && !formData.isReusablePackaging} // Make required
+                                    >
+                                        <option value="">Select Reusable Packaging...</option>
+                                        {reusablePackagingItems.map((item) => (
+                                            <option key={item._id} value={item._id}>
+                                                {item.name} (Stock: {item.quantity} {item.unit})
+                                            </option>
+                                        ))}
+                                    </ThemedSelect>
+                                    <small style={{color: '#718096', fontSize: '0.75rem'}}>
+                                        Select the inventory item that represents the empty reusable container.
+                                    </small>
+                                </FormGroup>
+                                <FormGroup>
+                                    <Label htmlFor="packagingDeposit">Packaging Deposit (RWF)</Label>
+                                    <ThemedInput 
+                                        id="packagingDeposit" 
+                                        name="packagingDeposit" 
+                                        type="number" 
+                                        step="0.01" 
+                                        value={formData.packagingDeposit} 
+                                        onChange={handleInputChange} 
+                                        min="0" 
+                                        required={formData.packagingType === 'Reusable' && !formData.isReusablePackaging} // Make required
+                                    />
+                                     <small style={{color: '#718096', fontSize: '0.75rem'}}>
+                                        The deposit charged for *this product's* reusable packaging.
+                                    </small>
+                                </FormGroup>
+                            </>
+                        )}
+                        {/* If this item *is* reusable packaging, show its deposit input */}
+                        {formData.isReusablePackaging && (
+                             <FormGroup>
+                                <Label htmlFor="packagingDeposit">Deposit Value for This Packaging (RWF)</Label>
+                                <ThemedInput 
+                                    id="packagingDeposit" 
+                                    name="packagingDeposit" 
+                                    type="number" 
+                                    step="0.01" 
+                                    value={formData.packagingDeposit} 
+                                    onChange={handleInputChange} 
+                                    min="0" 
+                                    required={formData.isReusablePackaging} // Required for reusable packaging items themselves
+                                />
+                                <small style={{color: '#718096', fontSize: '0.75rem'}}>
+                                    This is the deposit charged when *this specific reusable packaging item* is issued.
+                                </small>
+                            </FormGroup>
+                        )}
+
                     </FormGrid>
                     <FormGroup style={{ marginBottom: "1.5rem" }}><Label htmlFor="description">Notes / Description</Label><TextArea id="description" name="description" value={formData.description} onChange={handleInputChange} placeholder="Add any relevant details..." /></FormGroup>
                 </ModalBody>

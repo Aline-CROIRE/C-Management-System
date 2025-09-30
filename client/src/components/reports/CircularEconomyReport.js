@@ -1,8 +1,9 @@
+
 // src/components/reports/CircularEconomyReport.js
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { FaRecycle, FaMoneyBillWave, FaBoxes, FaChartPie, FaCalendarAlt, FaRedo, FaDownload, FaLeaf, FaArrowUp, FaArrowDown, FaInfoCircle } from 'react-icons/fa';
+import { FaRecycle, FaMoneyBillWave, FaBoxes, FaChartPie, FaCalendarAlt, FaRedo, FaDownload, FaLeaf, FaArrowUp, FaArrowDown, FaInfoCircle, FaHourglassHalf } from 'react-icons/fa';
 import Button from '../common/Button';
 import Input from '../common/Input'; // Not used in this version but often useful
 import Select from '../common/Select'; // Not used in this version but often useful
@@ -112,7 +113,7 @@ const StatCard = styled(Card)`
   align-items: flex-start;
   gap: 0.5rem;
   box-shadow: ${(props) => props.theme.shadows.sm};
-  border-left: 5px solid ${({ theme, color }) => color || theme.colors.primary}; /* FIX: Destructure theme */
+  border-left: 5px solid ${({ theme, color }) => color || theme.colors.primary}; 
 
   @media (max-width: 480px) {
     padding: 1rem;
@@ -162,7 +163,7 @@ const TableWrapper = styled.div`
   border-radius: 1rem;
   box-shadow: 0 4px 15px rgba(0,0,0,0.05);
   overflow: hidden;
-  /* Remove overflow-x: auto, let Table component handle it */
+  /* Removed overflow-x: auto, let the Table component handle it */
 
   @media (max-width: 768px) {
     border-radius: 0.75rem;
@@ -174,16 +175,16 @@ const Table = styled.table`
   border-collapse: collapse;
   
   /* Default table styles for larger screens */
-  @media (min-width: 769px) { /* Adjust breakpoint as needed */
-    min-width: 700px; /* Ensure columns have enough space */
-    display: table; /* Revert to default table display */
+  @media (min-width: 769px) { 
+    min-width: 700px; 
+    display: table; 
   }
 
   /* Responsive Table - Stacked/Card View for smaller screens */
   @media (max-width: 768px) {
     border: none;
     width: 100%;
-    display: block; /* Make table behave like a block element */
+    display: block; 
   }
 `;
 
@@ -206,22 +207,22 @@ const Td = styled.td`
   font-size: 0.9rem;
   color: #2d3748;
   vertical-align: middle;
-  white-space: nowrap; /* Keep content on one line for default table view */
+  white-space: nowrap; 
   border-bottom: 1px solid #e2e8f0;
   &:last-child { border-bottom: none; }
 
   @media (max-width: 768px) {
-    display: block; /* Make td behave like a block element */
-    padding: 0.5rem 0; /* Adjust padding for stacked view */
+    display: block; 
+    padding: 0.5rem 0; 
     text-align: left;
-    white-space: normal; /* Allow text to wrap */
-    border-bottom: none; /* Remove inner cell borders */
+    white-space: normal; 
+    border-bottom: none; 
     
     &::before {
-      content: attr(data-label); /* Use data-label attribute for virtual header */
+      content: attr(data-label); 
       font-weight: 600;
       color: ${(props) => props.theme.colors.textSecondary};
-      display: block; /* Ensure label is on its own line */
+      display: block; 
       margin-bottom: 0.25rem;
       font-size: 0.8rem;
     }
@@ -239,7 +240,7 @@ const TableRow = styled.tr`
 
   /* Responsive styles */
   @media (max-width: 768px) {
-    display: block; /* Make tr behave like a block element */
+    display: block; 
     margin-bottom: 1rem;
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: ${(props) => props.theme.borderRadius.md};
@@ -345,7 +346,7 @@ const CircularEconomyReport = () => {
         }));
     }, [reportData?.otherPackagingSoldDetails]);
 
-    // CSV Data Preparation
+    // CSV Data Preparation for Deposits Charged
     const depositsChargedCsvData = useMemo(() => {
         if (!reportData?.depositsChargedDetails) return [];
         return reportData.depositsChargedDetails.map(d => ({
@@ -357,6 +358,7 @@ const CircularEconomyReport = () => {
         }));
     }, [reportData?.depositsChargedDetails]);
 
+    // CSV Data Preparation for Deposits Refunded
     const depositsRefundedCsvData = useMemo(() => {
         if (!reportData?.depositsRefundedDetails) return [];
         return reportData.depositsRefundedDetails.map(d => ({
@@ -367,6 +369,7 @@ const CircularEconomyReport = () => {
         }));
     }, [reportData?.depositsRefundedDetails]);
 
+    // CSV Data Preparation for Other Packaging
     const otherPackagingCsvData = useMemo(() => {
         if (!reportData?.otherPackagingSoldDetails) return [];
         return reportData.otherPackagingSoldDetails.map(p => ({
@@ -374,6 +377,40 @@ const CircularEconomyReport = () => {
             'Total Quantity Sold': p.totalQuantity,
         }));
     }, [reportData?.otherPackagingSoldDetails]);
+
+    // CSV Data Preparation for Reusable Packaging Issued
+    const reusablePackagingIssuedCsvData = useMemo(() => {
+        if (!reportData?.reusablePackagingIssued) return [];
+        return reportData.reusablePackagingIssued.map(d => ({
+            'Packaging Name': d.name,
+            'Packaging SKU': d.sku,
+            'Unit': d.unit,
+            'Total Issued Quantity': d.totalIssuedQuantity,
+        }));
+    }, [reportData?.reusablePackagingIssued]);
+
+    // CSV Data Preparation for Reusable Packaging Returned to Stock
+    const reusablePackagingReturnedToStockCsvData = useMemo(() => {
+        if (!reportData?.reusablePackagingReturnedToStock) return [];
+        return reportData.reusablePackagingReturnedToStock.map(d => ({
+            'Packaging Name': d.name,
+            'Packaging SKU': d.sku,
+            'Unit': d.unit,
+            'Total Received Quantity': d.totalReceivedQuantity,
+        }));
+    }, [reportData?.reusablePackagingReturnedToStock]);
+
+    // CSV Data Preparation for Current Reusable Packaging Stock
+    const currentReusablePackagingStockCsvData = useMemo(() => {
+        if (!reportData?.currentReusablePackagingStock) return [];
+        return reportData.currentReusablePackagingStock.map(d => ({
+            'Packaging Name': d.name,
+            'Packaging SKU': d.sku,
+            'Unit': d.unit,
+            'Current Stock': d.quantity,
+        }));
+    }, [reportData?.currentReusablePackagingStock]);
+
 
     if (loading) {
         return (
@@ -398,6 +435,9 @@ const CircularEconomyReport = () => {
         depositsChargedDetails,
         depositsRefundedDetails,
         otherPackagingSoldDetails,
+        reusablePackagingIssued, // NEW
+        reusablePackagingReturnedToStock, // NEW
+        currentReusablePackagingStock, // NEW
     } = reportData || {};
 
     return (
@@ -429,9 +469,10 @@ const CircularEconomyReport = () => {
                     <Button variant="outline" onClick={refetch} icon={<FaRedo />}>
                         Refresh
                     </Button>
-                    <CSVLink data={depositsChargedCsvData} filename={`deposits_charged_report_${moment(dateRange[0].startDate).format('YYYYMMDD')}_${moment(dateRange[0].endDate).format('YYYYMMDD')}.csv`}>
-                        <Button variant="info" icon={<FaDownload />}>CSV</Button>
-                    </CSVLink>
+                    {/* Main CSV Download button for overall data if needed, or specific per-table */}
+                    {/* <CSVLink data={depositsChargedCsvData} filename={`circular_economy_report_${moment(dateRange[0].startDate).format('YYYYMMDD')}_${moment(dateRange[0].endDate).format('YYYYMMDD')}.csv`}>
+                        <Button variant="info" icon={<FaDownload />}>Overall CSV</Button>
+                    </CSVLink> */}
                 </FilterSection>
             </ReportHeader>
 
@@ -456,33 +497,146 @@ const CircularEconomyReport = () => {
                     <StatValue>{depositsChargedDetails?.reduce((sum, d) => sum + d.totalChargedQuantity, 0).toLocaleString() || 0}</StatValue>
                     <StatDescription>Quantity of items sold with reusable packaging in this period.</StatDescription>
                 </StatCard>
+                {/* NEW STATS FOR REUSABLE PACKAGING INVENTORY */}
+                <StatCard color="#6A5ACD">
+                    <StatLabel><FaBoxes /> Packaging Issued (Units)</StatLabel>
+                    <StatValue>{reusablePackagingIssued?.reduce((sum, d) => sum + d.totalIssuedQuantity, 0).toLocaleString() || 0}</StatValue>
+                    <StatDescription>Reusable packaging units issued with products.</StatDescription>
+                </StatCard>
+                <StatCard color="#88B04B">
+                    <StatLabel><FaRecycle /> Packaging Returned (Units)</StatLabel>
+                    <StatValue>{reusablePackagingReturnedToStock?.reduce((sum, d) => sum + d.totalReceivedQuantity, 0).toLocaleString() || 0}</StatValue>
+                    <StatDescription>Reusable packaging units returned to stock.</StatDescription>
+                </StatCard>
+                 <StatCard color="#FF8C00">
+                    <StatLabel><FaHourglassHalf /> Outstanding Packaging</StatLabel>
+                    {/* Calculate issued - returned based on aggregated data */}
+                    <StatValue>{
+                        (reusablePackagingIssued?.reduce((sum, d) => sum + d.totalIssuedQuantity, 0) - 
+                         reusablePackagingReturnedToStock?.reduce((sum, d) => sum + d.totalReceivedQuantity, 0)).toLocaleString() || 0
+                    }</StatValue>
+                    <StatDescription>Reusable packaging units currently out with customers.</StatDescription>
+                </StatCard>
             </StatsGrid>
+
+            {reusablePackagingIssued?.length > 0 && (
+                <>
+                    <SectionTitle><FaArrowUp /> Reusable Packaging Issued (Products Sold)</SectionTitle>
+                    <TableWrapper>
+                        <Table>
+                            <thead>
+                                <tr>
+                                    <Th>Packaging Name</Th>
+                                    <Th>SKU</Th>
+                                    <Th style={{textAlign: 'right'}}>Total Issued</Th>
+                                    <Th style={{textAlign: 'right'}}></Th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {reusablePackagingIssued.map((pkg, index) => (
+                                    <TableRow key={pkg._id || `pkg-issued-${index}`}>
+                                        <Td data-label="Packaging Name">{pkg.name}</Td>
+                                        <Td data-label="SKU">{pkg.sku}</Td>
+                                        <Td data-label="Total Issued" style={{textAlign: 'right'}}>{pkg.totalIssuedQuantity} {pkg.unit}</Td>
+                                        <Td style={{textAlign: 'right'}}>
+                                            <CSVLink data={depositsChargedCsvData.filter(d => d['Packaging Type'] === 'Reusable' && d['Product Name'].includes(pkg.name))} filename={`issued_details_${pkg.name}.csv`}>
+                                                <Button size="sm" variant="ghost" icon={<FaDownload />} title="Download Product Sales Details"/>
+                                            </CSVLink>
+                                        </Td>
+                                    </TableRow>
+                                ))}
+                            </tbody>
+                        </Table>
+                    </TableWrapper>
+                </>
+            )}
+
+            {reusablePackagingReturnedToStock?.length > 0 && (
+                <>
+                    <SectionTitle><FaArrowDown /> Reusable Packaging Returned to Stock</SectionTitle>
+                    <TableWrapper>
+                        <Table>
+                            <thead>
+                                <tr>
+                                    <Th>Packaging Name</Th>
+                                    <Th>SKU</Th>
+                                    <Th style={{textAlign: 'right'}}>Total Returned</Th>
+                                    <Th style={{textAlign: 'right'}}></Th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {reusablePackagingReturnedToStock.map((pkg, index) => (
+                                    <TableRow key={pkg._id || `pkg-returned-${index}`}>
+                                        <Td data-label="Packaging Name">{pkg.name}</Td>
+                                        <Td data-label="SKU">{pkg.sku}</Td>
+                                        <Td data-label="Total Returned" style={{textAlign: 'right'}}>{pkg.totalReceivedQuantity} {pkg.unit}</Td>
+                                        <Td style={{textAlign: 'right'}}>
+                                            {/* Link to relevant deposits refunded details */}
+                                            <CSVLink data={depositsRefundedCsvData.filter(d => d['Product Name'].includes(pkg.name))} filename={`returned_details_${pkg.name}.csv`}>
+                                                <Button size="sm" variant="ghost" icon={<FaDownload />} title="Download Refund Details"/>
+                                            </CSVLink>
+                                        </Td>
+                                    </TableRow>
+                                ))}
+                            </tbody>
+                        </Table>
+                    </TableWrapper>
+                </>
+            )}
+
+            {currentReusablePackagingStock?.length > 0 && (
+                <>
+                    <SectionTitle><FaBoxes /> Current Reusable Packaging Stock</SectionTitle>
+                     <TableWrapper>
+                        <Table>
+                            <thead>
+                                <tr>
+                                    <Th>Packaging Name</Th>
+                                    <Th>SKU</Th>
+                                    <Th style={{textAlign: 'right'}}>Current Stock</Th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {currentReusablePackagingStock.map((pkg, index) => (
+                                    <TableRow key={pkg._id || `current-pkg-${index}`}>
+                                        <Td data-label="Packaging Name">{pkg.name}</Td>
+                                        <Td data-label="SKU">{pkg.sku}</Td>
+                                        <Td data-label="Current Stock" style={{textAlign: 'right'}}>{pkg.quantity} {pkg.unit}</Td>
+                                    </TableRow>
+                                ))}
+                            </tbody>
+                        </Table>
+                    </TableWrapper>
+                </>
+            )}
 
             {depositsChargedDetails?.length > 0 ? (
                 <>
-                    <SectionTitle><FaArrowUp /> Deposits Charged Details</SectionTitle>
-                    <Table>
-                        <thead>
-                            <tr>
-                                <Th>Product Name</Th>
-                                <Th>SKU</Th>
-                                <Th>Packaging Type</Th>
-                                <Th style={{textAlign: 'right'}}>Quantity Charged</Th>
-                                <Th style={{textAlign: 'right'}}>Total Deposit</Th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {depositsChargedDetails.map((item) => (
-                                <TableRow key={item._id}>
-                                    <Td data-label="Product Name">{item.itemName}</Td>
-                                    <Td data-label="SKU">{item.itemSku}</Td>
-                                    <Td data-label="Packaging Type">{item.packagingTypeSnapshot}</Td>
-                                    <Td data-label="Quantity Charged" style={{textAlign: 'right'}}>{item.totalChargedQuantity}</Td>
-                                    <Td data-label="Total Deposit" style={{textAlign: 'right'}}>{formatCurrency(item.totalChargedDeposit)}</Td>
-                                </TableRow>
-                            ))}
-                        </tbody>
-                    </Table>
+                    <SectionTitle><FaArrowUp /> Packaging Deposits Charged Details</SectionTitle>
+                    <TableWrapper>
+                        <Table>
+                            <thead>
+                                <tr>
+                                    <Th>Product Name</Th>
+                                    <Th>SKU</Th>
+                                    <Th>Packaging Type</Th>
+                                    <Th style={{textAlign: 'right'}}>Quantity Charged</Th>
+                                    <Th style={{textAlign: 'right'}}>Total Deposit</Th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {depositsChargedDetails.map((item) => (
+                                    <TableRow key={item._id}>
+                                        <Td data-label="Product Name">{item.itemName}</Td>
+                                        <Td data-label="SKU">{item.itemSku}</Td>
+                                        <Td data-label="Packaging Type">{item.packagingTypeSnapshot}</Td>
+                                        <Td data-label="Quantity Charged" style={{textAlign: 'right'}}>{item.totalChargedQuantity}</Td>
+                                        <Td data-label="Total Deposit" style={{textAlign: 'right'}}>{formatCurrency(item.totalChargedDeposit)}</Td>
+                                    </TableRow>
+                                ))}
+                            </tbody>
+                        </Table>
+                    </TableWrapper>
                 </>
             ) : (
                 <NoDataMessage>No packaging deposits charged in this period.</NoDataMessage>
@@ -490,27 +644,29 @@ const CircularEconomyReport = () => {
 
             {depositsRefundedDetails?.length > 0 ? (
                  <>
-                    <SectionTitle><FaArrowDown /> Deposits Refunded Details</SectionTitle>
-                    <Table>
-                        <thead>
-                            <tr>
-                                <Th>Product Name</Th>
-                                <Th>SKU</Th>
-                                <Th style={{textAlign: 'right'}}>Quantity Returned</Th>
-                                <Th style={{textAlign: 'right'}}>Total Refunded</Th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {depositsRefundedDetails.map((item, index) => (
-                                <TableRow key={item._id || index}>
-                                    <Td data-label="Product Name">{item.itemName || 'N/A'}</Td>
-                                    <Td data-label="SKU">{item.itemSku || 'N/A'}</Td>
-                                    <Td data-label="Quantity Returned" style={{textAlign: 'right'}}>{item.totalReturnedQuantity}</Td>
-                                    <Td data-label="Total Refunded" style={{textAlign: 'right'}}>{formatCurrency(item.totalRefundedDeposit)}</Td>
-                                </TableRow>
-                            ))}
-                        </tbody>
-                    </Table>
+                    <SectionTitle><FaArrowDown /> Packaging Deposits Refunded Details</SectionTitle>
+                    <TableWrapper>
+                        <Table>
+                            <thead>
+                                <tr>
+                                    <Th>Product Name</Th>
+                                    <Th>SKU</Th>
+                                    <Th style={{textAlign: 'right'}}>Quantity Returned</Th>
+                                    <Th style={{textAlign: 'right'}}>Total Refunded</Th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {depositsRefundedDetails.map((item, index) => (
+                                    <TableRow key={item._id || index}>
+                                        <Td data-label="Product Name">{item.itemName || 'N/A'}</Td>
+                                        <Td data-label="SKU">{item.itemSku || 'N/A'}</Td>
+                                        <Td data-label="Quantity Returned" style={{textAlign: 'right'}}>{item.totalReturnedQuantity}</Td>
+                                        <Td data-label="Total Refunded" style={{textAlign: 'right'}}>{formatCurrency(item.totalRefundedDeposit)}</Td>
+                                    </TableRow>
+                                ))}
+                            </tbody>
+                        </Table>
+                    </TableWrapper>
                  </>
             ) : (
                 <NoDataMessage>No packaging deposits refunded in this period.</NoDataMessage>
@@ -536,7 +692,7 @@ const CircularEconomyReport = () => {
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
-                                <Tooltip content={({ active, payload }) => { // Destructure payload from props
+                                <Tooltip content={({ active, payload }) => { 
                                     if (active && payload && payload.length) {
                                         const data = payload[0].payload;
                                         return (
@@ -559,7 +715,7 @@ const CircularEconomyReport = () => {
                 </>
             )}
 
-            {(depositsChargedDetails?.length === 0 && depositsRefundedDetails?.length === 0 && pieChartData.length === 0) && (
+            {(reusablePackagingIssued?.length === 0 && reusablePackagingReturnedToStock?.length === 0 && currentReusablePackagingStock?.length === 0 && depositsChargedDetails?.length === 0 && depositsRefundedDetails?.length === 0 && pieChartData.length === 0) && (
                 <NoDataMessage>No circular economy data found for the selected period.</NoDataMessage>
             )}
 

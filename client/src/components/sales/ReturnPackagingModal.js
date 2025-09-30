@@ -35,16 +35,17 @@ const ModalFooter = styled.div`
 `;
 
 const ReturnPackagingModal = ({ sale, onClose, onPackagingReturnSuccess }) => {
-    // Filter items to only show those with reusable packaging that haven't been fully returned
+    // Filter items to only show products that were sold with reusable packaging and have outstanding returns
     const [returnItems, setReturnItems] = useState(() => 
         sale.items.filter(item => 
-            item.packagingIncluded && 
-            item.packagingDepositCharged > 0 && 
+            item.reusablePackagingItemIdSnapshot && // Check for the new linked ID
             (item.packagingQuantityReturned || 0) < item.quantity
         ).map(item => ({
-            item: item.item._id,
+            item: item.item._id, // This is the ID of the *product* in the saleItem
             name: item.item.name,
             sku: item.item.sku,
+            reusablePackagingItemIdSnapshot: item.reusablePackagingItemIdSnapshot, // Keep the linked packaging item ID
+            packagingName: item.item.name, // Display the product name as packaging context
             quantitySold: item.quantity,
             quantityReturnedSoFar: item.packagingQuantityReturned || 0,
             maxReturnable: item.quantity - (item.packagingQuantityReturned || 0), // Max packaging units not yet returned
@@ -86,20 +87,19 @@ const ReturnPackagingModal = ({ sale, onClose, onPackagingReturnSuccess }) => {
         setLoading(true);
         try {
             // Loop through each item that needs packaging returned
-            // We're making a separate API call for each item's packaging return.
-            // This allows granular tracking on the backend per sale item.
+            // The itemId here refers to the *product* item ID in the sale, as per the backend API signature
             for (const item of itemsToProcess) {
-                await salesAPI.returnPackaging(sale._id, item.item, {
+                await salesAPI.returnPackaging(sale._id, item.item, { 
                     quantityReturned: item.quantityToReturn,
                     refundMethod: refundMethod,
+                    // The backend now knows to use reusablePackagingItemIdSnapshot via the saleItem (item ID is the product ID)
                 });
             }
             
             toast.success(`Packaging returned successfully! Total refunded: Rwf ${totalRefundAmount.toLocaleString()}.`);
-            onPackagingReturnSuccess(); // Callback to refresh sale data in parent
+            onPackagingReturnSuccess(); 
             onClose();
         } catch (error) {
-            // Error handling is managed by the API interceptor (toast.error will show)
             console.error("Error in ReturnPackagingModal:", error);
         } finally {
             setLoading(false);
@@ -116,7 +116,7 @@ const ReturnPackagingModal = ({ sale, onClose, onPackagingReturnSuccess }) => {
                     <Button variant="ghost" size="sm" iconOnly onClick={onClose}><FaTimes /></Button>
                 </ModalHeader>
                 <ModalBody>
-                    <p>Select the quantity of reusable packaging being returned for each item. This will refund the deposit to the customer's outstanding balance.</p>
+                    <p>Select the quantity of reusable packaging being returned for each **product** item. This will restock the **empty reusable packaging inventory** and refund the deposit to the customer's outstanding balance.</p>
                     
                     <ItemList>
                         {returnItems.length > 0 ? (

@@ -46,12 +46,21 @@ const inventorySchema = new mongoose.Schema({
   lastRestocked: { type: Date },
   tags: [{ type: String, trim: true }],
   imageUrl: { type: String },
-  packagingType: { // UPDATED: Expanded enum
+  packagingType: { 
     type: String,
-    enum: ['None', 'Reusable', 'Recyclable', 'Compostable', 'Other'], // Expanded types
+    enum: ['None', 'Reusable', 'Recyclable', 'Compostable', 'Other'], 
     default: 'None'
   },
-  packagingDeposit: { type: Number, default: 0, min: 0 }, // Confirmed default
+  packagingDeposit: { type: Number, default: 0, min: 0 }, 
+  isReusablePackaging: { // NEW: Flag to identify if this inventory item IS a reusable packaging unit (e.g., "Glass Milk Bottle (empty)")
+    type: Boolean,
+    default: false,
+  },
+  linkedReusablePackagingItem: { // NEW: For a *product* (e.g., "Milk in Glass Bottle"), links to its actual reusable packaging item
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Inventory',
+    default: null,
+  },
 }, { timestamps: true });
 
 inventorySchema.index({ sku: 1, user: 1 }, { unique: true });

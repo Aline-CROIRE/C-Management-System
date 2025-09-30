@@ -72,7 +72,7 @@ export const usersAPI = {
   getAll: (params) => api.get("/users", { params }),
   getById: (id) => api.get(`/users/${id}`),
   create: (userData) => api.post("/users", userData),
-  update: (id, userData) => api.put(`/users/${id}`, userData),
+  update: (id, userData) => api.patch(`/users/${id}`, userData),
   delete: (id) => api.delete(`/users/${id}`),
 };
 
@@ -165,7 +165,7 @@ export const expensesAPI = {
   getAll: (params) => api.get("/expenses", { params }),
   getById: (id) => api.get(`/expenses/${id}`),
   create: (expenseData) => api.post("/expenses", expenseData),
-  update: (id, expenseData) => api.put(`/expenses/${id}`, expenseData),
+  update: (id, expenseData) => api.patch(`/expenses/${id}`, expenseData),
   delete: (id) => api.delete(`/expenses/${id}`),
 };
 
@@ -185,9 +185,9 @@ export const stockAdjustmentAPI = {
   getTotalImpact: (params) => api.get("/stock-adjustments/total-impact", { params }), 
 };
 
-export const snapshotAPI = { 
+export const snapshotAPI = {
     getDailyStockSnapshots: (params) => api.get("/snapshots/daily-stock", { params }),
-    generateSingleDailySnapshot: (data) => api.post("/snapshots/generate-one", data), 
+    generateSingleDailySnapshot: (data) => api.post("/snapshots/generate-one", data),
 };
 
 export const constructionAPI = {
