@@ -1,10 +1,11 @@
+// client/src/pages/DynamicDashboard.js
 "use client"
 
 import { useState, useEffect } from "react"
 import styled from "styled-components"
 import { useAuth } from "../../contexts/AuthContext"
-import { FaDollarSign, FaTractor, FaBoxes, FaRecycle, FaHardHat, FaEye, FaDownload } from "react-icons/fa"
-import StatsCard from "./statsCard"
+import { FaDollarSign, FaTractor, FaBoxes, FaRecycle, FaHardHat, FaEye, FaDownload, FaUtensils } from "react-icons/fa" // Added FaUtensils
+import StatsCard from "./statsCard" 
 import {
   RevenueTrendChart,
   InventoryDistributionChart,
@@ -12,7 +13,7 @@ import {
   ModulePerformanceChart,
   RealTimeActivityChart,
   KPIDashboardChart,
-} from "../charts/ChartComponents"
+} from "../../components/charts/ChartComponents"
 
 const DashboardContainer = styled.div`
   padding: ${(props) => props.theme.spacing?.xl || "2rem"};
@@ -250,7 +251,6 @@ const ActionButton = styled.button`
   }
 `
 
-// Module configurations with dynamic data
 const MODULE_CONFIGS = {
   IMS: {
     icon: <FaBoxes />,
@@ -292,6 +292,17 @@ const MODULE_CONFIGS = {
       progress: data?.construction?.avgProgress || "0%",
     }),
   },
+  // NEW: Restaurant Module Configuration
+  "Restaurant": {
+    icon: <FaUtensils />,
+    title: "Restaurant Operations",
+    gradient: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)", // A distinct red gradient
+    getStats: (data) => ({
+      orders: data?.restaurant?.totalOrdersToday || "0",
+      tables: data?.restaurant?.activeTables || "0",
+      revenue: data?.restaurant?.revenueToday || "$0",
+    }),
+  },
 }
 
 const DynamicDashboard = () => {
@@ -299,12 +310,11 @@ const DynamicDashboard = () => {
   const [dashboardData, setDashboardData] = useState({})
   const [loading, setLoading] = useState(true)
 
-  // Generate stats based on user modules
   const generateStatsData = () => {
     const baseStats = [
       {
         title: "Total Revenue",
-        value: "$2,847,392",
+        value: "$2,847,392", // Placeholder
         change: "+12.5% from last month",
         changeType: "positive",
         icon: <FaDollarSign />,
@@ -315,8 +325,8 @@ const DynamicDashboard = () => {
     if (user?.modules?.includes("IMS")) {
       baseStats.push({
         title: "Inventory Items",
-        value: "12,847",
-        change: "+8.2% from last month",
+        value: dashboardData.inventory?.totalItems || "0",
+        change: "+8.2% from last month", // Placeholder
         changeType: "positive",
         icon: <FaBoxes />,
         iconColor: "#667eea",
@@ -326,8 +336,8 @@ const DynamicDashboard = () => {
     if (user?.modules?.includes("ISA")) {
       baseStats.push({
         title: "Active Fields",
-        value: "156",
-        change: "+15.3% from last month",
+        value: dashboardData.agriculture?.activeFields || "0",
+        change: "+15.3% from last month", // Placeholder
         changeType: "positive",
         icon: <FaTractor />,
         iconColor: "#52734d",
@@ -337,8 +347,8 @@ const DynamicDashboard = () => {
     if (user?.modules?.includes("Waste Management")) {
       baseStats.push({
         title: "Waste Revenue",
-        value: "$89,432",
-        change: "+23.8% from last month",
+        value: dashboardData.waste?.revenue || "$0",
+        change: "+23.8% from last month", // Placeholder
         changeType: "positive",
         icon: <FaRecycle />,
         iconColor: "#ed8936",
@@ -348,18 +358,29 @@ const DynamicDashboard = () => {
     if (user?.modules?.includes("Construction Sites")) {
       baseStats.push({
         title: "Active Sites",
-        value: "23",
-        change: "+5.1% from last month",
+        value: dashboardData.construction?.activeSites || "0",
+        change: "+5.1% from last month", // Placeholder
         changeType: "positive",
         icon: <FaHardHat />,
         iconColor: "#f093fb",
       })
     }
 
+    // NEW: Add Restaurant stats to top grid if module is active
+    if (user?.modules?.includes("Restaurant")) {
+        baseStats.push({
+            title: "Restaurant Orders Today",
+            value: dashboardData.restaurant?.totalOrdersToday || "0",
+            change: "+7.1% from yesterday", // Placeholder
+            changeType: "positive",
+            icon: <FaUtensils />,
+            iconColor: "#ef4444",
+        });
+    }
+
     return baseStats
   }
 
-  // Generate chart data
   const generateChartData = () => {
     return {
       revenue: [
@@ -389,6 +410,7 @@ const DynamicDashboard = () => {
         { name: "ISA", value: 92, fill: "#52734d" },
         { name: "Waste", value: 78, fill: "#ed8936" },
         { name: "Construction", value: 88, fill: "#f093fb" },
+        { name: "Restaurant", value: 90, fill: "#ef4444" }, // NEW: Restaurant data
       ],
       realTime: [
         { time: "00:00", value: 45 },
@@ -436,6 +458,12 @@ const DynamicDashboard = () => {
           equipment: "145",
           avgProgress: "76%",
         },
+        // NEW: Mock data for Restaurant module
+        restaurant: {
+            totalOrdersToday: "125",
+            activeTables: "15",
+            revenueToday: "$4,500",
+        },
       }
 
       setDashboardData(mockData)
@@ -449,7 +477,9 @@ const DynamicDashboard = () => {
   const chartData = generateChartData()
 
   const handleModuleClick = (moduleName) => {
-    // Navigate to specific module
+    // This function will eventually navigate to the module's specific route
+    // For now, it just logs. The actual navigation is handled by `App.js` routes
+    // and `DynamicSidebar`.
     console.log(`Navigating to ${moduleName}`)
   }
 

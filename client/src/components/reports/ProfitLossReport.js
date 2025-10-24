@@ -1,12 +1,11 @@
-
 // src/components/reports/ProfitLossReport.js
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react'; // Ensure useCallback is imported
 import styled, { keyframes } from 'styled-components';
 import { FaMoneyBillWave, FaChartLine, FaCalendarAlt, FaRedo, FaDownload, FaMinusCircle, FaPlusCircle, FaBalanceScale } from 'react-icons/fa';
 import Button from '../common/Button';
-import Input from '../common/Input'; // Not used in this version but often useful
-import Select from '../common/Select'; // Not used in this version but often useful
+import Input from '../common/Input';
+import Select from '../common/Select';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Card from '../common/Card';
 import { DateRange } from 'react-date-range';
@@ -149,6 +148,7 @@ const SmallPrint = styled.p`
 `;
 
 const ProfitLossReport = () => {
+    // All hooks must be at the top level
     const [showDateRangePicker, setShowDateRangePicker] = useState(false);
     const [dateRange, setDateRange] = useState([
         {
@@ -158,54 +158,27 @@ const ProfitLossReport = () => {
         }
     ]);
 
+    // useProfitLossReport is also a hook, so it must be called unconditionally
     const { reportData, loading, error, setFilters, refetch } = useProfitLossReport({
         startDate: dateRange[0].startDate,
         endDate: dateRange[0].endDate,
     });
 
-    useEffect(() => {
-        setFilters({
-            startDate: dateRange[0].startDate,
-            endDate: dateRange[0].endDate,
-        });
-    }, [dateRange, setFilters]);
-
-    const handleDateRangeSelect = (ranges) => {
-        setDateRange([ranges.selection]);
-    };
-
-    const formatCurrency = (amount) => {
-        return `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-    };
-
-    if (loading) {
-        return (
-            <ReportContainer>
-                <LoadingSpinner message="Loading Profit & Loss Report..." />
-            </ReportContainer>
-        );
-    }
-
-    if (error) {
-        return (
-            <ReportContainer>
-                <Card><p style={{color: 'red'}}>Error: {error}</p></Card>
-            </ReportContainer>
-        );
-    }
-
+    // Destructure reportData unconditionally for useMemo and JSX
+    // Provide default empty objects/arrays if reportData might be null initially
     const {
-        totalRevenue,
-        totalCogs,
-        grossProfit,
-        totalOperatingExpenses,
-        expensesByCategory,
-        totalInternalUseCost,
-        totalStockAdjustmentLoss,
-        netProfit,
+        totalRevenue = 0,
+        totalCogs = 0,
+        grossProfit = 0,
+        totalOperatingExpenses = 0,
+        expensesByCategory = [],
+        totalInternalUseCost = 0,
+        totalStockAdjustmentLoss = 0,
+        netProfit = 0,
     } = reportData || {};
 
     const csvData = useMemo(() => {
+        // Ensure reportData is available before trying to map it
         if (!reportData) return [];
         const data = [
             ["Profit & Loss Report"],
@@ -234,6 +207,40 @@ const ProfitLossReport = () => {
         );
         return data;
     }, [reportData, dateRange, totalRevenue, totalCogs, grossProfit, totalOperatingExpenses, expensesByCategory, totalInternalUseCost, totalStockAdjustmentLoss, netProfit]);
+
+
+    useEffect(() => {
+        setFilters({
+            startDate: dateRange[0].startDate,
+            endDate: dateRange[0].endDate,
+        });
+    }, [dateRange, setFilters]);
+
+    const handleDateRangeSelect = useCallback((ranges) => { // useCallback for stability
+        setDateRange([ranges.selection]);
+    }, []);
+
+    const formatCurrency = useCallback((amount) => { // useCallback for stability
+        return `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    }, []);
+
+    // --- Conditional returns come AFTER all hooks ---
+    if (loading) {
+        return (
+            <ReportContainer>
+                <LoadingSpinner message="Loading Profit & Loss Report..." />
+            </ReportContainer>
+        );
+    }
+
+    if (error) {
+        return (
+            <ReportContainer>
+                <Card><p style={{color: 'red'}}>Error: {error}</p></Card>
+            </ReportContainer>
+        );
+    }
+    // --- End of conditional returns ---
 
 
     return (

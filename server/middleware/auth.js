@@ -1,3 +1,4 @@
+// server/middleware/auth.js
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Restaurant = require("../models/Restaurant");
@@ -14,7 +15,8 @@ const verifyToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "your-secret-key");
-    const user = await User.findById(decoded.userId).select("-password");
+    // .lean() makes it a plain JS object, easier to manipulate and pass around
+    const user = await User.findById(decoded.userId).select("-password").lean(); 
 
     if (!user) {
       return res.status(401).json({
@@ -30,16 +32,26 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    req.user = user;
+    // Attach the user object to the request. This `user` object will now include `restaurantId`
+    // if it's stored on the User model directly.
+    req.user = user; 
 
-    if (req.user.role !== 'admin') {
+    // This block is for scenarios where `req.user.restaurantId` might not be directly set on the User model
+    // but the user *owns* a restaurant. Given `restaurantId` is now directly on the User model,
+    // this specific lookup might be less critical for /me, but good for other middleware using `req.user.restaurantId`.
+    // We'll keep it as a safeguard.
+    if (req.user.role !== 'admin' && !req.user.restaurantId) { 
         const ownedRestaurant = await Restaurant.findOne({ owner: req.user._id, isActive: true });
         if (ownedRestaurant) {
-            req.user.restaurantId = ownedRestaurant._id.toString();
+            req.user.restaurantId = ownedRestaurant._id; // Attach ObjectId directly
+            console.log(`Middleware: User ${req.user._id} now has restaurantId from owned restaurant lookup: ${ownedRestaurant._id}`);
         } else {
-            console.warn(`User ${req.user._id} does not own an active restaurant.`);
+            console.warn(`Middleware: User ${req.user._id} is not an admin, has no direct restaurantId, and no owned active restaurant found.`);
         }
+    } else if (req.user.restaurantId) {
+        console.log(`Middleware: User ${req.user._id} already has restaurantId: ${req.user.restaurantId}`);
     }
+
 
     next();
   } catch (error) {
@@ -70,7 +82,7 @@ const checkModuleAccess = (moduleName) => {
     if (!req.user.modules || !req.user.modules.includes(moduleName)) {
       return res.status(403).json({
         success: false,
-        message: `Forbidden: You do not have access to the '${moduleName}' module.`,
+        message: `Forbidden: You do not have access to the '${moduleName}' module.` + (req.user.restaurantId ? '' : ' (No restaurant associated with your account.)'),
       });
     }
 

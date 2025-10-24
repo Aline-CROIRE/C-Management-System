@@ -1,3 +1,4 @@
+// server/models/User.js
 const mongoose = require("mongoose")
 const bcrypt = require("bcryptjs")
 
@@ -71,6 +72,13 @@ const userSchema = new mongoose.Schema({
       delete: { type: Boolean, default: false },
     },
   },
+  // NEW: Link user to a restaurant they own/manage
+  restaurantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Restaurant',
+    default: null, // Default to null, set after restaurant creation
+    index: true,
+  },
   profile: {
     phone: String,
     address: String,
@@ -103,7 +111,7 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-})
+}, { timestamps: true })
 
 userSchema.index({ email: 1 })
 userSchema.index({ role: 1 })
