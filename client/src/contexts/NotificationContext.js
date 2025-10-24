@@ -1,9 +1,10 @@
+// client/src/contexts/NotificationContext.js
 "use client"
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { toast } from "react-toastify"
 import { notificationsAPI } from "../services/api"
-import { useAuth } from "./AuthContext" // Assuming AuthContext provides isAuthenticated and loading
+import { useAuth } from "./AuthContext"
 
 const NotificationContext = createContext()
 
@@ -16,14 +17,14 @@ export const useNotifications = () => {
 }
 
 export const NotificationProvider = ({ children }) => {
-  const { isAuthenticated, loading: authLoading } = useAuth() // Renamed loading to authLoading to avoid conflict
+  const { isAuthenticated, loading: authLoading } = useAuth()
 
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
-  const [loading, setLoading] = useState(true); // Added loading state for notifications itself
+  const [loading, setLoading] = useState(true);
 
   const fetchNotifications = useCallback(async () => {
-    if (authLoading || !isAuthenticated) { // Only fetch if authenticated and auth is not loading
+    if (authLoading || !isAuthenticated) {
       setNotifications([]);
       setUnreadCount(0);
       setLoading(false);
@@ -35,29 +36,24 @@ export const NotificationProvider = ({ children }) => {
       const response = await notificationsAPI.getAll();
       if (response?.success) {
         setNotifications(response.notifications);
-        setUnreadCount(response.unreadCount); // Use the unreadCount from the API response
+        setUnreadCount(response.unreadCount);
       } else {
-        // API interceptor should handle toast for errors, but log here
         console.error("Failed to fetch notifications from API:", response?.message);
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
-      // toast.error is usually handled by the axios interceptor
     } finally {
       setLoading(false);
     }
   }, [isAuthenticated, authLoading]);
 
   useEffect(() => {
-    // Fetch immediately on mount if authenticated
     fetchNotifications();
 
-    // Set up polling for new notifications
-    const interval = setInterval(fetchNotifications, 30000); // Poll every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
     
-    // Cleanup interval on unmount or if auth status changes
     return () => clearInterval(interval);
-  }, [fetchNotifications]); // Re-run effect if fetchNotifications changes (i.e., auth status changes)
+  }, [fetchNotifications]);
 
   const markAsRead = useCallback(async (notificationId) => {
     try {
@@ -100,7 +96,7 @@ export const NotificationProvider = ({ children }) => {
         console.error("Error deleting notification:", error);
       }
     },
-    [notifications] // Dependency on 'notifications' is correct here.
+    [notifications]
   );
 
   const showToast = useCallback((message, type = "info") => {
@@ -122,12 +118,12 @@ export const NotificationProvider = ({ children }) => {
   const value = {
     notifications,
     unreadCount,
-    loading, // Expose loading state
+    loading,
     markAsRead,
     markAllAsRead,
     deleteNotification,
     showToast,
-    refetchNotifications: fetchNotifications, // Provide a refetch function
+    refetchNotifications: fetchNotifications,
   }
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>

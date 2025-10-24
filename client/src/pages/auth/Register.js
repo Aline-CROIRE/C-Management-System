@@ -1,3 +1,4 @@
+// client/src/pages/auth/Register.js
 "use client"
 
 import { useState } from "react"
@@ -5,7 +6,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import styled from "styled-components"
 import { motion } from "framer-motion"
-import { FaUser, FaEnvelope, FaLock, FaBuilding, FaPhone, FaArrowLeft } from "react-icons/fa"
+import { FaUser, FaEnvelope, FaLock, FaBuilding, FaPhone, FaArrowLeft, FaUtensils } from "react-icons/fa" // Added FaUtensils
 import { MdInventory, MdAgriculture, MdRecycling, MdConstruction } from "react-icons/md"
 import { useAuth } from "../../contexts/AuthContext"
 import Button from "../../components/common/Button"
@@ -194,8 +195,9 @@ const LoginLink = styled(Link)`
 const modules = [
   { id: "IMS", name: "Inventory", icon: MdInventory, description: "Track stock and control inventory flow." },
   { id: "ISA", name: "Agriculture", icon: MdAgriculture, description: "Manage crops, fields, and resources." },
-  { id: "Waste", name: "Waste Mgmt", icon: MdRecycling, description: "Oversee waste and recycling programs." },
+  { id: "Waste Management", name: "Waste Mgmt", icon: MdRecycling, description: "Oversee waste and recycling programs." }, // Changed ID from "Waste" to "Waste Management" for consistency
   { id: "Construction Sites", name: "Construction Sites", icon: MdConstruction, description: "Manage sites and heavy equipment." },
+  { id: "Restaurant", name: "Restaurant", icon: FaUtensils, description: "Optimize restaurant operations and sustainability." }, // NEW: Restaurant Module
 ]
 
 const Register = () => {

@@ -110,7 +110,6 @@ const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLargeScreen, setIsLargeScreen] = useState(true);
 
-  // Refs for the sidebar and the menu toggle button
   const sidebarRef = useRef(null);
   const menuButtonRef = useRef(null);
 
@@ -120,7 +119,6 @@ const MainLayout = () => {
     const checkScreenSize = () => {
       const isCurrentLargeScreen = window.innerWidth >= LG_BREAKPOINT_VALUE;
       setIsLargeScreen(isCurrentLargeScreen);
-      // On large screens, sidebar open by default. On smaller, it's closed.
       setSidebarOpen(isCurrentLargeScreen);
     };
 
@@ -130,23 +128,18 @@ const MainLayout = () => {
     return () => window.removeEventListener("resize", checkScreenSize);
   }, []);
 
-  // Effect to close the sidebar on route change when on a small screen
   useEffect(() => {
-    // Only close if it's currently open AND on a small screen
     if (!isLargeScreen && sidebarOpen) {
       setSidebarOpen(false);
     }
-  }, [location.pathname, isLargeScreen]); // Removed sidebarOpen from deps here, as the closure is implicit from sidebarOpen changing
+  }, [location.pathname, isLargeScreen]);
 
-  // --- START: CRUCIAL CLICK-OUTSIDE LOGIC ---
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // If the sidebar isn't open or we're on a large screen, this listener shouldn't do anything
       if (!sidebarOpen || isLargeScreen) {
         return;
       }
 
-      // Check if the click happened outside the sidebar element
       if (sidebarRef.current && !sidebarRef.current.contains(event.target)) {
         setSidebarOpen(false);
       }
@@ -154,21 +147,16 @@ const MainLayout = () => {
 
     let timeoutId;
     if (sidebarOpen && !isLargeScreen) {
-      // IMPORTANT: Delay attaching the listener slightly.
-      // This ensures the click event that *opened* the sidebar has fully
-      // processed and finished its bubbling phase before this listener becomes active.
       timeoutId = setTimeout(() => {
-        document.addEventListener("mousedown", handleClickOutside, true); // Use capture phase (true)
-      }, 50); // A small delay like 50ms is usually more reliable than 0ms or requestAnimationFrame
+        document.addEventListener("mousedown", handleClickOutside, true);
+      }, 50);
     }
 
     return () => {
-      clearTimeout(timeoutId); // Clear any pending timeout
-      document.removeEventListener("mousedown", handleClickOutside, true); // Remove with capture phase
+      clearTimeout(timeoutId);
+      document.removeEventListener("mousedown", handleClickOutside, true);
     };
-  }, [sidebarOpen, isLargeScreen]); // Re-run this effect when sidebarOpen or isLargeScreen changes
-  // --- END: CRUCIAL CLICK-OUTSIDE LOGIC ---
-
+  }, [sidebarOpen, isLargeScreen]);
 
   const handleSidebarToggle = () => {
     setSidebarOpen(prev => !prev);
@@ -188,7 +176,6 @@ const MainLayout = () => {
         <DynamicSidebar isOpen={sidebarOpen} onToggle={handleSidebarToggle} user={user} sidebarRef={sidebarRef} />
       </SidebarWrapper>
 
-      {/* Overlay click handler explicitly closes the sidebar */}
       <Overlay $show={!isLargeScreen && sidebarOpen} onClick={() => setSidebarOpen(false)} />
 
       <MainContent $sidebarOpen={sidebarOpen}>

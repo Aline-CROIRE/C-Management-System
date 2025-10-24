@@ -1,4 +1,3 @@
-
 // client/src/components/layout/DynamicSidebar.js
 "use client";
 
@@ -17,12 +16,13 @@ import {
   FaHardHat,
   FaUsers,
   FaCog,
+  FaUtensils, // NEW: Import for Restaurant Module
 } from "react-icons/fa";
 import { useAuth } from "../../contexts/AuthContext";
 
 const SidebarContainer = styled.div`
-  height: 100%; /* Changed from 100vh to fill its wrapper */
-  width: 100%; /* Fill the SidebarWrapper */
+  height: 100%;
+  width: 100%;
   background: ${(props) =>
     props.theme.gradients?.hero ||
     "linear-gradient(180deg, #0f2419 0%, #1b4332 50%, #2d5016 100%)"};
@@ -330,7 +330,7 @@ const UserRole = styled.div`
   text-overflow: ellipsis;
 `;
 
-const MODULE_CONFIG = { /* ... (unchanged) ... */
+const MODULE_CONFIG = {
   IMS: {
     icon: <FaBoxes />,
     label: "Inventory",
@@ -355,6 +355,13 @@ const MODULE_CONFIG = { /* ... (unchanged) ... */
     path: "/construction",
     section: "modules",
   },
+  // NEW: Restaurant Module in sidebar
+  "Restaurant": {
+    icon: <FaUtensils />,
+    label: "Restaurant",
+    path: "/restaurant",
+    section: "modules",
+  },
   Analytics: {
     icon: <FaChartBar />,
     label: "Analytics",
@@ -369,7 +376,7 @@ const MODULE_CONFIG = { /* ... (unchanged) ... */
   },
 };
 
-const DynamicSidebar = ({ isOpen, onToggle, user, sidebarRef }) => { // Accept sidebarRef
+const DynamicSidebar = ({ isOpen, onToggle, user, sidebarRef }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
@@ -459,7 +466,7 @@ const DynamicSidebar = ({ isOpen, onToggle, user, sidebarRef }) => { // Accept s
   };
 
   return (
-    <SidebarContainer ref={sidebarRef}> {/* Apply ref here */}
+    <SidebarContainer ref={sidebarRef}>
       <SidebarHeader>
         <Logo>
           <FaLeaf />

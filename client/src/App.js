@@ -1,5 +1,5 @@
 // client/src/App.js
-"use client"; // Ensure this is at the very top for client-side components
+"use client";
 
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -8,7 +8,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { AuthProvider } from "./contexts/AuthContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
-import { ThemeProvider as CustomThemeProvider } from "./contexts/ThemeContext"; // Renamed to avoid clash with styled-components
+import { ThemeProvider as CustomThemeProvider } from "./contexts/ThemeContext";
 import GlobalStyles from "./styles/GlobalStyles";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -19,7 +19,7 @@ import Register from "./pages/auth/Register";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import EmailVerification from "./pages/auth/EmailVerification";
-import DynamicDashboard from "./components/dashboard/DynamicDashboard";
+import DynamicDashboard from "./components/dashboard/DynamicDashboard"; 
 import Profile from "./pages/profile";
 import Settings from "./pages/Settings";
 import InventoryModule from "./pages/modules/IMS";
@@ -28,13 +28,14 @@ import WasteModule from "./pages/modules/WasteManagement";
 import ConstructionModule from "./pages/modules/ConstructionSites";
 import AnalyticsModule from "./pages/modules/Analytics";
 import UserManagement from "./pages/modules/UserManagement";
+import RestaurantModulePage from "./pages/modules/RestaurantModulePage"; // NEW: Import RestaurantModulePage
 import NotFound from "./pages/NotFound";
 import Maintenance from "./pages/Maintenance";
-import defaultTheme from "./styles/Theme"; // Renamed local import to avoid clash with context
+import defaultTheme from "./styles/Theme";
 import { useTheme } from "./contexts/ThemeContext";
 
 function App() {
-  const { currentTheme } = useTheme(); // This hook gets the active theme from your CustomThemeProvider
+  const { currentTheme } = useTheme();
 
   useEffect(() => {
     window.addEventListener("unhandledrejection", (event) => {
@@ -53,7 +54,6 @@ function App() {
 
   return (
     <ErrorBoundary>
-      {/* Use the currentTheme from context, falling back to the default if not yet loaded */}
       <ThemeProvider theme={currentTheme || defaultTheme}>
         <GlobalStyles />
         <BrowserRouter
@@ -155,8 +155,21 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                {/* NEW: Restaurant Module Route */}
+                <Route
+                  path="restaurant/*"
+                  element={
+                    <ProtectedRoute requiredModule="Restaurant">
+                      <RestaurantModulePage />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route index element={<Navigate to="/dashboard" replace />} />
               </Route>
+
+              {/* NEW: Public QR Order Page Route - No authentication required */}
+              {/* This route needs to be outside the ProtectedRoute wrapper */}
+              <Route path="/order/qr/:restaurantId/:tableId" element={<RestaurantModulePage isPublicQrOrderPage={true} />} />
 
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="*" element={<NotFound />} />
@@ -180,7 +193,6 @@ function App() {
   );
 }
 
-// Wrapper component to ensure ThemeProvider is available for App
 function AppWrapper() {
   return (
     <CustomThemeProvider>

@@ -6,6 +6,7 @@ const WasteLog = require('../models/WasteLog');
 const ResourceLog = require('../models/ResourceLog');
 const Restaurant = require('../models/Restaurant');
 const RestaurantCustomer = require('../models/RestaurantCustomer');
+const User = require('../models/User');
 const QRCode = require('qrcode');
 
 exports.validateRestaurantAccess = async (req, res, next) => {
@@ -15,39 +16,175 @@ exports.validateRestaurantAccess = async (req, res, next) => {
     return res.status(400).json({ success: false, message: 'Invalid Restaurant ID format.' });
   }
 
-  const restaurant = await Restaurant.findById(restaurantId);
-  if (!restaurant || !restaurant.isActive) {
-    return res.status(404).json({ success: false, message: 'Restaurant not found or is inactive.' });
-  }
+  try {
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant || !restaurant.isActive) {
+      return res.status(404).json({ success: false, message: 'Restaurant not found or is inactive.' });
+    }
 
-  if (req.user.role !== 'admin' && restaurant.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Access denied: You do not manage this restaurant.' });
-  }
+    if (!req.user) {
+      return res.status(401).json({ success: false, message: 'User not authenticated.' });
+    }
 
-  req.restaurantId = restaurantId;
-  next();
+    if (req.user.role !== 'admin' && restaurant.owner.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ success: false, message: 'Access denied: You do not manage this restaurant.' });
+    }
+
+    req.restaurantId = restaurantId;
+    next();
+  } catch (error) {
+    console.error("Controller: validateRestaurantAccess - Error during database operation:", error);
+    return res.status(500).json({ success: false, message: 'Server error during restaurant access validation.', error: error.message });
+  }
+};
+
+exports.autoCreateMyRestaurant = async (req, res) => {
+  try {
+    if (!req.user || !req.user._id) {
+        return res.status(401).json({ success: false, message: "User not authenticated." });
+    }
+
+    const userAlreadyOwnsRestaurant = await Restaurant.findOne({ owner: req.user._id });
+    if (userAlreadyOwnsRestaurant) {
+      const updatedUserDoc = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+          $set: {
+            'permissions.restaurant.read': true,
+            'permissions.restaurant.write': true,
+            'permissions.restaurant.delete': true
+          }
+        },
+        { new: true, runValidators: true }
+      );
+      const userWithUpdatedPermissions = { 
+        ...req.user, 
+        restaurantId: userAlreadyOwnsRestaurant._id.toString(),
+        permissions: updatedUserDoc.permissions 
+      };
+      return res.status(200).json({
+        success: true,
+        message: 'You already own a restaurant.',
+        data: userAlreadyOwnsRestaurant,
+        user: userWithUpdatedPermissions
+      });
+    }
+
+    const defaultName = `${req.user.firstName}'s Restaurant ${Math.floor(Math.random() * 1000)}`;
+
+    const newRestaurant = new Restaurant({
+      name: defaultName,
+      address: {
+        street: 'Default St',
+        city: 'Default City',
+        state: 'Default State',
+        zip: '00000',
+        country: 'Default Country',
+      },
+      phone: req.user.profile?.phone || 'N/A',
+      email: req.user.email,
+      description: `Default restaurant for ${req.user.firstName} ${req.user.lastName}. Please update details.`,
+      owner: req.user._id,
+    });
+    await newRestaurant.save();
+
+    const updatedUserDoc = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+          $set: {
+            restaurantId: newRestaurant._id,
+            'permissions.restaurant.read': true,
+            'permissions.restaurant.write': true,
+            'permissions.restaurant.delete': true
+          }
+        },
+        { new: true }
+    );
+
+    const userToReturn = {
+      ...req.user,
+      restaurantId: newRestaurant._id.toString(),
+      permissions: updatedUserDoc.permissions
+    };
+
+    res.status(201).json({
+      success: true,
+      message: 'Default restaurant created automatically.',
+      data: newRestaurant,
+      user: userToReturn
+    });
+
+  } catch (error) {
+    console.error("Controller: Error auto-creating restaurant:", error);
+    if (error.name === 'ValidationError') {
+      const errors = Object.keys(error.errors).map(key => error.errors[key].message);
+      return res.status(400).json({ success: false, message: `Validation failed: ${errors.join(', ')}` });
+    }
+    res.status(500).json({ success: false, message: 'Server error auto-creating restaurant.', error: error.message });
+  }
 };
 
 exports.createRestaurant = async (req, res) => {
   try {
     const { name, address, phone, email, logoUrl, description } = req.body;
-    if (!name || !address || !phone || !email) {
-      return res.status(400).json({ success: false, message: 'Missing required restaurant fields (name, address, phone, email).' });
+
+    if (!req.user || !req.user._id) {
+        return res.status(401).json({ success: false, message: "User not authenticated or user ID missing." });
     }
+
+    if (!name || !address || !phone || !email || !address.street || !address.city || !address.country) {
+      return res.status(400).json({ success: false, message: 'Missing required restaurant fields (name, email, phone, and full address).' });
+    }
+
     const existingRestaurant = await Restaurant.findOne({ name });
     if (existingRestaurant) {
       return res.status(409).json({ success: false, message: 'Restaurant with this name already exists.' });
     }
+    
+    const userAlreadyOwnsRestaurant = await Restaurant.findOne({ owner: req.user._id });
+    if (userAlreadyOwnsRestaurant) {
+      return res.status(409).json({ success: false, message: 'You already own a restaurant. Only one restaurant per owner is currently supported via this route.' });
+    }
 
     const restaurant = new Restaurant({
-      name, address, phone, email, logoUrl, description,
+      name,
+      address,
+      phone,
+      email,
+      logoUrl,
+      description,
       owner: req.user._id,
     });
     await restaurant.save();
 
-    res.status(201).json({ success: true, message: 'Restaurant created successfully.', data: restaurant });
+    const updatedUserDoc = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+          $set: {
+            restaurantId: restaurant._id,
+            'permissions.restaurant.read': true,
+            'permissions.restaurant.write': true,
+            'permissions.restaurant.delete': true
+          }
+        },
+        { new: true, runValidators: true }
+    );
+    
+    const userToReturn = {
+      ...req.user,
+      restaurantId: restaurant._id.toString(),
+      permissions: updatedUserDoc.permissions
+    };
+
+    res.status(201).json({ success: true, message: 'Restaurant created successfully.', data: restaurant, user: userToReturn });
   } catch (error) {
-    console.error('Error creating restaurant:', error);
+    console.error("Controller: Error creating restaurant:", error);
+
+    if (error.name === 'ValidationError') {
+      const errors = Object.keys(error.errors).map(key => error.errors[key].message);
+      return res.status(400).json({ success: false, message: `Validation failed: ${errors.join(', ')}` });
+    }
+    
     res.status(500).json({ success: false, message: 'Server error creating restaurant.', error: error.message });
   }
 };
@@ -58,23 +195,20 @@ exports.getRestaurants = async (req, res) => {
     const restaurants = await Restaurant.find(query);
     res.status(200).json({ success: true, data: restaurants });
   } catch (error) {
-    console.error('Error fetching restaurants:', error);
+    console.error('Controller: Error fetching restaurants:', error);
     res.status(500).json({ success: false, message: 'Server error fetching restaurants.', error: error.message });
   }
 };
 
 exports.getRestaurantById = async (req, res) => {
   try {
-    const restaurant = await Restaurant.findById(req.params.id);
+    const restaurant = await Restaurant.findById(req.restaurantId); 
     if (!restaurant) {
       return res.status(404).json({ success: false, message: 'Restaurant not found.' });
     }
-    if (req.user.role !== 'admin' && restaurant.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Access denied to this restaurant.' });
-    }
     res.status(200).json({ success: true, data: restaurant });
   } catch (error) {
-    console.error('Error fetching restaurant by ID:', error);
+    console.error('Controller: Error fetching restaurant by ID:', error);
     res.status(500).json({ success: false, message: 'Server error fetching restaurant.', error: error.message });
   }
 };
@@ -88,9 +222,6 @@ exports.updateRestaurant = async (req, res) => {
     if (!restaurant) {
       return res.status(404).json({ success: false, message: 'Restaurant not found.' });
     }
-    if (req.user.role !== 'admin' && restaurant.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Access denied to update this restaurant.' });
-    }
 
     delete updateData.qrCodeSecret;
     delete updateData.owner;
@@ -100,7 +231,7 @@ exports.updateRestaurant = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Restaurant updated successfully.', data: restaurant });
   } catch (error) {
-    console.error('Error updating restaurant:', error);
+    console.error('Controller: Error updating restaurant:', error);
     res.status(500).json({ success: false, message: 'Server error updating restaurant.', error: error.message });
   }
 };
@@ -112,14 +243,24 @@ exports.deleteRestaurant = async (req, res) => {
     if (!restaurant) {
       return res.status(404).json({ success: false, message: 'Restaurant not found.' });
     }
-    if (req.user.role !== 'admin' && restaurant.owner.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ success: false, message: 'Access denied to delete this restaurant.' });
-    }
 
     await restaurant.deleteOne();
+    
+    await User.findByIdAndUpdate(
+      restaurant.owner,
+      {
+        $set: {
+          restaurantId: null,
+          'permissions.restaurant.read': false,
+          'permissions.restaurant.write': false,
+          'permissions.restaurant.delete': false
+        }
+      }
+    );
+
     res.status(200).json({ success: true, message: 'Restaurant deleted successfully.' });
   } catch (error) {
-    console.error('Error deleting restaurant:', error);
+    console.error('Controller: Error deleting restaurant:', error);
     res.status(500).json({ success: false, message: 'Server error deleting restaurant.', error: error.message });
   }
 };
@@ -144,7 +285,7 @@ exports.createMenuItem = async (req, res) => {
     await menuItem.save();
     res.status(201).json({ success: true, message: 'Menu item created successfully.', data: menuItem });
   } catch (error) {
-    console.error('Error creating menu item:', error);
+    console.error('Controller: Error creating menu item:', error);
     res.status(500).json({ success: false, message: 'Server error creating menu item.', error: error.message });
   }
 };
@@ -158,7 +299,7 @@ exports.getMenuItems = async (req, res) => {
     const menuItems = await MenuItem.find(query).sort({ category: 1, name: 1 });
     res.status(200).json({ success: true, data: menuItems });
   } catch (error) {
-    console.error('Error fetching menu items:', error);
+    console.error('Controller: Error fetching menu items:', error);
     res.status(500).json({ success: false, message: 'Server error fetching menu items.', error: error.message });
   }
 };
@@ -172,7 +313,7 @@ exports.getMenuItemById = async (req, res) => {
     }
     res.status(200).json({ success: true, data: menuItem });
   } catch (error) {
-    console.error('Error fetching menu item by ID:', error);
+    console.error('Controller: Error fetching menu item by ID:', error);
     res.status(500).json({ success: false, message: 'Server error fetching menu item.', error: error.message });
   }
 };
@@ -191,7 +332,7 @@ exports.updateMenuItem = async (req, res) => {
     }
     res.status(200).json({ success: true, message: 'Menu item updated successfully.', data: menuItem });
   } catch (error) {
-    console.error('Error updating menu item:', error);
+    console.error('Controller: Error updating menu item:', error);
     res.status(500).json({ success: false, message: 'Server error updating menu item.', error: error.message });
   }
 };
@@ -205,7 +346,7 @@ exports.deleteMenuItem = async (req, res) => {
     }
     res.status(200).json({ success: true, message: 'Menu item deleted successfully.' });
   } catch (error) {
-    console.error('Error deleting menu item:', error);
+    console.error('Controller: Error deleting menu item:', error);
     res.status(500).json({ success: false, message: 'Server error deleting menu item.', error: error.message });
   }
 };
@@ -228,7 +369,7 @@ exports.createTable = async (req, res) => {
     await table.save();
     res.status(201).json({ success: true, message: 'Table created successfully.', data: table });
   } catch (error) {
-    console.error('Error creating table:', error);
+    console.error('Controller: Error creating table:', error);
     res.status(500).json({ success: false, message: 'Server error creating table.', error: error.message });
   }
 };
@@ -241,7 +382,7 @@ exports.getTables = async (req, res) => {
     const tables = await Table.find(query).sort({ tableNumber: 1 });
     res.status(200).json({ success: true, data: tables });
   } catch (error) {
-    console.error('Error fetching tables:', error);
+    console.error('Controller: Error fetching tables:', error);
     res.status(500).json({ success: false, message: 'Server error fetching tables.', error: error.message });
   }
 };
@@ -255,7 +396,7 @@ exports.getTableById = async (req, res) => {
     }
     res.status(200).json({ success: true, data: table });
   } catch (error) {
-    console.error('Error fetching table by ID:', error);
+    console.error('Controller: Error fetching table by ID:', error);
     res.status(500).json({ success: false, message: 'Server error fetching table.', error: error.message });
   }
 };
@@ -275,7 +416,7 @@ exports.updateTable = async (req, res) => {
     }
     res.status(200).json({ success: true, message: 'Table updated successfully.', data: table });
   } catch (error) {
-    console.error('Error updating table:', error);
+    console.error('Controller: Error updating table:', error);
     res.status(500).json({ success: false, message: 'Server error updating table.', error: error.message });
   }
 };
@@ -289,7 +430,7 @@ exports.deleteTable = async (req, res) => {
     }
     res.status(200).json({ success: true, message: 'Table deleted successfully.' });
   } catch (error) {
-    console.error('Error deleting table:', error);
+    console.error('Controller: Error deleting table:', error);
     res.status(500).json({ success: false, message: 'Server error deleting table.', error: error.message });
   }
 };
@@ -335,7 +476,7 @@ exports.createOrder = async (req, res) => {
     } else if (customerEmail || customerPhone) {
       customer = await RestaurantCustomer.findOneAndUpdate(
         { restaurantId, $or: [{ email: customerEmail }, { phone: customerPhone }] },
-        { $set: { firstName: customerName?.split(' ')[0], lastName: customerName?.split(' ')[1] || '', lastOrderAt: new Date() } },
+        { $set: { firstName: customerName?.split(' ')[0] || '', lastName: customerName?.split(' ')[1] || '', lastOrderAt: new Date() } },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
     }
@@ -361,7 +502,7 @@ exports.createOrder = async (req, res) => {
 
     res.status(201).json({ success: true, message: 'Order created successfully.', data: order });
   } catch (error) {
-    console.error('Error creating order:', error);
+    console.error('Controller: Error creating order:', error);
     res.status(500).json({ success: false, message: 'Server error creating order.', error: error.message });
   }
 };
@@ -382,7 +523,7 @@ exports.getOrders = async (req, res) => {
       .sort({ createdAt: -1 });
     res.status(200).json({ success: true, data: orders });
   } catch (error) {
-    console.error('Error fetching orders:', error);
+    console.error('Controller: Error fetching orders:', error);
     res.status(500).json({ success: false, message: 'Server error fetching orders.', error: error.message });
   }
 };
@@ -399,7 +540,7 @@ exports.getOrderById = async (req, res) => {
     }
     res.status(200).json({ success: true, data: order });
   } catch (error) {
-    console.error('Error fetching order by ID:', error);
+    console.error('Controller: Error fetching order by ID:', error);
     res.status(500).json({ success: false, message: 'Server error fetching order.', error: error.message });
   }
 };
@@ -438,7 +579,7 @@ exports.updateOrder = async (req, res) => {
     await order.save();
     res.status(200).json({ success: true, message: 'Order updated successfully.', data: order });
   } catch (error) {
-    console.error('Error updating order:', error);
+    console.error('Controller: Error updating order:', error);
     res.status(500).json({ success: false, message: 'Server error updating order.', error: error.message });
   }
 };
@@ -485,7 +626,7 @@ exports.processPayment = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Payment processed successfully.', data: order });
   } catch (error) {
-    console.error('Error processing payment:', error);
+    console.error('Controller: Error processing payment:', error);
     res.status(500).json({ success: false, message: 'Server error processing payment.', error: error.message });
   }
 };
@@ -502,7 +643,7 @@ exports.getKdsOrders = async (req, res) => {
     .select('table orderType items createdAt customerName customerPhone notes');
     res.status(200).json({ success: true, data: orders });
   } catch (error) {
-    console.error('Error fetching KDS orders:', error);
+    console.error('Controller: Error fetching KDS orders:', error);
     res.status(500).json({ success: false, message: 'Server error fetching KDS orders.', error: error.message });
   }
 };
@@ -549,7 +690,7 @@ exports.updateKdsOrderItemStatus = async (req, res) => {
     await order.save();
     res.status(200).json({ success: true, message: `Order item ${itemId} status updated to ${status}.`, data: order });
   } catch (error) {
-    console.error('Error updating KDS item status:', error);
+    console.error('Controller: Error updating KDS item status:', error);
     res.status(500).json({ success: false, message: 'Server error updating KDS item status.', error: error.message });
   }
 };
@@ -568,7 +709,7 @@ exports.logWaste = async (req, res) => {
     await wasteLog.save();
     res.status(201).json({ success: true, message: 'Waste logged successfully.', data: wasteLog });
   } catch (error) {
-    console.error('Error logging waste:', error);
+    console.error('Controller: Error logging waste:', error);
     res.status(500).json({ success: false, message: 'Server error logging waste.', error: error.message });
   }
 };
@@ -597,7 +738,7 @@ exports.getWasteReports = async (req, res) => {
 
     res.status(200).json({ success: true, data: wasteLogs, aggregated: aggregatedWaste });
   } catch (error) {
-    console.error('Error fetching waste reports:', error);
+    console.error('Controller: Error fetching waste reports:', error);
     res.status(500).json({ success: false, message: 'Server error fetching waste reports.', error: error.message });
   }
 };
@@ -616,7 +757,7 @@ exports.logResourceConsumption = async (req, res) => {
     await resourceLog.save();
     res.status(201).json({ success: true, message: 'Resource consumption logged successfully.', data: resourceLog });
   } catch (error) {
-    console.error('Error logging resource consumption:', error);
+    console.error('Controller: Error logging resource consumption:', error);
     res.status(500).json({ success: false, message: 'Server error logging resource consumption.', error: error.message });
   }
 };
@@ -645,7 +786,7 @@ exports.getResourceReports = async (req, res) => {
 
     res.status(200).json({ success: true, data: resourceLogs, aggregated: aggregatedResources });
   } catch (error) {
-    console.error('Error fetching resource reports:', error);
+    console.error('Controller: Error fetching resource reports:', error);
     res.status(500).json({ success: false, message: 'Server error fetching resource reports.', error: error.message });
   }
 };
@@ -732,10 +873,11 @@ exports.getRestaurantSummary = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching restaurant summary:', error);
+    console.error('Controller: Error fetching restaurant summary:', error);
     res.status(500).json({ success: false, message: 'Server error fetching restaurant summary.', error: error.message });
   }
 };
+
 
 exports.validateQrContext = async (req, res, next) => {
   const { restaurantId, tableId } = req.params;
@@ -764,7 +906,7 @@ exports.getPublicMenuItemsForQr = async (req, res) => {
     const menuItems = await MenuItem.find({ restaurantId: req.qrRestaurant._id, isActive: true }).sort({ category: 1, name: 1 });
     res.status(200).json({ success: true, data: menuItems, restaurantName: req.qrRestaurant.name, tableNumber: req.qrTable.tableNumber });
   } catch (error) {
-    console.error('Error fetching public menu items:', error);
+    console.error('Controller: Error fetching public menu items:', error);
     res.status(500).json({ success: false, message: 'Server error fetching public menu items.', error: error.message });
   }
 };
@@ -829,7 +971,7 @@ exports.createQrOrder = async (req, res) => {
 
     res.status(201).json({ success: true, message: 'QR Code order placed successfully!', data: order });
   } catch (error) {
-    console.error('Error creating QR order:', error);
+    console.error('Controller: Error creating QR order:', error);
     res.status(500).json({ success: false, message: 'Server error creating QR order.', error: error.message });
   }
 };
@@ -870,7 +1012,7 @@ exports.generateQrCodeLink = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error generating QR code link:', error);
+    console.error('Controller: Error generating QR code link:', error);
     res.status(500).json({ success: false, message: 'Server error generating QR code link.', error: error.message });
   }
 };
@@ -895,7 +1037,7 @@ exports.createRestaurantCustomer = async (req, res) => {
     await customer.save();
     res.status(201).json({ success: true, message: 'Restaurant customer added successfully.', data: customer });
   } catch (error) {
-    console.error('Error adding restaurant customer:', error);
+    console.error('Controller: Error adding restaurant customer:', error);
     res.status(500).json({ success: false, message: 'Server error adding restaurant customer.', error: error.message });
   }
 };
@@ -908,9 +1050,9 @@ exports.getRestaurantCustomers = async (req, res) => {
     if (search) {
       query.$or = [
         { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, 'i': true } },
+        { email: { $regex: search, 'i': true } },
+        { phone: { $regex: search, 'i': true } },
       ];
     }
     const customers = await RestaurantCustomer.find(query)
@@ -920,7 +1062,7 @@ exports.getRestaurantCustomers = async (req, res) => {
     const total = await RestaurantCustomer.countDocuments(query);
     res.status(200).json({ success: true, data: customers, total });
   } catch (error) {
-    console.error('Error fetching restaurant customers:', error);
+    console.error('Controller: Error fetching restaurant customers:', error);
     res.status(500).json({ success: false, message: 'Server error fetching restaurant customers.', error: error.message });
   }
 };
@@ -934,7 +1076,7 @@ exports.getRestaurantCustomerById = async (req, res) => {
     }
     res.status(200).json({ success: true, data: customer });
   } catch (error) {
-    console.error('Error fetching restaurant customer by ID:', error);
+    console.error('Controller: Error fetching restaurant customer by ID:', error);
     res.status(500).json({ success: false, message: 'Server error fetching restaurant customer.', error: error.message });
   }
 };
@@ -952,7 +1094,7 @@ exports.updateRestaurantCustomer = async (req, res) => {
     }
     res.status(200).json({ success: true, message: 'Restaurant customer updated successfully.', data: customer });
   } catch (error) {
-    console.error('Error updating restaurant customer:', error);
+    console.error('Controller: Error updating restaurant customer:', error);
     res.status(500).json({ success: false, message: 'Server error updating restaurant customer.', error: error.message });
   }
 };
@@ -966,7 +1108,7 @@ exports.deleteRestaurantCustomer = async (req, res) => {
     }
     res.status(200).json({ success: true, message: 'Restaurant customer deleted successfully.' });
   } catch (error) {
-    console.error('Error deleting restaurant customer:', error);
+    console.error('Controller: Error deleting restaurant customer:', error);
     res.status(500).json({ success: false, message: 'Server error deleting restaurant customer.', error: error.message });
   }
 };

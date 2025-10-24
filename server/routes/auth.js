@@ -1,4 +1,4 @@
-// routes/authRoutes.js (UPDATED - more detailed error logging)
+// server/routes/auth.js
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
@@ -34,7 +34,6 @@ router.post("/register", authActionLimiter, async (req, res) => {
   try {
     const { firstName, lastName, email, password, company, phone, modules, role = "user" } = req.body;
 
-    // Frontend validation should ideally cover this, but a backend check is good.
     if (!firstName || !lastName || !email || !password || !company) {
       return res.status(400).json({ success: false, message: "All required fields (first name, last name, email, password, company) are missing." });
     }
@@ -48,31 +47,32 @@ router.post("/register", authActionLimiter, async (req, res) => {
       firstName,
       lastName,
       email,
-      password, // Password hashing should happen in a pre-save hook in your User model
+      password,
       company,
-      phone: phone || null, // Ensure optional fields handle undefined gracefully
-      modules: modules || [], // Ensure modules is an array, even if empty
+      phone: phone || null,
+      modules: modules || [],
       role,
     });
 
-    await user.save(); // This is where Mongoose validation errors would typically occur
+    await user.save();
 
     const token = generateToken(user._id);
+
+    const userWithoutPassword = user.toObject();
+    delete userWithoutPassword.password;
 
     res.status(201).json({
       success: true,
       message: "User registered successfully.",
       token,
+      user: userWithoutPassword,
     });
   } catch (error) {
     console.error("Registration error:", error);
-
-    // Provide more specific error messages for known Mongoose errors
     if (error.name === 'ValidationError') {
       const errors = Object.keys(error.errors).map(key => error.errors[key].message);
       return res.status(400).json({ success: false, message: `Validation failed: ${errors.join(', ')}` });
     }
-    
     res.status(500).json({ success: false, message: "Server error during registration." });
   }
 });
@@ -93,10 +93,15 @@ router.post("/login", authActionLimiter, async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
     const token = generateToken(user._id);
+
+    const userWithoutPassword = user.toObject();
+    delete userWithoutPassword.password;
+
     res.json({
       success: true,
       message: "Login successful",
       token,
+      user: userWithoutPassword,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -110,7 +115,9 @@ router.post("/verify-email/:token", async (req, res) => { /* ... */ });
 
 router.get("/me", verifyToken, async (req, res) => {
   try {
-    const user = req.user;
+    const user = req.user; 
+    console.log("Backend /me: Raw user object from verifyToken:", user); // Debug: Check what verifyToken passes
+
     res.json({
       success: true,
       user: {
@@ -119,16 +126,19 @@ router.get("/me", verifyToken, async (req, res) => {
         lastName: user.lastName,
         email: user.email,
         company: user.company,
-        phone: user.phone,
+        phone: user.profile?.phone, 
         role: user.role,
         modules: user.modules,
         permissions: user.permissions,
         isActive: user.isActive,
         isEmailVerified: user.isEmailVerified,
+        // CRITICAL: Ensure restaurantId is converted to string for frontend consumption
+        restaurantId: user.restaurantId ? user.restaurantId.toString() : null, 
       },
     });
+    console.log("Backend /me: Response sent with user data, including restaurantId.");
   } catch (error) {
-    console.error("Get '/me' error:", error);
+    console.error("Backend /me: Error fetching user profile:", error);
     res.status(500).json({ success: false, message: "Server error while fetching user profile." });
   }
 });
