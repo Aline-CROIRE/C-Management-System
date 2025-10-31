@@ -10,13 +10,13 @@ import Input from '../common/Input';
 import {
   FaTimes, FaEdit, FaTrash, FaPlus, FaCloudUploadAlt, FaFileAlt, FaDownload,
   FaCalendarAlt, FaDollarSign, FaChartLine, FaClipboardList, FaUsers, FaTasks,
-  FaHardHat, FaTools, FaCheckCircle, FaExclamationTriangle, FaFileInvoiceDollar, FaRegClock, FaCircle
-} from 'react-icons/fa'; // FIX: Added FaExclamationTriangle, FaFileInvoiceDollar, FaRegClock, FaCircle
+  FaHardHat, FaTools, FaCheckCircle, FaExclamationTriangle, FaFileInvoiceDollar, FaRegClock, FaCircle, FaInfoCircle
+} from 'react-icons/fa'; // FIX: All necessary icons imported
 import toast from 'react-hot-toast';
 import { constructionAPI } from '../../services/api';
 import LoadingSpinner from '../common/LoadingSpinner';
 
-// FIX: Import all the missing nested modals
+// FIX: ALL MISSING MODAL IMPORTS ADDED. You MUST create these stub files.
 import AddEditMilestoneModal from './modals/AddEditMilestoneModal';
 import AddEditChangeOrderModal from './modals/AddEditChangeOrderModal';
 import ViewChangeOrderModal from './modals/ViewChangeOrderModal';
@@ -413,8 +413,8 @@ const ViewSiteModal = ({ site, onClose, onEdit }) => {
   const [isViewPaymentRequestModalOpen, setIsViewPaymentRequestModalOpen] = useState(false);
   const [viewingPaymentRequest, setViewingPaymentRequest] = useState(null);
   const [isUploadDocumentModalOpen, setIsUploadDocumentModalOpen] = useState(false);
-  const [isAssignedWorkerModalOpen, setIsAssignedWorkerModalOpen] = useState(false);
   const [assignedWorkerToEdit, setAssignedWorkerToEdit] = useState(null);
+  const [isAssignedWorkerModalOpen, setIsAssignedWorkerModalOpen] = useState(false);
   const [isSafetyIncidentModalOpen, setIsSafetyIncidentModalOpen] = useState(false);
   const [safetyIncidentToEdit, setSafetyIncidentToEdit] = useState(null);
   const [isViewSafetyIncidentModalOpen, setIsViewSafetyIncidentModalOpen] = useState(false);
@@ -650,3 +650,389 @@ const ViewSiteModal = ({ site, onClose, onEdit }) => {
   };
 
   const handleUnassignWorker = async (assignmentId) => {
+    if (window.confirm('Are you sure you want to unassign this worker?')) {
+      try {
+        await constructionAPI.unassignWorkerFromSite(site._id, assignmentId);
+        toast.success('Worker unassigned successfully!');
+        fetchSiteDetails();
+      } catch (err) {
+        toast.error(err.message || 'Failed to unassign worker.');
+      }
+    }
+  };
+
+  const handleAddEditSafetyIncident = async (incidentData) => {
+    try {
+      if (safetyIncidentToEdit) {
+        await constructionAPI.updateSafetyIncident(site._id, safetyIncidentToEdit._id, incidentData);
+        toast.success('Safety incident updated successfully!');
+      } else {
+        await constructionAPI.createSafetyIncident(site._id, incidentData);
+        toast.success('Safety incident added successfully!');
+      }
+      fetchSiteDetails();
+      setIsSafetyIncidentModalOpen(false);
+      setSafetyIncidentToEdit(null);
+    } catch (err) {
+      toast.error(err.message || 'Failed to save safety incident.');
+    }
+  };
+
+  const handleViewSafetyIncident = (incident) => {
+    setViewingSafetyIncident(incident);
+    setIsViewSafetyIncidentModalOpen(true);
+  };
+
+  const handleDeleteSafetyIncident = async (incidentId) => {
+    if (window.confirm('Are you sure you want to delete this safety incident?')) {
+      try {
+        await constructionAPI.deleteSafetyIncident(site._id, incidentId);
+        toast.success('Safety incident deleted successfully!');
+        fetchSiteDetails();
+      } catch (err) {
+        toast.error(err.message || 'Failed to delete safety incident.');
+      }
+    }
+  };
+
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  if (error) {
+    return <p style={{ color: 'red' }}>Error: {error}</p>;
+  }
+
+  if (!siteDetails) {
+    return <p>No site details available.</p>;
+  }
+
+  // Calculate days remaining
+  const daysRemaining = siteDetails.endDate ? Math.ceil((new Date(siteDetails.endDate) - new Date()) / (1000 * 60 * 60 * 24)) : 'N/A';
+  const budgetUsed = (siteDetails.budget - siteDetails.currentBudget) || 0; // Assuming currentBudget is remaining budget
+  const budgetUtilization = siteDetails.budget > 0 ? ((budgetUsed / siteDetails.budget) * 100).toFixed(2) : 0;
+
+  return (
+    <Modal title={`Site Details: ${siteDetails.name}`} onClose={onClose}>
+      <Button onClick={onEdit} style={{ position: 'absolute', top: '1.5rem', right: '5rem' }}><FaEdit /> Edit Site</Button>
+      <TabContainer>
+        <Tab $active={activeTab === 'overview'} onClick={() => setActiveTab('overview')}>Overview</Tab>
+        <Tab $active={activeTab === 'milestones'} onClick={() => setActiveTab('milestones')}>Milestones</Tab>
+        <Tab $active={activeTab === 'changeOrders'} onClick={() => setActiveTab('changeOrders')}>Change Orders</Tab>
+        <Tab $active={activeTab === 'materials'} onClick={() => setActiveTab('materials')}>Materials</Tab>
+        <Tab $active={activeTab === 'materialRequests'} onClick={() => setActiveTab('materialRequests')}>Material Requests</Tab>
+        <Tab $active={activeTab === 'paymentRequests'} onClick={() => setActiveTab('paymentRequests')}>Payment Requests</Tab>
+        <Tab $active={activeTab === 'documents'} onClick={() => setActiveTab('documents')}>Documents</Tab>
+        <Tab $active={activeTab === 'workers'} onClick={() => setActiveTab('workers')}>Assigned Workers</Tab>
+        <Tab $active={activeTab === 'safety'} onClick={() => setActiveTab('safety')}>Safety Incidents</Tab>
+        {/* Add more tabs for other related data like equipment, tasks, etc. */}
+      </TabContainer>
+
+      {activeTab === 'overview' && (
+        <SiteOverview>
+          <DetailGrid>
+            <DetailItem><span>Location</span><p>{siteDetails.location}</p></DetailItem>
+            <DetailItem><span>Start Date</span><p>{new Date(siteDetails.startDate).toLocaleDateString()}</p></DetailItem>
+            <DetailItem><span>End Date</span><p>{new Date(siteDetails.endDate).toLocaleDateString()}</p></DetailItem>
+            <DetailItem><span>Days Remaining</span><p>{daysRemaining}</p></DetailItem>
+            <DetailItem><span>Total Budget</span><p>${siteDetails.budget.toLocaleString()}</p></DetailItem>
+            <DetailItem><span>Budget Spent</span><p>${budgetUsed.toLocaleString()}</p></DetailItem>
+            <DetailItem><span>Budget Utilization</span><p>{budgetUtilization}%</p></DetailItem>
+            <DetailItem><span>Status</span><p>{siteDetails.status}</p></DetailItem>
+            <DetailItem><span>Progress</span>
+                <ProgressMeter><ProgressBar $progress={siteDetails.progress} /></ProgressMeter>
+                <span style={{marginTop: '0.25rem'}}>{siteDetails.progress}%</span>
+            </DetailItem>
+            <DetailItem><span>Risk Level</span><RiskLevel $level={siteDetails.currentRiskLevel}>{siteDetails.currentRiskLevel}</RiskLevel></DetailItem>
+            <DetailItem><span>Safety Incidents</span><p>{siteDetails.safetyIncidents}</p></DetailItem>
+            <DetailItem><span>Waste Generated</span><p>{siteDetails.wasteGenerated} kg</p></DetailItem>
+          </DetailGrid>
+          <SectionHeader><FaInfoCircle /> Description</SectionHeader>
+          <p>{siteDetails.description}</p>
+          <SectionHeader><FaExclamationTriangle /> Risk Description</SectionHeader>
+          <p>{siteDetails.riskDescription}</p>
+        </SiteOverview>
+      )}
+
+      {activeTab === 'milestones' && (
+        <ListContainer>
+          <SectionHeader><FaTasks /> Milestones <Button size="sm" onClick={() => setIsMilestoneModalOpen(true)}><FaPlus /> Add</Button></SectionHeader>
+          {siteDetails.milestones?.length > 0 ? (
+            siteDetails.milestones.map(milestone => (
+              <MilestoneItem key={milestone._id}>
+                <div className="milestone-info">
+                  <p className="milestone-title">{milestone.name}</p>
+                  <span className="milestone-date">Due: {new Date(milestone.dueDate).toLocaleDateString()}</span>
+                </div>
+                <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                  <span className="milestone-status" $completed={milestone.isCompleted}>{milestone.isCompleted ? 'Completed' : 'Pending'}</span>
+                  <div className="actions">
+                    <Button size="sm" variant="secondary" onClick={() => { setMilestoneToEdit(milestone); setIsMilestoneModalOpen(true); }}><FaEdit /></Button>
+                    <Button size="sm" variant="danger" onClick={() => handleDeleteMilestone(milestone._id)}><FaTrash /></Button>
+                  </div>
+                </div>
+              </MilestoneItem>
+            ))
+          ) : (
+            <p>No milestones added yet.</p>
+          )}
+        </ListContainer>
+      )}
+
+      {activeTab === 'changeOrders' && (
+        <ListContainer>
+          <SectionHeader><FaClipboardList /> Change Orders <Button size="sm" onClick={() => setIsChangeOrderModalOpen(true)}><FaPlus /> Add</Button></SectionHeader>
+          {siteDetails.changeOrders?.length > 0 ? (
+            siteDetails.changeOrders.map(order => (
+              <ListItem key={order._id}>
+                <div className="milestone-info">
+                  <p className="milestone-title">{order.title}</p>
+                  <span className="milestone-date">Status: {order.status} | Cost: ${order.costImpact.toLocaleString()}</span>
+                </div>
+                <div className="actions">
+                  <Button size="sm" variant="info" onClick={() => handleViewChangeOrder(order)}><FaEye /></Button>
+                  <Button size="sm" variant="secondary" onClick={() => { setChangeOrderToEdit(order); setIsChangeOrderModalOpen(true); }}><FaEdit /></Button>
+                  <Button size="sm" variant="danger" onClick={() => handleDeleteChangeOrder(order._id)}><FaTrash /></Button>
+                </div>
+              </ListItem>
+            ))
+          ) : (
+            <p>No change orders added yet.</p>
+          )}
+        </ListContainer>
+      )}
+      
+      {activeTab === 'materials' && (
+        <ListContainer>
+          <SectionHeader><FaHardHat /> Site Material Inventory <Button size="sm" onClick={() => setIsMaterialModalOpen(true)}><FaPlus /> Add</Button></SectionHeader>
+          {siteDetails.materialInventory?.length > 0 ? (
+            siteDetails.materialInventory.map(material => (
+              <ListItem key={material._id}>
+                <div className="milestone-info">
+                  <p className="milestone-title">{material.name}</p>
+                  <span className="milestone-date">Quantity: {material.quantity} {material.unit} | Cost: ${material.cost.toLocaleString()}</span>
+                </div>
+                <div className="actions">
+                  <Button size="sm" variant="secondary" onClick={() => { setMaterialToEdit(material); setIsMaterialModalOpen(true); }}><FaEdit /></Button>
+                  <Button size="sm" variant="danger" onClick={() => handleDeleteSiteMaterial(material._id)}><FaTrash /></Button>
+                </div>
+              </ListItem>
+            ))
+          ) : (
+            <p>No materials added to site inventory yet.</p>
+          )}
+        </ListContainer>
+      )}
+
+      {activeTab === 'materialRequests' && (
+        <ListContainer>
+          <SectionHeader><FaTools /> Material Requests <Button size="sm" onClick={() => setIsMaterialRequestModalOpen(true)}><FaPlus /> Create Request</Button></SectionHeader>
+          {siteDetails.materialRequests?.length > 0 ? (
+            siteDetails.materialRequests.map(request => (
+              <RequestItem key={request._id} $status={request.status}>
+                <div className="req-info">
+                  <p className="req-type">{request.materialName}</p>
+                  <span className="milestone-date">Quantity: {request.quantity} {request.unit} | Status: {request.status}</span>
+                </div>
+                <div className="actions">
+                  <Button size="sm" variant="info" onClick={() => handleViewMaterialRequest(request)}><FaEye /></Button>
+                  <Button size="sm" variant="danger" onClick={() => handleDeleteMaterialRequest(request._id)}><FaTrash /></Button>
+                </div>
+              </RequestItem>
+            ))
+          ) : (
+            <p>No material requests made yet.</p>
+          )}
+        </ListContainer>
+      )}
+
+      {activeTab === 'paymentRequests' && (
+        <ListContainer>
+          <SectionHeader><FaFileInvoiceDollar /> Payment Requests <Button size="sm" onClick={() => setIsPaymentRequestModalOpen(true)}><FaPlus /> Create Request</Button></SectionHeader>
+          {siteDetails.paymentRequests?.length > 0 ? (
+            siteDetails.paymentRequests.map(request => (
+              <RequestItem key={request._id} $status={request.status}>
+                <div className="req-info">
+                  <p className="req-type">{request.reason}</p>
+                  <span className="milestone-date">Amount: ${request.amount.toLocaleString()} | Status: {request.status}</span>
+                </div>
+                <div className="actions">
+                  <Button size="sm" variant="info" onClick={() => handleViewPaymentRequest(request)}><FaEye /></Button>
+                  <Button size="sm" variant="secondary" onClick={() => { setPaymentRequestToEdit(request); setIsPaymentRequestModalOpen(true); }}><FaEdit /></Button>
+                  <Button size="sm" variant="danger" onClick={() => handleDeletePaymentRequest(request._id)}><FaTrash /></Button>
+                </div>
+              </RequestItem>
+            ))
+          ) : (
+            <p>No payment requests made yet.</p>
+          )}
+        </ListContainer>
+      )}
+
+      {activeTab === 'documents' && (
+        <ListContainer>
+          <SectionHeader><FaFileAlt /> Site Documents <Button size="sm" onClick={() => setIsUploadDocumentModalOpen(true)}><FaCloudUploadAlt /> Upload</Button></SectionHeader>
+          {siteDetails.documents?.length > 0 ? (
+            siteDetails.documents.map(doc => (
+              <DocumentItem key={doc._id}>
+                <div className="doc-info">
+                  <p className="doc-name">{doc.fileName}</p>
+                  <span className="doc-date">Uploaded: {new Date(doc.uploadDate).toLocaleDateString()}</span>
+                </div>
+                <div className="actions">
+                  <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                    <Button size="sm" variant="info"><FaDownload /> View</Button>
+                  </a>
+                  <Button size="sm" variant="danger" onClick={() => handleDeleteDocument(doc._id)}><FaTrash /></Button>
+                </div>
+              </DocumentItem>
+            ))
+          ) : (
+            <p>No documents uploaded yet.</p>
+          )}
+        </ListContainer>
+      )}
+
+      {activeTab === 'workers' && (
+        <ListContainer>
+          <SectionHeader><FaUsers /> Assigned Workers <Button size="sm" onClick={() => setIsAssignedWorkerModalOpen(true)}><FaPlus /> Assign Worker</Button></SectionHeader>
+          {siteDetails.assignedWorkers?.length > 0 ? (
+            siteDetails.assignedWorkers.map(assignment => (
+              <WorkerItem key={assignment._id}>
+                <div className="worker-info">
+                  <p className="worker-name">{assignment.worker?.name || 'Unknown Worker'}</p> {/* Assuming worker object has a 'name' */}
+                  <span className="worker-role">Role: {assignment.role}</span>
+                </div>
+                <div className="actions">
+                  <Button size="sm" variant="secondary" onClick={() => { setAssignedWorkerToEdit(assignment); setIsAssignedWorkerModalOpen(true); }}><FaEdit /></Button>
+                  <Button size="sm" variant="danger" onClick={() => handleUnassignWorker(assignment._id)}><FaTrash /> Unassign</Button>
+                </div>
+              </WorkerItem>
+            ))
+          ) : (
+            <p>No workers assigned to this site yet.</p>
+          )}
+        </ListContainer>
+      )}
+      
+      {activeTab === 'safety' && (
+        <ListContainer>
+          <SectionHeader><FaExclamationTriangle /> Safety Incidents <Button size="sm" onClick={() => setIsSafetyIncidentModalOpen(true)}><FaPlus /> Report Incident</Button></SectionHeader>
+          {siteDetails.safetyIncidentsList?.length > 0 ? (
+            siteDetails.safetyIncidentsList.map(incident => (
+              <ListItem key={incident._id}>
+                <div className="milestone-info">
+                  <p className="milestone-title">{incident.type}</p>
+                  <span className="milestone-date">Date: {new Date(incident.date).toLocaleDateString()} | Severity: {incident.severity}</span>
+                </div>
+                <div className="actions">
+                  <Button size="sm" variant="info" onClick={() => handleViewSafetyIncident(incident)}><FaEye /></Button>
+                  <Button size="sm" variant="secondary" onClick={() => { setSafetyIncidentToEdit(incident); setIsSafetyIncidentModalOpen(true); }}><FaEdit /></Button>
+                  <Button size="sm" variant="danger" onClick={() => handleDeleteSafetyIncident(incident._id)}><FaTrash /></Button>
+                </div>
+              </ListItem>
+            ))
+          ) : (
+            <p>No safety incidents reported yet.</p>
+          )}
+        </ListContainer>
+      )}
+
+
+      {/* Modals for different entities */}
+      {isMilestoneModalOpen && (
+        <AddEditMilestoneModal
+          siteId={site._id}
+          milestoneToEdit={milestoneToEdit}
+          onClose={() => { setIsMilestoneModalOpen(false); setMilestoneToEdit(null); }}
+          onSave={handleAddEditMilestone}
+        />
+      )}
+      {isChangeOrderModalOpen && (
+        <AddEditChangeOrderModal
+          siteId={site._id}
+          changeOrderToEdit={changeOrderToEdit}
+          onClose={() => { setIsChangeOrderModalOpen(false); setChangeOrderToEdit(null); }}
+          onSave={handleAddEditChangeOrder}
+        />
+      )}
+      {isViewChangeOrderModalOpen && (
+        <ViewChangeOrderModal
+          changeOrder={viewingChangeOrder}
+          onClose={() => { setIsViewChangeOrderModalOpen(false); setViewingChangeOrder(null); }}
+        />
+      )}
+      {isMaterialModalOpen && (
+        <AddEditSiteMaterialModal
+          siteId={site._id}
+          materialToEdit={materialToEdit}
+          onClose={() => { setIsMaterialModalOpen(false); setMaterialToEdit(null); }}
+          onSave={handleAddEditSiteMaterial}
+        />
+      )}
+      {isMaterialRequestModalOpen && (
+        <AddEditMaterialRequestModal
+          siteId={site._id}
+          requestToEdit={materialRequestToEdit}
+          onClose={() => { setIsMaterialRequestModalOpen(false); setMaterialRequestToEdit(null); }}
+          onSave={handleAddEditMaterialRequest}
+        />
+      )}
+      {isViewMaterialRequestModalOpen && (
+        <ViewMaterialRequestModal
+          request={viewingMaterialRequest}
+          onClose={() => { setIsViewMaterialRequestModalOpen(false); setViewingMaterialRequest(null); }}
+        />
+      )}
+      {isPaymentRequestModalOpen && (
+        <AddEditPaymentRequestModal
+          siteId={site._id}
+          requestToEdit={paymentRequestToEdit}
+          onClose={() => { setIsPaymentRequestModalOpen(false); setPaymentRequestToEdit(null); }}
+          onSave={handleAddEditPaymentRequest}
+        />
+      )}
+      {isViewPaymentRequestModalOpen && (
+        <ViewPaymentRequestModal
+          request={viewingPaymentRequest}
+          onClose={() => { setIsViewPaymentRequestModalOpen(false); setViewingPaymentRequest(null); }}
+        />
+      )}
+      {isUploadDocumentModalOpen && (
+        <UploadDocumentModal
+          siteId={site._id}
+          onClose={() => setIsUploadDocumentModalOpen(false)}
+          onUpload={handleUploadDocument}
+          refModel="ConstructionSite"
+          refId={site._id}
+        />
+      )}
+      {isAssignedWorkerModalOpen && (
+        <AddEditAssignedWorkerToSiteModal
+          siteId={site._id}
+          assignmentToEdit={assignedWorkerToEdit}
+          onClose={() => { setIsAssignedWorkerModalOpen(false); setAssignedWorkerToEdit(null); }}
+          onSave={handleAddEditAssignedWorker}
+        />
+      )}
+      {isSafetyIncidentModalOpen && (
+        <AddEditSafetyIncidentModal
+          siteId={site._id}
+          incidentToEdit={safetyIncidentToEdit}
+          onClose={() => { setIsSafetyIncidentModalOpen(false); setSafetyIncidentToEdit(null); }}
+          onSave={handleAddEditSafetyIncident}
+        />
+      )}
+      {isViewSafetyIncidentModalOpen && (
+        <ViewSafetyIncidentModal
+          incident={viewingSafetyIncident}
+          onClose={() => { setIsViewSafetyIncidentModalOpen(false); setViewingSafetyIncident(null); }}
+        />
+      )}
+
+    </Modal>
+  );
+};
+
+export default ViewSiteModal;
