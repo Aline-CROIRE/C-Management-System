@@ -33,7 +33,7 @@ const customerExistingRoutes = require('./routes/customers');
 const constructionRoutes = require('./routes/construction');
 const workerRoutes = require('./routes/workers');
 const expenseRoutes = require('./routes/expenses');
-const InternalUseRoutes = require('./routes/InternalUseRoutes');
+const InternalUseRoutes = require('./routes/internalUseRoutes');
 const stockAdjustmentRoutes = require('./routes/stockAdjustmentRoutes');
 const snapshotRoutes = require('./routes/snapshots');
 
