@@ -1,411 +1,367 @@
 // client/src/components/construction/worker-management/ViewWorkerModal.js
 "use client";
 
-import React, { useEffect, useState } from "react";
-import ReactDOM from 'react-dom';
+import React, { useState, useEffect, useCallback } from "react";
 import styled from "styled-components";
-import { FaTimes, FaUserCog, FaBriefcase, FaPhone, FaEnvelope, FaTools, FaInfoCircle, FaCheckCircle, FaTimesCircle,
-         FaMoneyBillWave, FaCalendarAlt, FaBuilding, FaAddressBook, FaCertificate, FaClock, FaFileAlt, FaExclamationTriangle, FaFileUpload, FaDownload, FaTrashAlt } from "react-icons/fa";
+import Modal from "../../common/Modal";
 import Button from "../../common/Button";
-import LoadingSpinner from "../../common/LoadingSpinner";
-import { useConstructionManagement } from "../../../hooks/useConstructionManagement";
-import moment from "moment";
+import Card from "../../common/Card";
+import {
+  FaTimes, FaEdit, FaTrash, FaPlus, FaCalendarAlt, FaAward, FaTools, FaRegClock, FaExclamationTriangle
+} from "react-icons/fa"; // FIX: Added FaExclamationTriangle
+import toast from "react-hot-toast";
+import { constructionAPI } from "../../../services/api"; // Corrected relative path
+import LoadingSpinner from "../../common/LoadingSpinner"; // Corrected relative path
 
-import UploadDocumentModal from '../document-management/UploadDocumentModal';
+// Missing Modals for worker certifications, timesheets, and maintenance logs
+// FIX: Add these imports if you have these modal components
+// import AddEditCertificationModal from './modals/AddEditCertificationModal';
+// import AddEditTimesheetModal from './modals/AddEditTimesheetModal';
+// import AddEditMaintenanceLogModal from './modals/AddEditMaintenanceLogModal';
 
-
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1050;
-  padding: 1rem;
-  backdrop-filter: blur(5px);
-`;
-
-const ModalContent = styled.div`
-  background: ${(props) => props.theme.colors.surface};
-  color: ${(props) => props.theme.colors.text};
-  border-radius: ${(props) => props.theme.borderRadius.xl};
-  width: 100%;
-  max-width: 700px;
-  max-height: 90vh;
-  box-shadow: ${(props) => props.theme.shadows.xl};
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  animation: fadeIn 0.3s ease-out;
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
-  }
-
-  @media (max-width: 768px) {
-    max-width: 95%;
-  }
-`;
-
-const ModalHeader = styled.div`
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid ${(props) => props.theme.colors.border};
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-shrink: 0;
-
-  @media (max-width: 480px) {
-    padding: 1rem 1.25rem;
-  }
-`;
-
-const ModalTitle = styled.h2`
-  font-size: clamp(1.25rem, 4vw, 1.5rem);
-  font-weight: 700;
-  color: ${(props) => props.theme.colors.heading};
-  margin: 0;
-`;
-
-const CloseButton = styled.button`
-  background: none;
-  border: none;
-  font-size: clamp(1.2rem, 3vw, 1.5rem);
-  color: ${(props) => props.theme.colors.textSecondary};
-  cursor: pointer;
-  padding: 0.5rem;
-  line-height: 1;
-  border-radius: ${(props) => props.theme.borderRadius.md};
-  transition: all 0.2s ease-in-out;
-  &:hover {
-    background: ${(props) => props.theme.colors.surfaceLight};
-    color: ${(props) => props.theme.colors.text};
-  }
-`;
-
-const ModalBody = styled.div`
-  padding: 2rem;
-  overflow-y: auto;
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-
-  @media (max-width: 480px) {
-    padding: 1.25rem;
-  }
-`;
 
 const DetailGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem 1.5rem;
-
-  @media (max-width: 480px) {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: ${(props) => props.theme.spacing?.md || "1rem"};
+  margin-bottom: ${(props) => props.theme.spacing?.xl || "2rem"};
 `;
 
 const DetailItem = styled.div`
-  display: flex;
-  flex-direction: column;
-`;
-
-const DetailLabel = styled.span`
-  font-size: clamp(0.75rem, 2vw, 0.8rem);
-  font-weight: 600;
-  color: ${(props) => props.theme.colors.textSecondary};
-  text-transform: uppercase;
-  margin-bottom: 0.25rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-`;
-
-const DetailValue = styled.span`
-  font-size: clamp(0.9rem, 2.5vw, 1rem);
-  font-weight: 500;
-  word-break: break-word;
-  color: ${(props) => props.theme.colors.text};
-`;
-
-const StatusBadge = styled.span`
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  font-size: clamp(0.7rem, 2vw, 0.75rem);
-  font-weight: 600;
-  text-transform: capitalize;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-
-  ${({ isActive, theme }) => isActive ? 
-    `background: ${theme.colors?.success || "#4CAF50"}20; color: ${theme.colors?.success || "#4CAF50"};` :
-    `background: ${theme.colors?.error || "#F44336"}20; color: ${theme.colors?.error || "#F44336"};`
-  }
-`;
-
-const ListContainer = styled.ul`
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  & > li {
-    background: ${(props) => props.theme.colors.surfaceLight};
-    border-radius: ${(props) => props.theme.borderRadius.md};
-    padding: 0.75rem 1rem;
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-    color: ${(props) => props.theme.colors.text};
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    &:last-child {
-      margin-bottom: 0;
-    }
-  }
-`;
-
-const SectionTitle = styled.h3`
-    font-size: clamp(1rem, 3vw, 1.25rem);
+  background: ${(props) => props.theme.colors?.surfaceLight || "#f0f4f8"};
+  padding: ${(props) => props.theme.spacing?.sm || "0.5rem"} ${(props) => props.theme.spacing?.md || "1rem"};
+  border-radius: ${(props) => props.theme.borderRadius?.md || "0.5rem"};
+  span {
+    display: block;
+    font-size: ${(props) => props.theme.typography?.fontSize?.xs || "0.75rem"};
+    color: ${(props) => props.theme.colors?.textSecondary};
     font-weight: 600;
-    color: ${(props) => props.theme?.colors?.heading || "#1a202c"};
-    margin: 1.5rem 0 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    grid-column: 1 / -1;
-    border-bottom: 1px solid ${(props) => props.theme?.colors?.border || "#e2e8f0"};
-    padding-bottom: 0.5rem;
+  }
+  p {
+    font-size: ${(props) => props.theme.typography?.fontSize?.md || "1rem"};
+    color: ${(props) => props.theme.colors?.text};
+    font-weight: 500;
+    margin: 0.25rem 0 0 0;
+  }
 `;
 
-const SectionHeader = styled.div`
+const SectionHeader = styled.h4`
+  font-size: ${(props) => props.theme.typography?.fontSize?.lg || "1.125rem"};
+  color: ${(props) => props.theme.colors?.text};
+  margin-top: ${(props) => props.theme.spacing?.xl || "2rem"};
+  margin-bottom: ${(props) => props.theme.spacing?.md || "1rem"};
+  padding-bottom: ${(props) => props.theme.spacing?.xs || "0.25rem"};
+  border-bottom: 1px solid ${(props) => props.theme.colors?.border};
+  display: flex;
+  align-items: center;
+  gap: ${(props) => props.theme.spacing?.sm || "0.5rem"};
+`;
+
+const ListContainer = styled(Card)`
+  padding: ${(props) => props.theme.spacing?.lg || "1.5rem"};
+  margin-bottom: ${(props) => props.theme.spacing?.xl || "2rem"};
+`;
+
+const ListItem = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 1.5rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-  gap: 1rem;
-  border-bottom: 1px solid ${(props) => props.theme?.colors?.borderLight || '#f0f0f0'};
-  padding-bottom: 0.75rem;
-`;
-
-const SectionActions = styled.div`
+  padding: ${(props) => props.theme.spacing?.sm || "0.5rem"} 0;
+  border-bottom: 1px solid ${(props) => props.theme.colors?.borderLight};
+  &:last-child {
+    border-bottom: none;
+  }
+  p {
+    margin: 0;
+    font-size: ${(props) => props.theme.typography?.fontSize?.md || "1rem"};
+    color: ${(props) => props.theme.colors?.text};
+  }
+  span {
+    font-size: ${(props) => props.theme.typography?.fontSize?.sm || "0.875rem"};
+    color: ${(props) => props.theme.colors?.textSecondary};
+  }
+  .actions {
     display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-
-    @media (max-width: 480px) {
-        width: 100%;
-        button {
-            flex-grow: 1;
-            padding: 0.5rem;
-            font-size: 0.8rem;
-        }
-    }
-`;
-
-const ModalFooter = styled.div`
-  padding: 1rem 1.5rem;
-  border-top: 1px solid ${(props) => props.theme?.colors?.border || '#e2e8f0'};
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  flex-shrink: 0;
-
-  @media (max-width: 480px) {
-    padding: 0.75rem 1rem;
-    gap: 0.75rem;
-    button {
-      flex-grow: 1;
-    }
+    gap: ${(props) => props.theme.spacing?.xs || "0.25rem"};
   }
 `;
 
-const ViewWorkerModal = ({ worker, onClose }) => {
-  const { currentWorker, fetchWorkerData, loading: hookLoading, error: hookError,
-          workerCertifications, workerTimesheets, workerDocuments,
-          uploadDocument, deleteDocument,
-        } = useConstructionManagement();
+const Badge = styled.span`
+  padding: 0.25rem 0.75rem;
+  border-radius: ${(props) => props.theme.borderRadius?.full};
+  font-size: ${(props) => props.theme.typography?.fontSize?.xs || "0.75rem"};
+  font-weight: 600;
+  color: white;
+  background-color: ${(props) => {
+    switch (props.$type) {
+      case 'completed': return props.theme.colors?.success;
+      case 'pending': return props.theme.colors?.warning;
+      case 'overdue': return props.theme.colors?.danger;
+      default: return props.theme.colors?.info;
+    }
+  }};
+`;
 
-  const [isUploadDocumentModalOpen, setIsUploadDocumentModalOpen] = useState(false);
-  const [documentRefContext, setDocumentRefContext] = useState({ refId: '', refModel: 'Worker' });
+const ViewWorkerModal = ({ worker, onClose, onEdit }) => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [workerDetails, setWorkerDetails] = useState(null);
+
+  // States for sub-modals (uncomment and import if you have these components)
+  // const [isCertificationModalOpen, setIsCertificationModalOpen] = useState(false);
+  // const [certificationToEdit, setCertificationToEdit] = useState(null);
+  // const [isTimesheetModalOpen, setIsTimesheetModalOpen] = useState(false);
+  // const [timesheetToEdit, setTimesheetToEdit] = useState(null);
+  // const [isMaintenanceLogModalOpen, setIsMaintenanceLogModalOpen] = useState(false);
+  // const [maintenanceLogToEdit, setMaintenanceLogToEdit] = useState(null);
+
+
+  const fetchWorkerDetails = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await constructionAPI.getWorkerById(worker._id);
+      if (response?.success) {
+        setWorkerDetails(response.data);
+      } else {
+        setError(response?.message || 'Failed to fetch worker details.');
+        toast.error(response?.message || 'Failed to fetch worker details.');
+      }
+    } catch (err) {
+      setError(err.message || 'An error occurred fetching worker details.');
+      toast.error(err.message || 'An error occurred fetching worker details.');
+    } finally {
+      setLoading(false);
+    }
+  }, [worker._id]);
 
   useEffect(() => {
-    if (worker?._id) {
-      fetchWorkerData(worker._id);
-    }
-  }, [worker?._id, fetchWorkerData]);
+    fetchWorkerDetails();
+  }, [fetchWorkerDetails]);
 
-  const displayWorker = currentWorker || worker;
-  const isLoading = hookLoading && !displayWorker;
-
-  if (isLoading) {
-    return (
-      <ModalOverlay onClick={onClose}>
-        <ModalContent onClick={(e) => e.stopPropagation()} style={{textAlign: 'center', padding: '2rem'}}>
-          <LoadingSpinner />
-          <p>Loading worker details...</p>
-        </ModalContent>
-      </ModalOverlay>
-    );
-  }
-
-  if (hookError) {
-    return (
-      <ModalOverlay onClick={onClose}>
-        <ModalContent onClick={(e) => e.stopPropagation()} style={{textAlign: 'center', padding: '2rem', background: '#ffebee', color: '#d32f2f'}}>
-          <FaExclamationTriangle size={32} style={{ marginBottom: '1rem' }} />
-          <h3>Error Loading Worker Data</h3>
-          <p>{hookError.message || "An unexpected error occurred while fetching data."}</p>
-          <Button variant="secondary" onClick={onClose} style={{ marginTop: '1rem' }}>Close</Button>
-        </ModalContent>
-      </ModalOverlay>
-    );
-  }
-
-  if (!displayWorker) return null;
-
-  const formatCurrency = (amount) => `Rwf ${Number(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-  const formatDate = (dateString) => dateString ? moment(dateString).format('MMM Do, YYYY') : 'N/A';
-
-  const handleUploadDocumentClick = (refModel, refId) => { setDocumentRefContext({ refModel, refId }); setIsUploadDocumentModalOpen(true); };
-  const handleDeleteDocument = async (docId, refModel, refId) => {
-      if (window.confirm("Are you sure you want to delete this document?")) {
-          await deleteDocument(docId, refModel, refId);
+  // Handlers for certifications (uncomment and implement if you have the modals)
+  /*
+  const handleAddEditCertification = async (certData) => {
+    try {
+      if (certificationToEdit) {
+        await constructionAPI.updateCertification(worker._id, certificationToEdit._id, certData);
+        toast.success('Certification updated successfully!');
+      } else {
+        await constructionAPI.createCertification(worker._id, certData);
+        toast.success('Certification added successfully!');
       }
+      fetchWorkerDetails();
+      setIsCertificationModalOpen(false);
+      setCertificationToEdit(null);
+    } catch (err) {
+      toast.error(err.message || 'Failed to save certification.');
+    }
   };
 
+  const handleDeleteCertification = async (certId) => {
+    if (window.confirm('Are you sure you want to delete this certification?')) {
+      try {
+        await constructionAPI.deleteCertification(worker._id, certId);
+        toast.success('Certification deleted successfully!');
+        fetchWorkerDetails();
+      } catch (err) {
+        toast.error(err.message || 'Failed to delete certification.');
+      }
+    }
+  };
+
+  // Handlers for timesheets
+  const handleAddEditTimesheet = async (timesheetData) => {
+    try {
+      if (timesheetToEdit) {
+        await constructionAPI.updateTimesheet(worker._id, timesheetToEdit._id, timesheetData);
+        toast.success('Timesheet updated successfully!');
+      } else {
+        await constructionAPI.createTimesheet(worker._id, timesheetData);
+        toast.success('Timesheet added successfully!');
+      }
+      fetchWorkerDetails();
+      setIsTimesheetModalOpen(false);
+      setTimesheetToEdit(null);
+    } catch (err) {
+      toast.error(err.message || 'Failed to save timesheet.');
+    }
+  };
+
+  const handleDeleteTimesheet = async (timesheetId) => {
+    if (window.confirm('Are you sure you want to delete this timesheet?')) {
+      try {
+        await constructionAPI.deleteTimesheet(worker._id, timesheetId);
+        toast.success('Timesheet deleted successfully!');
+        fetchWorkerDetails();
+      } catch (err) {
+        toast.error(err.message || 'Failed to delete timesheet.');
+      }
+    }
+  };
+
+  const handleUpdateTimesheetStatus = async (timesheetId, newStatus) => {
+    try {
+      await constructionAPI.updateTimesheetStatus(worker._id, timesheetId, newStatus);
+      toast.success('Timesheet status updated!');
+      fetchWorkerDetails();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update timesheet status.');
+    }
+  };
+
+  // Handlers for equipment maintenance logs
+  const handleAddEditMaintenanceLog = async (logData) => {
+    try {
+      if (maintenanceLogToEdit) {
+        await constructionAPI.updateMaintenanceLog(worker._id, maintenanceLogToEdit._id, logData); // Assuming worker has equipment
+        toast.success('Maintenance log updated successfully!');
+      } else {
+        await constructionAPI.createMaintenanceLog(worker._id, logData); // Assuming worker has equipment
+        toast.success('Maintenance log added successfully!');
+      }
+      fetchWorkerDetails();
+      setIsMaintenanceLogModalOpen(false);
+      setMaintenanceLogToEdit(null);
+    } catch (err) {
+      toast.error(err.message || 'Failed to save maintenance log.');
+    }
+  };
+
+  const handleDeleteMaintenanceLog = async (logId) => {
+    if (window.confirm('Are you sure you want to delete this maintenance log?')) {
+      try {
+        await constructionAPI.deleteMaintenanceLog(worker._id, logId); // Assuming worker has equipment
+        toast.success('Maintenance log deleted successfully!');
+        fetchWorkerDetails();
+      } catch (err) {
+        toast.error(err.message || 'Failed to delete maintenance log.');
+      }
+    }
+  };
+  */
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  if (error) {
+    return <p style={{ color: 'red' }}>Error: {error}</p>;
+  }
+
+  if (!workerDetails) {
+    return <p>No worker details available.</p>;
+  }
+
   return (
-    <ModalOverlay onClick={onClose}>
-      {ReactDOM.createPortal(
-        <ModalContent onClick={(e) => e.stopPropagation()}>
-          <ModalHeader>
-            <ModalTitle>{displayWorker.fullName || "Worker Details"}</ModalTitle>
-            <CloseButton type="button" onClick={onClose}><FaTimes /></CloseButton>
-          </ModalHeader>
-          <ModalBody>
-            <SectionTitle><FaUserCog /> Basic Information</SectionTitle>
-            <DetailGrid>
-              <DetailItem><DetailLabel><FaBriefcase /> Role</DetailLabel><DetailValue>{displayWorker.role || 'N/A'}</DetailValue></DetailItem>
-              <DetailItem><DetailLabel><FaPhone /> Contact</DetailLabel><DetailValue>{displayWorker.contactNumber || 'N/A'}</DetailValue></DetailItem>
-              <DetailItem><DetailLabel><FaEnvelope /> Email</DetailLabel><DetailValue>{displayWorker.email || 'N/A'}</DetailValue></DetailItem>
-              <DetailItem><DetailLabel><FaMoneyBillWave /> Hourly Rate</DetailLabel><DetailValue>{displayWorker.hourlyRate ? formatCurrency(displayWorker.hourlyRate) : 'N/A'}</DetailValue></DetailItem>
-              <DetailItem><DetailLabel><FaBriefcase /> Employment Type</DetailLabel><DetailValue>{displayWorker.employmentType || 'N/A'}</DetailValue></DetailItem>
-              <DetailItem><DetailLabel><FaCalendarAlt /> Hire Date</DetailLabel><DetailValue>{formatDate(displayWorker.hireDate)}</DetailValue></DetailItem>
-              <DetailItem><DetailLabel><FaBuilding /> Primary Site</DetailLabel><DetailValue>{displayWorker.currentSite?.name || 'Unassigned'}</DetailValue></DetailItem>
-              <DetailItem><DetailLabel><FaCheckCircle /> Status</DetailLabel>
-                <DetailValue>
-                  <StatusBadge isActive={displayWorker.isActive}>
-                    {displayWorker.isActive ? <FaCheckCircle /> : <FaTimesCircle />} {displayWorker.isActive ? 'Active' : 'Inactive'}
-                  </StatusBadge>
-                </DetailValue>
-              </DetailItem>
-            </DetailGrid>
+    <Modal title={`Worker Details: ${workerDetails.name}`} onClose={onClose}>
+      <Button onClick={onEdit} style={{ position: 'absolute', top: '1.5rem', right: '5rem' }}><FaEdit /> Edit Worker</Button>
 
-            {displayWorker.emergencyContact?.name && (
-              <>
-                <SectionTitle><FaAddressBook /> Emergency Contact</SectionTitle>
-                <DetailGrid>
-                    <DetailItem><DetailLabel>Name</DetailLabel><DetailValue>{displayWorker.emergencyContact.name}</DetailValue></DetailItem>
-                    <DetailItem><DetailLabel>Phone</DetailLabel><DetailValue>{displayWorker.emergencyContact.phone}</DetailValue></DetailItem>
-                    <DetailItem><DetailLabel>Relationship</DetailLabel><DetailValue>{displayWorker.emergencyContact.relationship}</DetailValue></DetailItem>
-                </DetailGrid>
-              </>
-            )}
+      <DetailGrid>
+        <DetailItem><span>Name</span><p>{workerDetails.name}</p></DetailItem>
+        <DetailItem><span>Role</span><p>{workerDetails.role}</p></DetailItem>
+        <DetailItem><span>Phone</span><p>{workerDetails.phone}</p></DetailItem>
+        <DetailItem><span>Email</span><p>{workerDetails.email}</p></DetailItem>
+        <DetailItem><span>Assigned Site</span><p>{workerDetails.assignedSite?.name || 'N/A'}</p></DetailItem>
+        <DetailItem><span>Status</span><p>{workerDetails.status}</p></DetailItem>
+        <DetailItem><span>Hire Date</span><p>{new Date(workerDetails.hireDate).toLocaleDateString()}</p></DetailItem>
+        <DetailItem><span>Emergency Contact</span><p>{workerDetails.emergencyContactName} ({workerDetails.emergencyContactPhone})</p></DetailItem>
+        <DetailItem><span>Skills</span><p>{workerDetails.skills?.join(', ') || 'N/A'}</p></DetailItem>
+      </DetailGrid>
 
-            {displayWorker.skills && displayWorker.skills.length > 0 && (
-              <DetailItem>
-                <DetailLabel><FaTools /> Skills</DetailLabel>
-                <ListContainer>
-                  {displayWorker.skills.map(skill => (
-                    <li key={skill}>{skill}</li>
-                  ))}
-                </ListContainer>
-              </DetailItem>
-            )}
-            
-            {displayWorker.notes && (
-              <DetailItem>
-                <DetailLabel><FaInfoCircle /> Notes</DetailLabel>
-                <DetailValue style={{ whiteSpace: 'pre-wrap' }}>{displayWorker.notes}</DetailValue>
-              </DetailItem>
-            )}
+      <SectionHeader><FaAward /> Certifications</SectionHeader>
+      <ListContainer>
+        {workerDetails.certifications?.length > 0 ? (
+          workerDetails.certifications.map(cert => (
+            <ListItem key={cert._id}>
+              <div className="milestone-info">
+                <p className="milestone-title">{cert.name}</p>
+                <span className="milestone-date">Expires: {new Date(cert.expirationDate).toLocaleDateString()}</span>
+              </div>
+              <div className="actions">
+                {/* Uncomment and enable if modals are available */}
+                {/* <Button size="sm" variant="secondary" onClick={() => { setCertificationToEdit(cert); setIsCertificationModalOpen(true); }}><FaEdit /></Button> */}
+                {/* <Button size="sm" variant="danger" onClick={() => handleDeleteCertification(cert._id)}><FaTrash /></Button> */}
+              </div>
+            </ListItem>
+          ))
+        ) : (
+          <p>No certifications added yet.</p>
+          // <Button size="sm" onClick={() => setIsCertificationModalOpen(true)}><FaPlus /> Add Certification</Button>
+        )}
+      </ListContainer>
 
-            <SectionHeader>
-                <SectionTitle><FaCertificate /> Certifications</SectionTitle>
-                <SectionActions>
-                </SectionActions>
-            </SectionHeader>
-            {workerCertifications && workerCertifications.length > 0 ? (
-                <ListContainer>
-                    {workerCertifications.map(cert => (
-                        <li key={cert._id}>
-                            <strong>{cert.name}</strong> from {cert.issuingBody} (Issued: {formatDate(cert.issueDate)}
-                            {cert.expiryDate && `, Expires: ${formatDate(cert.expiryDate)}`})
-                            {moment(cert.expiryDate).isBefore(moment()) && <FaTimesCircle style={{ color: 'red', marginLeft: '0.5rem' }} title="Expired" />}
-                        </li>
-                    ))}
-                </ListContainer>
-            ) : (
-                <p style={{fontStyle: 'italic', color: '#718096'}}>No certifications recorded.</p>
-            )}
+      <SectionHeader><FaRegClock /> Timesheets</SectionHeader>
+      <ListContainer>
+        {workerDetails.timesheets?.length > 0 ? (
+          workerDetails.timesheets.map(timesheet => (
+            <ListItem key={timesheet._id}>
+              <div className="milestone-info">
+                <p className="milestone-title">Week of {new Date(timesheet.weekStartDate).toLocaleDateString()}</p>
+                <span className="milestone-date">Hours: {timesheet.totalHours} | Status: <Badge $type={timesheet.status === 'approved' ? 'completed' : 'pending'}>{timesheet.status}</Badge></span>
+              </div>
+              <div className="actions">
+                {/* <Button size="sm" variant="secondary" onClick={() => { setTimesheetToEdit(timesheet); setIsTimesheetModalOpen(true); }}><FaEdit /></Button>
+                <Button size="sm" variant="danger" onClick={() => handleDeleteTimesheet(timesheet._id)}><FaTrash /></Button>
+                {timesheet.status !== 'approved' && <Button size="sm" variant="success" onClick={() => handleUpdateTimesheetStatus(timesheet._id, 'approved')}><FaCheckCircle /> Approve</Button>} */}
+              </div>
+            </ListItem>
+          ))
+        ) : (
+          <p>No timesheets added yet.</p>
+          // <Button size="sm" onClick={() => setIsTimesheetModalOpen(true)}><FaPlus /> Add Timesheet</Button>
+        )}
+      </ListContainer>
 
-            <SectionHeader>
-                <SectionTitle><FaClock /> Recent Timesheets</SectionTitle>
-                <SectionActions>
-                </SectionActions>
-            </SectionHeader>
-            {workerTimesheets && workerTimesheets.length > 0 ? (
-                <ListContainer>
-                    {workerTimesheets.slice(0, 5).map(ts => (
-                        <li key={ts._id}>
-                            {formatDate(ts.date)}: {ts.hoursWorked} hrs (OT: {ts.overtimeHours} hrs) - Site: {ts.site?.name}
-                            <StatusBadge isActive={ts.status === 'Approved'} style={{marginLeft: 'auto'}}>{ts.status}</StatusBadge>
-                        </li>
-                    ))}
-                </ListContainer>
-            ) : (
-                <p style={{fontStyle: 'italic', color: '#718096'}}>No timesheets submitted recently.</p>
-            )}
+      <SectionHeader><FaExclamationTriangle /> Safety Incidents</SectionHeader>
+      <ListContainer>
+        {workerDetails.safetyIncidentsList?.length > 0 ? (
+          workerDetails.safetyIncidentsList.map(incident => (
+            <ListItem key={incident._id}>
+              <div className="milestone-info">
+                <p className="milestone-title">{incident.type}</p>
+                <span className="milestone-date">Date: {new Date(incident.date).toLocaleDateString()} | Severity: {incident.severity}</span>
+              </div>
+              <div className="actions">
+                 {/* <Button size="sm" variant="info" onClick={() => handleViewSafetyIncident(incident)}><FaEye /></Button>
+                <Button size="sm" variant="secondary" onClick={() => { /* setSafetyIncidentToEdit(incident); setIsSafetyIncidentModalOpen(true); * / }}><FaEdit /></Button>
+                <Button size="sm" variant="danger" onClick={() => handleDeleteSafetyIncident(incident._id)}><FaTrash /></Button> */}
+              </div>
+            </ListItem>
+          ))
+        ) : (
+          <p>No safety incidents reported for this worker.</p>
+          // <Button size="sm" onClick={() => setIsSafetyIncidentModalOpen(true)}><FaPlus /> Report Incident</Button>
+        )}
+      </ListContainer>
 
-            <SectionHeader>
-                <SectionTitle><FaFileAlt /> Documents</SectionTitle>
-                <SectionActions>
-                    <Button variant="primary" size="sm" onClick={() => handleUploadDocumentClick('Worker', displayWorker._id)}>
-                        <FaFileUpload /> Upload Document
-                    </Button>
-                </SectionActions>
-            </SectionHeader>
-            {workerDocuments && workerDocuments.length > 0 ? (
-                <ListContainer>
-                    {workerDocuments.map(doc => (
-                        <li key={doc._id}>
-                            <strong><a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" style={{color: '#007bff'}}><FaDownload /> {doc.fileName}</a></strong>
-                            <br />
-                            <small>Category: {doc.category} | Uploaded: {formatDate(doc.createdAt)}</small>
-                            <div style={{marginLeft: 'auto', display: 'flex', gap: '0.5rem'}}>
-                                <Button size="sm" variant="ghost" iconOnly title="Delete Document" onClick={() => handleDeleteDocument(doc._id, 'Worker', displayWorker._id)}><FaTrashAlt style={{color: '#c53030'}}/></Button>
-                            </div>
-                        </li>
-                    ))}
-                </ListContainer>
-            ) : (
-                <p style={{fontStyle: 'italic', color: '#718096'}}>No documents uploaded.</p>
-            )}
-
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="secondary" onClick={onClose}>Close</Button>
-          </ModalFooter>
-        </ModalContent>,
-        document.body
+      {/* Uncomment and implement modal rendering if you have the modals */}
+      {/*
+      {isCertificationModalOpen && (
+        <AddEditCertificationModal
+          workerId={worker._id}
+          certificationToEdit={certificationToEdit}
+          onClose={() => { setIsCertificationModalOpen(false); setCertificationToEdit(null); }}
+          onSave={handleAddEditCertification}
+        />
       )}
-    </ModalOverlay>
+      {isTimesheetModalOpen && (
+        <AddEditTimesheetModal
+          workerId={worker._id}
+          timesheetToEdit={timesheetToEdit}
+          onClose={() => { setIsTimesheetModalOpen(false); setTimesheetToEdit(null); }}
+          onSave={handleAddEditTimesheet}
+        />
+      )}
+      {isMaintenanceLogModalOpen && (
+        <AddEditMaintenanceLogModal
+          equipmentId={workerDetails.assignedEquipment?._id} // Assuming worker is assigned to equipment
+          logToEdit={maintenanceLogToEdit}
+          onClose={() => { setIsMaintenanceLogModalOpen(false); setMaintenanceLogToEdit(null); }}
+          onSave={handleAddEditMaintenanceLog}
+        />
+      )}
+      */}
+    </Modal>
   );
 };
 
