@@ -53,38 +53,9 @@ app.use(
   })
 );
 
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://c-management-system-73dy.vercel.app",
-];
-
-if (process.env.CLIENT_URL && !allowedOrigins.includes(process.env.CLIENT_URL)) {
-  allowedOrigins.push(process.env.CLIENT_URL);
-}
-if (process.env.CLIENT_QR_ORDER_BASE_URL) {
-    try {
-        const url = new URL(process.env.CLIENT_QR_ORDER_BASE_URL);
-        const origin = url.origin;
-        if (!allowedOrigins.includes(origin)) {
-            allowedOrigins.push(origin);
-        }
-    } catch (e) {
-        logger.error(`Invalid CLIENT_QR_ORDER_BASE_URL: ${e.message}`);
-    }
-}
-
-
+// CORS Configuration: Allow all origins
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      const msg = `The CORS policy for this site does not allow access from the specified Origin: ${origin}`;
-      logger.warn(msg);
-      return callback(new Error(msg), false);
-    }
-  },
+  origin: "*", // Allows requests from any origin
   credentials: true,
 }));
 
@@ -129,9 +100,9 @@ const connectDB = async () => {
         throw new Error("MONGODB_URI is not defined in environment variables.");
     }
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log("MongoDB connected successfully.");
+    console.log("✅ MongoDB connected successfully.");
   } catch (err) {
-    console.error("MongoDB connection failed:", err.message);
+    console.error("❌ MongoDB connection failed:", err.message);
     process.exit(1);
   }
 };
@@ -139,17 +110,17 @@ const connectDB = async () => {
 const startServer = async () => {
     await connectDB();
     const server = app.listen(PORT, () => {
-        console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on http://localhost:${PORT}`);
+        console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on http://localhost:${PORT}`);
     });
 
     process.on("unhandledRejection", (err) => {
-      console.error("UNHANDLED REJECTION! Shutting down...");
+      console.error("UNHANDLED REJECTION! 💥 Shutting down...");
       console.error(err.name, err.message, err.stack);
       server.close(() => process.exit(1));
     });
 
     process.on("uncaughtException", (err) => {
-      console.error("UNCAUGHT EXCEPTION! Shutting down...");
+      console.error("UNCAUGHT EXCEPTION! 💥 Shutting down...");
       console.error(err.name, err.message, err.stack);
       server.close(() => process.exit(1));
     });
